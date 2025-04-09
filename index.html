@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Markdown Editor</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js/lib/common"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js/styles/github-dark.min.css">
+</head>
+<body>
+  <div id="main">
+    <div id="navbar">
+        <button id="toggle-theme">Dark Mode</button>
+        <button id="toggle-preview">Only Editor</button>
+    </div>
+    <div id="container">
+      <textarea id="editor" placeholder="Scrivi markdown qui..."></textarea>
+      <div id="preview" class="markdown-body"></div>
+    </div>
+  </div>
+  <script src="renderer.js"></script>
+</body>
+</html>

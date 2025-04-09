@@ -1,0 +1,30 @@
+{
+    "name": "markdown-editor",
+    "version": "1.0.0",
+    "description": "Editor Markdown",
+    "main": "main.js",
+    "scripts": {
+        "start": "electron .",
+        "build": "electron-builder"
+    },
+    "keywords": [],
+    "author": "Gaetano",
+    "license": "ISC",
+    "devDependencies": {
+        "electron": "^28.0.0",
+        "electron-builder": "^24.13.3"
+    },
+    "dependencies": {
+        "@electron/remote": "^2.1.2"
+    },
+    "build": {
+        "appId": "com.gaetano.markdown-editor",
+        "productName": "markdown-editor",
+        "win": {
+            "icon": "build/logo.ico"
+        },
+        "mac": {
+            "icon": "build/logo.icns"
+        }
+    }
+}
