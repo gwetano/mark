@@ -28,19 +28,21 @@ function createWindow() {
         {
           label: "Apri...",
           accelerator: "CmdOrCtrl+O",
-          click: () => {
-            const files = dialog.showOpenDialogSync(win, {
-              properties: ["openFile"],
-              filters: [{ name: "Markdown", extensions: ["md"] }]
+          click: async () => {
+            const result = await dialog.showOpenDialog(win, {
+              filters: [{ name: "Markdown", extensions: ["md"] }],
+              properties: ["openFile"]
             });
-            if (files) {
-              const content = fs.readFileSync(files[0], "utf8");
-              win.webContents.send("load-md", content);
+
+            if (!result.canceled && result.filePaths.length > 0) {
+              const filePath = result.filePaths[0];
+              const content = fs.readFileSync(filePath, "utf8");
+              win.webContents.send("load-md", filePath, content);
             }
           }
         },
         {
-          label: "Salva come...",
+          label: "Salva...",
           accelerator: "CmdOrCtrl+S",
           click: () => {
             win.webContents.send("trigger-save");
@@ -48,6 +50,42 @@ function createWindow() {
         },
         { type: "separator" },
         { role: "quit", label: "Esci" }
+      ]
+    },
+    {
+      label: "Shorts",
+      submenu: [
+        {
+          label: "Annulla",
+          accelerator: "CmdOrCtrl+Z",
+          enabled: false,
+        },
+        {
+          label: "Taglia",
+          accelerator: "CmdOrCtrl+X",
+          enabled: false,
+        },
+        {
+          label: "Copia",
+          accelerator: "CmdOrCtrl+C",
+          enabled: false,
+        },
+        {
+          label: "Incolla",
+          accelerator: "CmdOrCtrl+V",
+          enabled: false,
+        },
+        { type: "separator" },
+        {
+          label: "Dark Mode",
+          accelerator: "Alt+M",
+          enabled: false,
+        },
+        {
+          label: "Nascondi Preview",
+          accelerator: "Alt+E",
+          enabled: false,
+        },
       ]
     }
   ]);

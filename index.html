@@ -9,15 +9,23 @@
   <script src="https://cdn.jsdelivr.net/npm/highlight.js/lib/common"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js/styles/github-dark.min.css">
 </head>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: false });
+</script>
 <body>
   <div id="main">
     <div id="navbar">
-        <button id="toggle-theme">Dark Mode</button>
-        <button id="toggle-preview">Only Editor</button>
+        <button id="toggle-theme" accesskey="m">Dark Mode</button>
+        <span id="title">*</span>
+        <button id="toggle-preview" accesskey="e">Only Editor</button>
     </div>
     <div id="container">
       <textarea id="editor" placeholder="Scrivi markdown qui..."></textarea>
       <div id="preview" class="markdown-body"></div>
+    </div>
+    <div id="footer">
+      <span id="word-count">Parole: 0</span>
     </div>
   </div>
   <script src="renderer.js"></script>

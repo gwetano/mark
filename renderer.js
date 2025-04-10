@@ -3,6 +3,8 @@ const fs = require("fs");
 const { dialog } = require("@electron/remote");
 let isSyncingScroll = false;
 let editorLineHeights = [];
+let currentFilePath = null;
+let isDirty = false;
 
 document.getElementById("toggle-theme").addEventListener("click", () => {
   document.body.classList.toggle("dark");
@@ -28,22 +30,54 @@ document.getElementById("toggle-preview").addEventListener("click", () => {
 window.addEventListener("DOMContentLoaded", () => {
   const editor = document.getElementById("editor");
   const preview = document.getElementById("preview");
+  const wordCountEl = document.getElementById("word-count");
+
+  const updateWordCount = () => {
+    const text = editor.value;
+    const words = text.trim().split(/\s+/).filter(Boolean);
+    wordCountEl.textContent = `Parole: ${words.length}`;
+  };
+  
+  const setDirty = (dirty) => {
+    isDirty = dirty;
+    title.textContent = dirty ? "*" : "";
+  };
 
   const updatePreview = () => {
     const raw = editor.value;
-    const html = marked.parse(raw, {
+  
+    // Parse markdown in HTML
+    let html = marked.parse(raw, {
       highlight: (code, lang) => {
         return hljs.highlightAuto(code).value;
       }
     });
+  
+    // Trova i blocchi mermaid e rimpiazza con div
+    html = html.replace(/<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/g, (match, code) => {
+      return `<div class="mermaid">${code}</div>`;
+    });
+  
     preview.innerHTML = html;
-    
-    // Calcola le altezze delle righe nell'editor
-    calculateLineHeights();
-    
-    // Aggiungi gli event listener per gli elementi della preview
-    addPreviewClickHandlers();
+  
+    // Renderizza i grafici mermaid
+    mermaid.init(undefined, ".mermaid");
   };
+
+  editor.addEventListener("keydown", function (e) {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      const start = this.selectionStart;
+      const end = this.selectionEnd;
+  
+      // Inserisci 4 spazi
+      this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
+  
+      // Sposta il cursore dopo i 4 spazi
+      this.selectionStart = this.selectionEnd = start + 4;
+    }
+  });
+  
   
   function calculateLineHeights() {
     editorLineHeights = [];
@@ -95,20 +129,35 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   }  
 
-  editor.addEventListener("input", updatePreview);
+  editor.addEventListener("input", () =>{
+    updatePreview();
+    updateWordCount();
+    setDirty(true);
+  });
 
-  ipcRenderer.on("load-md", (event, content) => {
+  ipcRenderer.on("load-md", (event,filePath, content) => {
     editor.value = content;
     updatePreview();
+    updateWordCount();
+    currentFilePath = filePath; 
+    setDirty(false);
   });
 
   ipcRenderer.on("trigger-save", () => {
     const content = editor.value;
-    const file = dialog.showSaveDialogSync({
-      filters: [{ name: "Markdown", extensions: ["md"] }]
-    });
-    if (file) {
-      fs.writeFileSync(file, content, "utf8");
+
+    if (currentFilePath) {
+      fs.writeFileSync(currentFilePath, content, "utf8");
+      setDirty(false);
+    } else {
+      const file = dialog.showSaveDialogSync({
+        filters: [{ name: "Markdown", extensions: ["md"] }]
+      });
+      if (file) {
+        fs.writeFileSync(file, content, "utf8");
+        currentFilePath = file;
+        setDirty(false);
+      }
     }
   });
 
