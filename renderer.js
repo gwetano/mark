@@ -6,6 +6,14 @@ let editorLineHeights = [];
 let currentFilePath = null;
 let isDirty = false;
 
+function debounce(func, delay) {
+  let timeout;
+  return (...args) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(this, args), delay);
+  };
+}
+
 document.getElementById("toggle-theme").addEventListener("click", () => {
   document.body.classList.toggle("dark");
 });
@@ -127,11 +135,16 @@ window.addEventListener("DOMContentLoaded", () => {
         }
       });
     });
-  }  
+  }
 
-  editor.addEventListener("input", () =>{
+
+  const debouncedUpdate = debounce(() => {
     updatePreview();
     updateWordCount();
+  }, 300);
+
+  editor.addEventListener("input", () =>{
+    debouncedUpdate();
     setDirty(true);
   });
 
