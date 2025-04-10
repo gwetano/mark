@@ -12,7 +12,7 @@
 
 ## 🛠️ Tecnologie utilizzate
 
-- [React](https://react.dev/)
+- [React](https://react.dev/) (o altro framework JavaScript, se applicabile)
 - [Marked.js](https://marked.js.org/) o [Markdown-it](https://github.com/markdown-it/markdown-it)
 - [Mermaid.js](https://mermaid-js.github.io/)
 - [Tailwind CSS](https://tailwindcss.com/) per uno stile moderno e minimale
