@@ -10,13 +10,9 @@
 - 🌙 Modalità chiaro/scuro per una scrittura confortevole in ogni situazione
 - ⚡ Interfaccia semplice e senza distrazioni
 
-## 📸 Screenshot
-
-> _[Inserisci qui uno screenshot dell'app se disponibile]_
-
 ## 🛠️ Tecnologie utilizzate
 
-- [React](https://react.dev/) (o altro framework JavaScript, se applicabile)
+- [React](https://react.dev/)
 - [Marked.js](https://marked.js.org/) o [Markdown-it](https://github.com/markdown-it/markdown-it)
 - [Mermaid.js](https://mermaid-js.github.io/)
 - [Tailwind CSS](https://tailwindcss.com/) per uno stile moderno e minimale
