@@ -12,7 +12,7 @@ mkdir -p "$(dirname "$ICON_DEST")"
 cp "$ICON_SOURCE" "$ICON_DEST"
 
 #installo patches
-#npm run build
+npm run build
 
 # Controlla se il file AppImage esiste
 if [[ ! -f "$APPIMAGE_PATH" ]]; then
