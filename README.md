@@ -15,7 +15,6 @@
 - [React](https://react.dev/) 
 - [Marked.js](https://marked.js.org/) o [Markdown-it](https://github.com/markdown-it/markdown-it)
 - [Mermaid.js](https://mermaid-js.github.io/)
-- [Tailwind CSS](https://tailwindcss.com/) per uno stile moderno e minimale
 
 ## 📦 Installazione
 
@@ -28,9 +27,9 @@ npm install
 ```
 **Esegui lo script di installazione**
 
-Lo script compilerà l'app, installerà il file .AppImage, copierà l'icona, e creerà una voce nel menu delle applicazioni.
+Lo script compilerà l'app, installerà le dipendenze necessarie, copierà l'icona, e creerà una voce nel menu delle applicazioni.
 
 ```bash
-sh install.sh
+bash install.sh
 ```
 

@@ -48,6 +48,27 @@ function createWindow() {
             win.webContents.send("trigger-save");
           }
         },
+        {
+          label: 'Esporta come PDF',
+          click: async () => {
+            const { canceled, filePath } = await dialog.showSaveDialog({
+              title: 'Esporta come PDF',
+              defaultPath: 'documento.pdf',
+              filters: [{ name: 'PDF', extensions: ['pdf'] }]
+            });
+
+            if (!canceled && filePath) {
+              const pdfData = await win.webContents.printToPDF({});
+              fs.writeFile(filePath, pdfData, (err) => {
+                if (err) {
+                  console.error('Errore durante il salvataggio:', err);
+                } else {
+                  console.log('PDF esportato in:', filePath);
+                }
+              });
+            }
+          }
+        },
         { type: "separator" },
         { role: "quit", label: "Esci" }
       ]
@@ -92,4 +113,20 @@ function createWindow() {
   Menu.setApplicationMenu(menu);
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+    createWindow()
+  // Controlla se è stato passato un file come argomento
+  if (process.argv.length >= 3) {
+    const filePath = process.argv[2];
+    // Verifica se il file esiste
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf8');
+      win.webContents.once('did-finish-load', () => {
+        win.webContents.send('load-md', filePath, content);
+      });
+    } else {
+      console.error(`Il file ${filePath} non esiste.`);
+    }
+  }
+});
+

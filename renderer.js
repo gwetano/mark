@@ -6,6 +6,14 @@ let editorLineHeights = [];
 let currentFilePath = null;
 let isDirty = false;
 
+function debounce(func, delay) {
+   let timeout;
+   return (...args) => {
+     clearTimeout(timeout);
+     timeout = setTimeout(() => func.apply(this, args), delay);
+   };
+ }
+
 document.getElementById("toggle-theme").addEventListener("click", () => {
   document.body.classList.toggle("dark");
 });
@@ -62,6 +70,17 @@ window.addEventListener("DOMContentLoaded", () => {
   
     // Renderizza i grafici mermaid
     mermaid.init(undefined, ".mermaid");
+  
+    // Renderizza formule matematiche con KaTeX
+    if (window.renderMathInElement) {
+      renderMathInElement(preview, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false }
+        ],
+        throwOnError: false
+      });
+    }
   };
 
   editor.addEventListener("keydown", function (e) {
@@ -129,11 +148,15 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   }  
 
-  editor.addEventListener("input", () =>{
-    updatePreview();
-    updateWordCount();
-    setDirty(true);
-  });
+  const debouncedUpdate = debounce(() => {
+     updatePreview();
+     updateWordCount();
+   }, 300);
+ 
+   editor.addEventListener("input", () =>{
+     debouncedUpdate();
+     setDirty(true);
+   });
 
   ipcRenderer.on("load-md", (event,filePath, content) => {
     editor.value = content;

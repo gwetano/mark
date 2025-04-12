@@ -25,6 +25,9 @@
         },
         "mac": {
             "icon": "build/logo.icns"
-        }
+        },
+        "linux": {
+	    "target": "AppImage"
+	}
     }
 }
