@@ -28,11 +28,26 @@
     <div id="navbar">
         <button id="toggle-theme" accesskey="m">Dark Mode</button>
         <span id="title">*</span>
-        <button id="toggle-preview" accesskey="e">Only Editor</button>
+        <button id="toggle-preview" accesskey="e">Solo Editor</button>
+        <button id="toggle-explorer" accesskey="x">Explorer</button>
     </div>
-    <div id="container">
-      <textarea id="editor" placeholder="Scrivi markdown qui..."></textarea>
-      <div id="preview" class="markdown-body"></div>
+    <div id="app-container">
+      <div id="explorer-panel">
+        <div id="explorer-header">
+          <span>EXPLORER</span>
+          <div class="explorer-actions">
+            <button id="open-folder" title="Apri cartella">📁</button>
+            <button id="collapse-all" title="Comprimi tutto">-</button>
+            <button id="refresh-explorer" title="Aggiorna">🔄</button>
+          </div>
+        </div>
+        <div id="folder-path"></div>
+        <div id="file-tree"></div>
+      </div>
+      <div id="container">
+        <textarea id="editor" placeholder="Scrivi markdown qui..."></textarea>
+        <div id="preview" class="markdown-body"></div>
+      </div>
     </div>
     <div id="footer">
       <span id="word-count">Parole: 0</span>

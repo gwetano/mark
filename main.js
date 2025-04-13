@@ -26,7 +26,7 @@ function createWindow() {
       label: "File",
       submenu: [
         {
-          label: "Apri...",
+          label: "Open file",
           accelerator: "CmdOrCtrl+O",
           click: async () => {
             const result = await dialog.showOpenDialog(win, {
@@ -42,31 +42,24 @@ function createWindow() {
           }
         },
         {
-          label: "Salva...",
-          accelerator: "CmdOrCtrl+S",
-          click: () => {
-            win.webContents.send("trigger-save");
+          label: "Open folder",
+          accelerator: "CmdOrCtrl+Shift+O",
+          click: async () => {
+            const result = await dialog.showOpenDialog(win, {
+              properties: ["openDirectory"]
+            });
+
+            if (!result.canceled && result.filePaths.length > 0) {
+              const folderPath = result.filePaths[0];
+              win.webContents.send("open-folder", folderPath);
+            }
           }
         },
         {
-          label: 'Esporta come PDF',
-          click: async () => {
-            const { canceled, filePath } = await dialog.showSaveDialog({
-              title: 'Esporta come PDF',
-              defaultPath: 'documento.pdf',
-              filters: [{ name: 'PDF', extensions: ['pdf'] }]
-            });
-
-            if (!canceled && filePath) {
-              const pdfData = await win.webContents.printToPDF({});
-              fs.writeFile(filePath, pdfData, (err) => {
-                if (err) {
-                  console.error('Errore durante il salvataggio:', err);
-                } else {
-                  console.log('PDF esportato in:', filePath);
-                }
-              });
-            }
+          label: "Save...",
+          accelerator: "CmdOrCtrl+S",
+          click: () => {
+            win.webContents.send("trigger-save");
           }
         },
         { type: "separator" },
@@ -74,39 +67,62 @@ function createWindow() {
       ]
     },
     {
-      label: "Shorts",
+      label: "View",
       submenu: [
         {
-          label: "Annulla",
-          accelerator: "CmdOrCtrl+Z",
-          enabled: false,
+          label: "Explorer",
+          accelerator: "CmdOrCtrl+B",
+          click: () => {
+            win.webContents.send("toggle-explorer");
+          }
         },
         {
-          label: "Taglia",
-          accelerator: "CmdOrCtrl+X",
-          enabled: false,
-        },
-        {
-          label: "Copia",
-          accelerator: "CmdOrCtrl+C",
-          enabled: false,
-        },
-        {
-          label: "Incolla",
-          accelerator: "CmdOrCtrl+V",
-          enabled: false,
+          label: "Only Editor",
+          accelerator: "CmdOrCtrl+E",
+          click: () => {
+            win.webContents.send("toggle-preview");
+          }
         },
         { type: "separator" },
         {
           label: "Dark Mode",
-          accelerator: "Alt+M",
-          enabled: false,
+          accelerator: "CmdOrCtrl+M",
+          click: () => {
+            win.webContents.send("toggle-theme");
+          }
+        }
+      ]
+    },
+    {
+      label: "Edit",
+      submenu: [
+        {
+          label: "Repeat",
+          accelerator: "CmdOrCtrl+Shift+Z",
+          role: "undo"
+        },
+        { type: "separator" },
+        {
+          label: "Cut",
+          accelerator: "CmdOrCtrl+X",
+          role: "cut"
         },
         {
-          label: "Nascondi Preview",
-          accelerator: "Alt+E",
-          enabled: false,
+          label: "Copy",
+          accelerator: "CmdOrCtrl+C",
+          role: "copy"
         },
+        {
+          label: "Paste",
+          accelerator: "CmdOrCtrl+V",
+          role: "paste"
+        },
+        { type: "separator" },
+        {
+          label: "Select All",
+          accelerator: "CmdOrCtrl+A",
+          role: "selectAll"
+        }
       ]
     }
   ]);
@@ -115,10 +131,8 @@ function createWindow() {
 
 app.whenReady().then(() => {
     createWindow()
-  // Controlla se è stato passato un file come argomento
   if (process.argv.length >= 3) {
     const filePath = process.argv[2];
-    // Verifica se il file esiste
     if (fs.existsSync(filePath)) {
       const content = fs.readFileSync(filePath, 'utf8');
       win.webContents.once('did-finish-load', () => {
@@ -130,3 +144,14 @@ app.whenReady().then(() => {
   }
 });
 
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow();
+  }
+});
