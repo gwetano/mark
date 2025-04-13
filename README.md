@@ -1,39 +1,43 @@
 # 🖋️ Mark
 
-**Mark** è un editor di file Markdown semplice, elegante e potente, pensato per prendere appunti in modo efficace. Include il supporto integrato a **Mermaid.js**, permettendoti di creare diagrammi direttamente nei tuoi documenti.
+**Mark** è un editor Markdown semplice, potente e 100% in locale.  
 
-## 🚀 Funzionalità principali
+*Nessun editor mi piaceva, troppa roba inutile e zero controllo.*
 
-- ✍️ Editor Markdown con anteprima in tempo reale
-- 🧠 Supporto completo a [Mermaid](https://mermaid-js.github.io/) per diagrammi (flowchart, sequence, classi, ecc.)
-- 📁 Explorer per navigare tra file e cartelle del progetto
-- 💾 Salvataggio e caricamento di file `.md`
-- 🌙 Modalità chiaro/scuro per una scrittura confortevole in ogni situazione
-- ⚡ Interfaccia semplice e senza distrazioni
+Per prendere appunti avevo bisogno di qualcosa che aprisse cartelle, leggesse file `.md` e salvasse. Nulla di più. Per avere un prodotto funzionante nel minor tempo possibile **gran parte delle funzionalità di questo progetto sono state generate da ChatGPT.**
+Il mio lavoro è stato principalmente di coerenza, comprensione e fix del codice.
 
-## 🛠️ Tecnologie utilizzate
+ ⚙️ Scritto in JavaScript
 
-- [React](https://react.dev/) 
-- [Marked.js](https://marked.js.org/) o [Markdown-it](https://github.com/markdown-it/markdown-it)
-- [Mermaid.js](https://mermaid-js.github.io/)
+***
 
-## 📦 Installazione
+## ✨ Features
 
-Segui questi semplici passaggi per installare e avviare Mark:
+- 📝 Editor Markdown con preview in tempo reale
+- 📁 Apertura di intere cartelle
+- 📄 File tree laterale in stile VS Code
+- 💾 Salvataggio veloce con `Cmd/Ctrl + S`
+- 📤 Conteggio parole automatico
+- 🧠 Supporto a formule matematiche (KaTeX)
+- 💡 Interfaccia essenziale, niente distrazioni
+- 🔒 Tutto locale, zero upload, zero cloud
 
-**Installa le dipendenze del progetto**
+---
 
+## Installazione
+
+### Linux
 ```bash
+git clone https://github.com/gwetano/mark.git
+cd mark
 npm install
-```
-**Esegui lo script di installazione**
-
-Lo script compilerà l'app, installerà le dipendenze necessarie, copierà l'icona, e creerà una voce nel menu delle applicazioni.
-
-```bash
 bash install.sh
 ```
 
+
+![Screenshot Mark](./build/preview.gif)
+
+***
 ## 📝 Utilizzo
 
 ### Editor e Preview
@@ -62,3 +66,8 @@ Per aprire una cartella:
 - **Ctrl+O**: Apri file
 - **Ctrl+Shift+O**: Apri cartella
 - **Ctrl+S**: Salva file
+
+## 📜 Licenza
+
+Fai quello che vuoi.  
+Se lo migliori, forkalo. Se ti aiuta, fammelo sapere.
