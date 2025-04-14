@@ -34,7 +34,6 @@ npm install
 bash install.sh
 ```
 
-
 ![Screenshot Mark](./build/preview.gif)
 
 ***
@@ -66,6 +65,8 @@ Per aprire una cartella:
 - **Ctrl+O**: Apri file
 - **Ctrl+Shift+O**: Apri cartella
 - **Ctrl+S**: Salva file
+
+***
 
 ## 📜 Licenza
 

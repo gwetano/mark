@@ -3,7 +3,6 @@ const fs = require("fs");
 const path = require("path");
 const { dialog } = require("@electron/remote");
 let isSyncingScroll = false;
-let editorLineHeights = [];
 let currentFilePath = null;
 let isDirty = false;
 let currentFolderPath = null;
@@ -123,19 +122,6 @@ window.addEventListener("DOMContentLoaded", () => {
       });
     }
   };
-
-  function calculateLineHeights() {
-    editorLineHeights = [];
-    const lines = editor.value.split('\n');
-    let totalHeight = 0;
-    
-    // Calcola l'altezza cumulativa di ogni riga
-    lines.forEach((line, index) => {
-      const lineHeight = line.length === 0 ? 1 : Math.ceil(line.length / 100); // Stima approssimativa
-      editorLineHeights.push(totalHeight);
-      totalHeight += lineHeight;
-    });
-  }
 
   // Gestione del Tab nell'editor
   editor.addEventListener("keydown", function (e) {
@@ -332,6 +318,72 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  editor.addEventListener('paste', async (e) => {
+    const clipboardItems = e.clipboardData.items;
+    
+    // Controlla se ci sono immagini negli appunti
+    for (let i = 0; i < clipboardItems.length; i++) {
+      const item = clipboardItems[i];
+      
+      // Verifica se l'elemento è di tipo immagine
+      if (item.type.indexOf('image') !== -1) {
+        e.preventDefault(); // Previeni il comportamento di incollare di default
+        
+        if (!currentFilePath) {
+          dialog.showMessageBoxSync({
+            type: 'info',
+            title: 'File non salvato',
+            message: 'Per incollare un\'immagine, devi prima salvare il file.'
+          });
+          
+          const file = dialog.showSaveDialogSync({
+            filters: [{ name: "Markdown", extensions: ["md"] }]
+          });
+          
+          if (!file) return; // L'utente ha annullato
+          
+          fs.writeFileSync(file, editor.value, "utf8");
+          currentFilePath = file;
+          setDirty(false);
+        }
+        
+        const blob = item.getAsFile();
+        const reader = new FileReader();
+        
+        reader.onload = () => {
+          const buffer = Buffer.from(reader.result);
+          
+          const timestamp = new Date().getTime();
+          const imageExt = blob.type.split('/')[1]; // es. png, jpeg, gif
+          const imageName = `image_${timestamp}.${imageExt}`;
+          
+          const folderPath = path.dirname(currentFilePath);
+          const imagesDir = path.join(folderPath, "images");
+          if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir);
+          const imagePath = path.join(imagesDir, imageName);
+          
+          fs.writeFileSync(imagePath, buffer);
+          
+          // Ottieni il percorso relativo dell'immagine rispetto al file markdown
+          const relativeImagePath = path.relative(path.dirname(currentFilePath), imagePath).replace(/\\/g, "/");
+          const markdownImage = `![immagine](${imagePath})`;
+
+          // Inserisci il tag dell'immagine nel punto in cui si trova il cursore
+          const start = editor.selectionStart;
+          const end = editor.selectionEnd;
+          
+          editor.value = editor.value.slice(0, start) + markdownImage + editor.value.slice(end);
+          
+          updatePreview();
+          updateWordCount();
+          setDirty(true);
+        };
+        
+        reader.readAsArrayBuffer(blob);
+      }
+    }
+  });
+
   // Gestione dei messaggi IPC da main.js
   ipcRenderer.on("load-md", (event, filePath, content) => {
     editor.value = content;
@@ -362,11 +414,65 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   ipcRenderer.on("toggle-preview", () => {
-    togglePreviewBtn.click();
+    document.getElementById("toggle-preview").click();
   });
 
   ipcRenderer.on("toggle-theme", () => {
-    toggleThemeBtn.click();
+    document.getElementById("toggle-theme").click();
+  });
+
+  ipcRenderer.on("insert-image-from-file", async (event, imagePath) => {
+    if (!currentFilePath) {
+      dialog.showMessageBoxSync({
+        type: 'info',
+        title: 'File non salvato',
+        message: 'Per inserire un\'immagine, devi prima salvare il file.'
+      });
+      
+      const file = dialog.showSaveDialogSync({
+        filters: [{ name: "Markdown", extensions: ["md"] }]
+      });
+      
+      if (!file) return; // L'utente ha annullato
+      
+      fs.writeFileSync(file, editor.value, "utf8");
+      currentFilePath = file;
+      setDirty(false);
+    }
+    
+    const fileName = path.basename(imagePath);
+    
+    const folderPath = path.dirname(currentFilePath);
+    const destDir = path.join(folderPath, "images");
+    const destPath = path.join(destDir, fileName);
+    
+    if (imagePath !== destPath) {
+      fs.copyFileSync(imagePath, destPath);
+    }
+    
+    const relativeImagePath = path.relative(folderPath, destPath);
+    
+    const cursorPos = editor.selectionStart;
+    const textBefore = editor.value.substring(0, cursorPos);
+    const textAfter = editor.value.substring(cursorPos);
+    const imageTag = `![${fileName}](${destPath.replace(/\\/g, '/')})`;
+    
+    editor.value = textBefore + imageTag + textAfter;
+    
+    updatePreview();
+    updateWordCount();
+    setDirty(true);
+    
+    editor.focus();
+    editor.selectionStart = editor.selectionEnd = cursorPos + imageTag.length;
+  });
+
+  ipcRenderer.on("paste-image-from-clipboard", () => {
+    editor.dispatchEvent(new ClipboardEvent('paste', {
+      clipboardData: clipboard.availableFormats().some(format => format.includes('image'))
+        ? clipboard
+        : new DataTransfer()
+    }));
   });
 
   updatePreview();

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, dialog } = require("electron");
+const { app, BrowserWindow, Menu, dialog, clipboard } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const remoteMain = require("@electron/remote/main");
@@ -67,39 +67,17 @@ function createWindow() {
       ]
     },
     {
-      label: "View",
-      submenu: [
-        {
-          label: "Explorer",
-          accelerator: "CmdOrCtrl+B",
-          click: () => {
-            win.webContents.send("toggle-explorer");
-          }
-        },
-        {
-          label: "Only Editor",
-          accelerator: "CmdOrCtrl+E",
-          click: () => {
-            win.webContents.send("toggle-preview");
-          }
-        },
-        { type: "separator" },
-        {
-          label: "Dark Mode",
-          accelerator: "CmdOrCtrl+M",
-          click: () => {
-            win.webContents.send("toggle-theme");
-          }
-        }
-      ]
-    },
-    {
       label: "Edit",
       submenu: [
         {
-          label: "Repeat",
-          accelerator: "CmdOrCtrl+Shift+Z",
+          label: "Undo",
+          accelerator: "CmdOrCtrl+Z",
           role: "undo"
+        },
+        {
+          label: "Redo",
+          accelerator: "CmdOrCtrl+Shift+Z",
+          role: "redo"
         },
         { type: "separator" },
         {
@@ -122,6 +100,56 @@ function createWindow() {
           label: "Select All",
           accelerator: "CmdOrCtrl+A",
           role: "selectAll"
+        },
+        { type: "separator" },
+        {
+          label: "Insert Image from File",
+          accelerator: "CmdOrCtrl+Shift+I",
+          click: async () => {
+            const result = await dialog.showOpenDialog(win, {
+              filters: [{ name: "Images", extensions: ["jpg", "jpeg", "png", "gif", "webp"] }],
+              properties: ["openFile"]
+            });
+
+            if (!result.canceled && result.filePaths.length > 0) {
+              const imagePath = result.filePaths[0];
+              win.webContents.send("insert-image-from-file", imagePath);
+            }
+          }
+        },
+        {
+          label: "Paste Image from Clipboard",
+          accelerator: "CmdOrCtrl+Shift+V",
+          click: () => {
+            win.webContents.send("paste-image-from-clipboard");
+          }
+        }
+      ]
+    },
+    {
+      label: "View",
+      submenu: [
+        {
+          label: "Explorer",
+          accelerator: "CmdOrCtrl+B",
+          click: () => {
+            win.webContents.send("toggle-explorer");
+          }
+        },
+        {
+          label: "Only Editor",
+          accelerator: "Alt+E",
+          click: () => {
+            win.webContents.send("toggle-preview");
+          }
+        },
+        { type: "separator" },
+        {
+          label: "Dark Mode",
+          accelerator: "Alt+M",
+          click: () => {
+            win.webContents.send("toggle-theme");
+          }
         }
       ]
     }
@@ -130,18 +158,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-    createWindow()
-  if (process.argv.length >= 3) {
-    const filePath = process.argv[2];
-    if (fs.existsSync(filePath)) {
-      const content = fs.readFileSync(filePath, 'utf8');
-      win.webContents.once('did-finish-load', () => {
-        win.webContents.send('load-md', filePath, content);
-      });
-    } else {
-      console.error(`Il file ${filePath} non esiste.`);
-    }
-  }
+  createWindow();
 });
 
 app.on('window-all-closed', () => {

@@ -197,7 +197,8 @@ pre code {
 
 #toggle-theme,
 #toggle-preview,
-#toggle-explorer {
+#toggle-explorer,
+#export-pdf {
   flex: 1;
   background-color: var(--editor-bg);
   font-size: 12px;
@@ -211,6 +212,14 @@ pre code {
 
 #toggle-explorer{
   display: none;
+}
+
+#export-pdf {
+  display: none;
+}
+
+#toggle-theme:hover, #toggle-preview:hover {
+  background-color: var(--explorer-hover);
 }
 
 #title{
@@ -250,4 +259,12 @@ body.dark {
 /* Explorer visibility toggle */
 #explorer-panel.hidden {
   display: none;
+}
+
+/* Stile per le immagini nel preview */
+#preview img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1rem 0;
 }
