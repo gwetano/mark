@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stampa</title>
+  <style>
+    @font-face {
+        font-family: "JetBrains Mono";
+        src: url("./fonts/JetBrainsMono-Regular.ttf") format("truetype");
+        font-weight: normal;
+        font-style: normal;
+    }
+    * {
+        font-family: "JetBrains Mono", monospace;
+    }
+    body {
+      margin: 0;
+      background-color: white;
+      color: black;
+      padding: 20px;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .markdown-body {
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      word-break: break-word;
+      text-align: justify;
+    }
+    pre {
+      background-color: #f6f8fa;
+      padding: 16px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      word-break: break-word;
+      text-align: left;
+    }
+    code {
+      font-size: 85%;
+      background-color: rgba(27, 31, 35, 0.05);
+      padding: 0.2em 0.4em;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      word-break: break-word;
+      text-align: left;
+    }
+    pre code {
+      background-color: transparent;
+      padding: 0;
+    }
+    img {
+      max-width: 100%;
+      height: auto;
+    }
+    blockquote {
+      margin-left: 0;
+      padding-left: 1em;
+      border-left: 4px solid #ddd;
+      color: #3b3b3b;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 16px 0;
+    }
+    table th, table td {
+      padding: 8px;
+    }
+    table tr:nth-child(even) {
+      background-color: #f2f2f2;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 24px;
+      margin-bottom: 16px;
+      font-weight: 600;
+      line-height: 1.25;
+      text-align: left;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      word-break: break-word;
+    }
+    p{
+      font-size: 0.9em;   
+      text-align: left;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      word-break: break-word;
+    }
+    h1 { font-size: 2em; }
+    h2 { font-size: 1.5em; }
+    h3 { font-size: 1.25em; }
+    a { color: #0366d6; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .mermaid {
+      text-align: center;
+      margin: 1em 0;
+    }
+    .katex { font-size: 1.1em; }
+  </style>
+</head>
+<body>
+  <div id="content" class="markdown-body"></div>
+  
+  <script>
+    const { ipcRenderer } = require('electron');
+    
+    ipcRenderer.on('print-content', (event, content) => {
+      document.getElementById('content').innerHTML = content;
+      
+      setTimeout(() => {
+        ipcRenderer.send('content-ready');
+      }, 1000); // Breve ritardo per consentire il rendering di elementi complessi
+    });
+  </script>
+</body>
+</html>

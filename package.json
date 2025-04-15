@@ -20,6 +20,15 @@
     "build": {
         "appId": "com.Giovanni.Mark",
         "productName": "Mark",
+        "fileAssociations": [
+            {
+            "ext": "md",
+            "name": "Markdown File",
+            "description": "File Markdown",
+            "role": "Editor",
+            "icon": "build/mark.png"
+            }
+        ],
         "win": {
             "icon": "build/logo.ico"
         },
@@ -27,7 +36,7 @@
             "icon": "build/logo.icns"
         },
         "linux": {
-	    "target": "AppImage"
-	}
+	        "target": "AppImage"
+	    }
     }
 }

@@ -1,9 +1,10 @@
-const { app, BrowserWindow, Menu, dialog, clipboard } = require("electron");
+const { app, BrowserWindow, Menu, dialog, clipboard, ipcMain } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const remoteMain = require("@electron/remote/main");
 
 let win;
+let printWin = null;
 
 function createWindow() {
   win = new BrowserWindow({
@@ -12,7 +13,8 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, "renderer.js"),
       nodeIntegration: true,
-      contextIsolation: false
+      contextIsolation: false,
+      clipboard: true
     }
   });
 
@@ -25,6 +27,13 @@ function createWindow() {
     {
       label: "File",
       submenu: [
+        {
+          label: "New file",
+          accelerator: "CmdOrCtrl+N",
+          click: () => {
+            win.webContents.send("new-file");
+          }
+        },
         {
           label: "Open file",
           accelerator: "CmdOrCtrl+O",
@@ -62,6 +71,13 @@ function createWindow() {
             win.webContents.send("trigger-save");
           }
         },
+        {
+          label: "Export as PDF",
+          accelerator: "CmdOrCtrl+E",
+          click: () => {
+            win.webContents.send("export-pdf");
+          }
+        },
         { type: "separator" },
         { role: "quit", label: "Esci" }
       ]
@@ -73,11 +89,6 @@ function createWindow() {
           label: "Undo",
           accelerator: "CmdOrCtrl+Z",
           role: "undo"
-        },
-        {
-          label: "Redo",
-          accelerator: "CmdOrCtrl+Shift+Z",
-          role: "redo"
         },
         { type: "separator" },
         {
@@ -157,6 +168,77 @@ function createWindow() {
   Menu.setApplicationMenu(menu);
 }
 
+function createPrintWindow() {
+  printWin = new BrowserWindow({
+    width: 800,
+    height: 600,
+    show: false, // Finestra nascosta
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false
+    }
+  });
+
+  printWin.loadFile('print.html');
+  
+  // Facoltativo: per debug
+  // printWin.webContents.openDevTools();
+}
+
+ipcMain.on("print-to-pdf", async (event, content, title) => {
+  // Crea la finestra di stampa se non esiste
+  if (!printWin) {
+    createPrintWindow();
+    
+    // Attendi che la finestra sia pronta
+    await new Promise(resolve => {
+      printWin.webContents.once('did-finish-load', resolve);
+    });
+  }
+  
+  // Invia il contenuto alla finestra di stampa
+  printWin.webContents.send('print-content', content);
+  
+  // Attendi che il contenuto sia elaborato
+  await new Promise(resolve => {
+    ipcMain.once('content-ready', resolve);
+  });
+  
+  const options = {
+    marginsType: 1,
+    pageSize: 'A4',
+    printBackground: true,
+    printSelectionOnly: false,
+    landscape: false
+  };
+
+  let defaultPath = "exported.pdf";
+  if (title && title !== "*") {
+    defaultPath = `${title.replace(/\.[^/.]+$/, "")}.pdf`;
+  }
+
+  const result = await dialog.showSaveDialog({
+    title: "Salva PDF",
+    defaultPath: defaultPath,
+    filters: [{ name: "PDF", extensions: ["pdf"] }]
+  });
+
+  if (result.canceled) return;
+  
+  try {
+    const data = await printWin.webContents.printToPDF(options);
+    fs.writeFile(result.filePath, data, (error) => {
+      if (error) {
+        console.error("Errore nel salvataggio del PDF:", error);
+        return;
+      }
+      event.reply('pdf-saved', result.filePath);
+    });
+  } catch (error) {
+    console.error("Errore nella generazione del PDF:", error);
+  }
+});
+
 app.whenReady().then(() => {
   createWindow();
 });
@@ -171,4 +253,13 @@ app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
   }
+});
+
+// In Windows e Linux
+const gotFile = process.argv.find(arg => arg.endsWith(".md"));
+
+// In macOS (file aperto con doppio click)
+app.on("open-file", (event, filePath) => {
+  event.preventDefault();
+  // salva filePath per aprirlo dopo il ready
 });

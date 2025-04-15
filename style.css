@@ -197,8 +197,7 @@ pre code {
 
 #toggle-theme,
 #toggle-preview,
-#toggle-explorer,
-#export-pdf {
+#toggle-explorer {
   flex: 1;
   background-color: var(--editor-bg);
   font-size: 12px;
@@ -211,10 +210,6 @@ pre code {
 }
 
 #toggle-explorer{
-  display: none;
-}
-
-#export-pdf {
   display: none;
 }
 
@@ -267,4 +262,50 @@ body.dark {
   height: auto;
   display: block;
   margin: 1rem 0;
+}
+
+/* Stile per i blocchi di codice cliccabili */
+.clickable-code {
+  cursor: pointer;
+  position: relative;
+  transition: background-color 0.3s ease;
+}
+
+.clickable-code:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.clickable-code:hover::after {
+  content: "📋";
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  font-size: 16px;
+  opacity: 0.7;
+}
+
+/* Stile per la notifica di copiato */
+.copy-notification {
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 14px;
+  transform: translateX(-50%);
+  animation: fadeInOut 1.5s ease;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Stile specifico per il codice quando viene copiato */
+body.dark .clickable-code:active,
+.clickable-code:active {
+  background-color: rgba(76, 175, 80, 0.3) !important;
 }

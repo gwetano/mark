@@ -52,6 +52,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const openFolderBtn = document.getElementById("open-folder");
   const collapseAllBtn = document.getElementById("collapse-all");
   const refreshExplorerBtn = document.getElementById("refresh-explorer");
+  const newFileBtn = document.getElementById("new-file");
 
   // Inizialmente nascondi il pannello dell'explorer
   explorerPanel.classList.add("hidden");
@@ -107,6 +108,45 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   
     preview.innerHTML = html;
+
+    const codeBlocks = preview.querySelectorAll('pre code');
+    codeBlocks.forEach(codeBlock => {
+      codeBlock.classList.add('clickable-code');
+      codeBlock.title = 'Clicca per copiare il codice';
+      codeBlock.addEventListener('click', function() {
+        // Ottieni il testo non formattato (senza la formattazione HTML)
+        const text = this.textContent;
+        
+        // Copia negli appunti
+        navigator.clipboard.writeText(text)
+          .then(() => {
+            // Mostra feedback visivo temporaneo
+            const originalBg = this.style.backgroundColor;
+            this.style.backgroundColor = '#4CAF50';
+            
+            // Ripristina lo sfondo originale dopo 500ms
+            setTimeout(() => {
+              this.style.backgroundColor = originalBg;
+            }, 500);
+            
+            // Opzionale: mostra un tooltip o notifica
+            const notification = document.createElement('div');
+            notification.className = 'copy-notification';
+            notification.textContent = 'Copiato!';
+            notification.style.position = 'absolute';
+            notification.style.top = `${window.scrollY + this.getBoundingClientRect().top - 30}px`;
+            notification.style.left = `${window.scrollX + this.getBoundingClientRect().left + this.offsetWidth/2}px`;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+              document.body.removeChild(notification);
+            }, 1500);
+          })
+          .catch(err => {
+            console.error('Errore durante la copia: ', err);
+          });
+      });
+    });  
   
     // Renderizza i grafici mermaid
     mermaid.init(undefined, ".mermaid");
@@ -280,6 +320,31 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // Funzione per esportare in PDF
+  function exportToPdf() {
+    // Ottieni solo il contenuto HTML della preview
+    const content = preview.innerHTML;
+    
+    // Invia il contenuto e il nome del file alla finestra principale
+    ipcRenderer.send("print-to-pdf", content, path.basename(currentFilePath || ""));
+    
+    // Feedback visivo all'utente
+    const notification = document.createElement('div');
+    notification.className = 'copy-notification';
+    notification.textContent = 'Preparazione PDF in corso...';
+    notification.style.position = 'absolute';
+    notification.style.top = '50%';
+    notification.style.left = '50%';
+    notification.style.transform = 'translate(-50%, -50%)';
+    document.body.appendChild(notification);
+    
+    // Rimuovi la notifica quando il PDF è stato salvato
+    ipcRenderer.once('pdf-saved', (event, filePath) => {
+      document.body.removeChild(notification);
+    });
+  }
+
+
   function openFolder(folderPath) {
     currentFolderPath = folderPath;
     folderPathEl.textContent = folderPath;
@@ -317,6 +382,72 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     }
   }
+
+  function createNewFile() {
+    // Controlla se ci sono modifiche non salvate
+    if (isDirty) {
+      const answer = dialog.showMessageBoxSync({
+        type: 'question',
+        buttons: ['Salva', 'Non salvare', 'Annulla'],
+        defaultId: 0,
+        title: 'File non salvato',
+        message: 'Ci sono modifiche non salvate. Vuoi salvare prima di creare un nuovo file?'
+      });
+      
+      if (answer === 0) { // Salva
+        saveCurrentFile();
+      } else if (answer === 2) { // Annulla
+        return;
+      }
+    }
+    
+    // Chiedi il nome del nuovo file
+    const filename = dialog.showSaveDialogSync({
+      defaultPath: path.join(currentFolderPath, 'nuovo-file.md'),
+      filters: [{ name: "Markdown", extensions: ["md"] }],
+      title: 'Crea nuovo file'
+    });
+    
+    if (!filename) return; // Utente ha annullato
+    
+    // Crea il file vuoto
+    fs.writeFileSync(filename, '', 'utf8');
+    
+    // Carica il nuovo file nell'editor
+    editor.value = '';
+    updatePreview();
+    updateWordCount();
+    currentFilePath = filename;
+    setDirty(false);
+    
+    // Aggiorna l'explorer per mostrare il nuovo file
+    openFolder(currentFolderPath);
+    
+    // Evidenzia il nuovo file nell'explorer
+    setTimeout(() => {
+      document.querySelectorAll('.tree-item').forEach(item => {
+        item.classList.remove('active');
+        if (item.dataset.path === filename) {
+          item.classList.add('active');
+          item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+    }, 100);
+  }
+  
+
+  newFileBtn.addEventListener("click", () => {
+    if (!currentFolderPath) {
+      dialog.showMessageBoxSync({
+        type: 'info',
+        title: 'Nessuna cartella aperta',
+        message: 'Per creare un nuovo file, devi prima aprire una cartella.'
+      });
+      return;
+    }
+    
+    createNewFile();
+  });
 
   editor.addEventListener('paste', async (e) => {
     const clipboardItems = e.clipboardData.items;
@@ -399,6 +530,14 @@ window.addEventListener("DOMContentLoaded", () => {
         item.classList.add('active');
       }
     });
+  });
+
+  ipcRenderer.on("export-pdf", () => {
+    exportToPdf();
+  });
+
+  ipcRenderer.on("new-file", () => {
+    createNewFile();
   });
 
   ipcRenderer.on("open-folder", (event, folderPath) => {
