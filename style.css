@@ -81,10 +81,10 @@ body {
   padding: 20px;
   background-color: var(--preview-bg);
   overflow-y: auto;
+  overflow-x: hidden;
   padding-bottom: 150px;
 }
 
-/* Explorer panel */
 #explorer-panel {
   width: var(--explorer-width);
   background-color: var(--explorer-bg);
@@ -184,15 +184,33 @@ body {
   cursor: pointer;
 }
 
-code {
-  background-color: var(--code-bg);
-  padding: 2px 6px;
-  border-radius: 4px;
+pre {
+  max-width: 100%;
+  margin-right: 10px;         /* Aggiunge spazio a destra */
+  margin-left: 10px;          /* Aggiunge spazio a sinistra per consistenza */
+  box-sizing: border-box;     /* Assicura che padding e bordi siano inclusi nella larghezza */
 }
 
 pre code {
   display: block;
   padding: 10px;
+  white-space: pre-wrap;      /* Forza l'andare a capo */
+  word-wrap: break-word;      /* Permette il wrapping delle parole lunghe */
+  overflow-wrap: break-word;  /* Gestisce il wrapping per parole molto lunghe */
+  word-break: break-word;     /* Rompe le parole quando necessario */
+  width: 100%;                /* Imposta larghezza al 100% del contenitore */
+  box-sizing: border-box;     /* Assicura che padding e bordi siano inclusi nella larghezza */
+  border-radius: 4px;         /* Angoli arrotondati per estetica */
+}
+
+code {
+  background-color: var(--code-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 #toggle-theme,
