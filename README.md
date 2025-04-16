@@ -26,12 +26,19 @@ Il mio lavoro è stato principalmente di coerenza, comprensione e fix del codice
 
 ## Installazione
 
-### Linux
 ```bash
 git clone https://github.com/gwetano/mark.git
 cd mark
+```
+
+### Linux
+```bash
 npm install
 bash install.sh
+```
+### Windows
+```bash
+./install.bat
 ```
 
 ![Screenshot Mark](./build/preview.gif)
