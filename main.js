@@ -5,6 +5,8 @@ const remoteMain = require("@electron/remote/main");
 
 let win;
 let printWin = null;
+let openFilePath = null; 
+
 
 function createWindow() {
   win = new BrowserWindow({
@@ -239,9 +241,22 @@ ipcMain.on("print-to-pdf", async (event, content, title) => {
   }
 });
 
+if (process.platform !== 'darwin') {
+  const passedFile = process.argv.find(arg => arg.endsWith(".md"));
+  if (passedFile) openFilePath = passedFile;
+}
+
 app.whenReady().then(() => {
   createWindow();
+
+  if (openFilePath && fs.existsSync(openFilePath)) {
+    const content = fs.readFileSync(openFilePath, 'utf8');
+    win.webContents.once('did-finish-load', () => {
+      win.webContents.send('load-md', openFilePath, content);
+    });
+  }
 });
+
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -255,11 +270,12 @@ app.on('activate', () => {
   }
 });
 
-// In Windows e Linux
-const gotFile = process.argv.find(arg => arg.endsWith(".md"));
-
-// In macOS (file aperto con doppio click)
 app.on("open-file", (event, filePath) => {
   event.preventDefault();
-  // salva filePath per aprirlo dopo il ready
+  openFilePath = filePath;
+
+  if (app.isReady() && win) {
+    const content = fs.readFileSync(openFilePath, 'utf8');
+    win.webContents.send('load-md', openFilePath, content);
+  }
 });

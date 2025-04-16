@@ -30,10 +30,10 @@
             }
         ],
         "win": {
-            "icon": "build/logo.ico"
+            "icon": "build/mark.ico"
         },
         "mac": {
-            "icon": "build/logo.icns"
+            "icon": "build/mark.icns"
         },
         "linux": {
 	        "target": "AppImage"
