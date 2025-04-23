@@ -5,6 +5,7 @@ DIST_DIR="$PWD/dist/linux-unpacked"
 APPIMAGE_PATH="$DIST_DIR/mark"
 INSTALL_DIR="/opt/mark"
 DESKTOP_FILE="$HOME/.local/share/applications/Mark.desktop"
+BIN_DIR="/usr/local/bin"
 
 # Copia l'icona nella directory delle icone locali
 ICON_SOURCE="$PWD/build/mark.png"
@@ -14,6 +15,7 @@ cp "$ICON_SOURCE" "$ICON_DEST"
 
 # Esegui la build del progetto
 echo "Esecuzione della build..."
+npm install
 npm run build
 
 # Controlla se il file eseguibile esiste
@@ -51,6 +53,18 @@ else
   fi
 fi
 
+# Compilazione e installazione del comando mark da terminale
+echo "Compilazione del programma mark.c per l'esecuzione da terminale..."
+gcc -o mark mark.c
+if [ $? -ne 0 ]; then
+  echo "Errore durante la compilazione di mark.c"
+  exit 1
+fi
+
+echo "Installazione del comando 'mark' nel sistema..."
+sudo cp mark "$BIN_DIR/mark"
+sudo chmod +x "$BIN_DIR/mark"
+
 # Crea il file desktop
 echo "Creazione del collegamento nel menu applicazioni..."
 echo "[Desktop Entry]
@@ -69,4 +83,4 @@ chmod +x "$DESKTOP_FILE"
 update-desktop-database ~/.local/share/applications/
 
 echo "Mark è stato installato correttamente. Puoi trovarlo nel menu delle applicazioni."
-echo "Per eseguire Mark da terminale, usa: $INSTALL_DIR/mark"
+echo "Puoi anche eseguire Mark da terminale usando il comando 'mark' o 'mark nomefile.md'"
