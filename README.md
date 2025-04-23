@@ -66,11 +66,13 @@ Per aprire una cartella:
 
 ### Scorciatoie da tastiera
 
-- **Alt+M**: Cambia tema (chiaro/scuro)
-- **Alt+E**: Nascondi/mostra anteprima
+- **Alt+(Shift)+M**: Cambia tema (chiaro/scuro)
+- **Alt+(Shift)+E**: Nascondi/mostra anteprima
 - **Ctrl+B**: Nascondi/mostra explorer
+- **Ctrl+N**: Nuovo file
 - **Ctrl+O**: Apri file
 - **Ctrl+Shift+O**: Apri cartella
+- **Ctrl+E**: Esporta come PDF
 - **Ctrl+S**: Salva file
 
 ***

@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Stampa</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
   <style>
     @font-face {
         font-family: "JetBrains Mono";
@@ -12,7 +15,7 @@
         font-style: normal;
     }
     * {
-        font-family: "JetBrains Mono", monospace;
+        font-family: "Inter", sans-serif;
     }
     body {
       margin: 0;
@@ -44,6 +47,7 @@
     }
     code {
       font-size: 85%;
+      font-family: "JetBrains Mono", monospace;
       background-color: rgba(27, 31, 35, 0.05);
       padding: 0.2em 0.4em;
       white-space: pre-wrap;
@@ -57,8 +61,18 @@
       padding: 0;
     }
     img {
-      max-width: 100%;
+      max-width: 80%;
       height: auto;
+      display: block;
+      margin: 1em auto;
+    }
+
+    ul, ol, li {
+      font-size: 0.9em;
+      text-align: left;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      word-break: break-word;
     }
     blockquote {
       margin-left: 0;
