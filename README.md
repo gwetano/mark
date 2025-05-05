@@ -74,6 +74,7 @@ Per aprire una cartella:
 - **Ctrl+Shift+O**: Apri cartella
 - **Ctrl+E**: Esporta come PDF
 - **Ctrl+S**: Salva file
+- **Ctrl+F**: Ricerca
 
 ***
 

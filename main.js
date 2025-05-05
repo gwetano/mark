@@ -114,6 +114,13 @@ function createWindow() {
           accelerator: "CmdOrCtrl+A",
           role: "selectAll"
         },
+        {
+          label: "Find",
+          accelerator: "CmdOrCtrl+F",
+          click: () => {
+            win.webContents.send("open-search");
+          }
+        },
         { type: "separator" },
         {
           label: "Insert Image from File",

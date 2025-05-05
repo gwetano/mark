@@ -40,6 +40,205 @@ document.getElementById("toggle-explorer").addEventListener("click", () => {
   explorerPanel.classList.toggle("hidden");
 });
 
+// Funzionalità di ricerca
+let searchMatches = [];
+let currentMatchIndex = -1;
+
+// Aggiorna la funzione toggleSearchPanel per ripulire la ricerca
+function toggleSearchPanel(show = true) {
+  const searchContainer = document.getElementById("search-container");
+  if (show) {
+    searchContainer.classList.remove("hidden");
+    document.getElementById("search-input").focus();
+    document.getElementById("search-input").select(); // Seleziona tutto il testo nella casella
+  } else {
+    searchContainer.classList.add("hidden");
+    clearSearchHighlights();
+    document.getElementById("search-input").value = ""; // Pulisci l'input quando chiudi
+    document.getElementById("search-results").textContent = "0/0"; // Resetta il contatore
+  }
+}
+
+// Gestione della ricerca
+function performSearch() {
+  const searchTerm = document.getElementById("search-input").value;
+  const editor = document.getElementById("editor");
+  const text = editor.value;
+  
+  // Pulisci le evidenziazioni precedenti
+  clearSearchHighlights();
+  
+  if (!searchTerm) {
+    document.getElementById("search-results").textContent = "0/0";
+    currentMatchIndex = -1;
+    return;
+  }
+  
+  // Trova tutte le occorrenze
+  searchMatches = [];
+  let match;
+  const regex = new RegExp(escapeRegExp(searchTerm), "gi");
+  
+  while ((match = regex.exec(text)) !== null) {
+    searchMatches.push({
+      start: match.index,
+      end: match.index + searchTerm.length
+    });
+  }
+  
+  // Aggiorna il contatore dei risultati
+  updateSearchResultsCounter();
+  
+  // Vai al primo risultato se ce ne sono
+  if (searchMatches.length > 0) {
+    currentMatchIndex = 0;
+    navigateToMatch(currentMatchIndex);
+  }
+}
+
+// Funzione per navigare al match precedente
+function goToPreviousMatch() {
+  if (searchMatches.length === 0) return;
+  
+  currentMatchIndex = (currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
+  navigateToMatch(currentMatchIndex);
+}
+
+// Funzione per navigare al match successivo
+function goToNextMatch() {
+  if (searchMatches.length === 0) return;
+  
+  currentMatchIndex = (currentMatchIndex + 1) % searchMatches.length;
+  navigateToMatch(currentMatchIndex);
+}
+
+// Funzione migliorata per evidenziare e navigare al match corrente
+function navigateToMatch(index) {
+  const editor = document.getElementById("editor");
+  const match = searchMatches[index];
+  
+  if (!match) return;
+  
+  // Seleziona il testo corrispondente
+  editor.focus();
+  editor.setSelectionRange(match.start, match.end);
+  
+  // Per calcolare la posizione esatta del match nel testo:
+  // 1. Crea un elemento temporaneo che rispecchi le proprietà dell'editor
+  // 2. Inserisci solo il testo fino al match
+  // 3. Misura l'altezza di questo testo
+  const temp = document.createElement('textarea');
+  temp.style.position = 'absolute';
+  temp.style.left = '-9999px';
+  temp.style.top = '-9999px';
+  temp.style.width = editor.clientWidth + 'px';
+  temp.style.height = 'auto';
+  temp.style.fontSize = window.getComputedStyle(editor).fontSize;
+  temp.style.fontFamily = window.getComputedStyle(editor).fontFamily;
+  temp.style.lineHeight = window.getComputedStyle(editor).lineHeight;
+  temp.style.whiteSpace = window.getComputedStyle(editor).whiteSpace;
+  temp.style.wordWrap = window.getComputedStyle(editor).wordWrap;
+  temp.style.padding = window.getComputedStyle(editor).padding;
+  temp.style.border = window.getComputedStyle(editor).border;
+  temp.style.boxSizing = window.getComputedStyle(editor).boxSizing;
+  
+  // Inserisci il testo fino al match
+  temp.value = editor.value.substring(0, match.start);
+  document.body.appendChild(temp);
+  
+  // Calcola la posizione esatta (l'altezza del testo fino al match)
+  const matchPosition = temp.scrollHeight;
+  
+  // Rimuovi l'elemento temporaneo
+  document.body.removeChild(temp);
+  
+  // Scorri l'editor in modo che il match sia visibile al centro
+  // Usa scrollIntoView se disponibile, altrimenti posiziona manualmente
+  try {
+    // Calcola la posizione di scorrimento
+    const scrollPosition = matchPosition - (editor.clientHeight / 2);
+    
+    // Assicurati che la posizione non sia negativa
+    editor.scrollTop = Math.max(0, scrollPosition);
+    
+    // Opzionale: aggiungi un effetto per rendere visibile il match
+    const origBackground = editor.style.background;
+    const origTransition = editor.style.transition;
+    
+    editor.style.transition = 'background-color 0.3s ease';
+    editor.style.backgroundColor = '#ffff9980'; // Giallo chiaro con trasparenza
+    
+    setTimeout(() => {
+      editor.style.backgroundColor = origBackground;
+      editor.style.transition = origTransition;
+    }, 500);
+  } catch (e) {
+    console.error("Errore nel calcolo della posizione di scorrimento:", e);
+    
+    // Fallback alla vecchia logica come piano B
+    const textBeforeMatch = editor.value.substring(0, match.start);
+    const lineBreaks = textBeforeMatch.split("\n").length - 1;
+    
+    // Calcola l'altezza della riga in modo dinamico
+    const computedLineHeight = parseInt(window.getComputedStyle(editor).lineHeight) || 20;
+    const scrollPosition = lineBreaks * computedLineHeight;
+    editor.scrollTop = scrollPosition - editor.clientHeight / 2;
+  }
+  
+  // Aggiorna il contatore
+  updateSearchResultsCounter();
+}
+
+// Funzione per calcolare l'altezza delle righe in base al contenuto effettivo
+function calculateLineHeights() {
+  const editor = document.getElementById('editor');
+  if (!editor) return;
+  
+  // Ottieni lo stile calcolato dell'editor
+  const style = window.getComputedStyle(editor);
+  const lineHeight = parseFloat(style.lineHeight);
+  
+  // Se lineHeight è in pixel, usa direttamente quel valore
+  if (!isNaN(lineHeight)) {
+    editor.dataset.lineHeight = lineHeight;
+    return lineHeight;
+  }
+  
+  // Altrimenti, calcola in base all'altezza del font
+  const fontSize = parseFloat(style.fontSize);
+  if (!isNaN(fontSize)) {
+    // lineHeight normale è generalmente circa 1.2 volte la dimensione del font
+    const calculatedLineHeight = fontSize * 1.2;
+    editor.dataset.lineHeight = calculatedLineHeight;
+    return calculatedLineHeight;
+  }
+  
+  // Fallback a un valore di default
+  editor.dataset.lineHeight = 20;
+  return 20;
+}
+
+// Funzione per aggiornare il contatore dei risultati di ricerca
+function updateSearchResultsCounter() {
+  const counter = document.getElementById("search-results");
+  if (searchMatches.length > 0) {
+    counter.textContent = `${currentMatchIndex + 1}/${searchMatches.length}`;
+  } else {
+    counter.textContent = "0/0";
+  }
+}
+
+// Funzione per rimuovere le evidenziazioni della ricerca
+function clearSearchHighlights() {
+  searchMatches = [];
+  currentMatchIndex = -1;
+}
+
+// Funzione di utilità per escape di caratteri speciali in regex
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 
 window.addEventListener("DOMContentLoaded", () => {
   const editor = document.getElementById("editor");
@@ -53,6 +252,10 @@ window.addEventListener("DOMContentLoaded", () => {
   const collapseAllBtn = document.getElementById("collapse-all");
   const refreshExplorerBtn = document.getElementById("refresh-explorer");
   const newFileBtn = document.getElementById("new-file");
+  const searchInput = document.getElementById("search-input");
+  const searchPrevBtn = document.getElementById("search-prev");
+  const searchNextBtn = document.getElementById("search-next");
+  const searchCloseBtn = document.getElementById("search-close");
 
   // Inizialmente nascondi il pannello dell'explorer
   explorerPanel.classList.add("hidden");
@@ -615,4 +818,74 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   updatePreview();
+  // Aggiungi event listener per l'invio sulla casella di ricerca
+  searchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      performSearch();
+      
+      // Decidi se andare al match precedente o successivo
+      if (e.shiftKey) {
+        goToPreviousMatch();
+      } else {
+        goToNextMatch();
+      }
+    }
+  });
+
+  // Usa il pulsante di ricerca esistente invece di crearne uno nuovo
+  const searchButton = document.getElementById("search-button");
+  if (searchButton) {
+    // Rimuovi eventuali listener esistenti per sicurezza
+    searchButton.replaceWith(searchButton.cloneNode(true));
+    
+    // Ottieni il riferimento al nuovo elemento clonato
+    const newSearchButton = document.getElementById("search-button");
+    
+    // Aggiungi il listener al pulsante di ricerca esistente
+    newSearchButton.addEventListener("click", () => {
+      performSearch();
+      goToNextMatch(); // Vai al primo match quando si clicca il pulsante
+    });
+  }
+
+  
+  searchPrevBtn.addEventListener("click", goToPreviousMatch);
+  
+  searchNextBtn.addEventListener("click", goToNextMatch);
+  
+  searchCloseBtn.addEventListener("click", () => {
+    toggleSearchPanel(false);
+  });
+
+  // Gestione scorciatoia da tastiera Ctrl+F
+  document.addEventListener("keydown", (e) => {
+    // Ctrl+F per aprire la ricerca
+    if (e.ctrlKey && e.key === "f") {
+      e.preventDefault(); // Previeni il comportamento predefinito del browser
+      toggleSearchPanel(true);
+    }
+    
+    // ESC per chiudere la ricerca
+    if (e.key === "Escape" && !document.getElementById("search-container").classList.contains("hidden")) {
+      toggleSearchPanel(false);
+    }
+    
+    // Enter per andare al prossimo risultato
+    if (e.key === "Enter" && !document.getElementById("search-container").classList.contains("hidden")) {
+      if (e.shiftKey) {
+        goToPreviousMatch();
+      } else {
+        goToNextMatch();
+      }
+    }
+  });
+  
+  // Ricevi il messaggio per aprire la ricerca
+  ipcRenderer.on("open-search", () => {
+    toggleSearchPanel(true);
+  });
+
+
+
 });

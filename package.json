@@ -29,14 +29,19 @@
             "icon": "build/mark.png"
             }
         ],
+        "directories": {
+            "output": "dist"
+        },
         "win": {
-            "icon": "build/mark.ico"
+            "icon": "build/mark.ico",
+            "target": ["nsis"]
         },
         "mac": {
-            "icon": "build/mark.icns"
+            "icon": "build/mark.icns",
+            "target": ["dmg"]
         },
         "linux": {
-	        "target": "AppImage"
+            "target": ["AppImage", "deb"]
 	    }
     }
 }
