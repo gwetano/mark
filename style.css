@@ -394,3 +394,42 @@ body.dark .clickable-code:active,
   background-color: #ff9800;
   color: black;
 }
+
+/* Aggiungi questo CSS alla fine del tuo file style.css */
+
+/* Assicura che le formule matematiche si adattino alla larghezza disponibile */
+.katex-display {
+  max-width: 100%;
+  overflow: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  padding-bottom: 5px; /* Spazio per la scrollbar orizzontale */
+}
+
+/* Per le formule inline, assicura che vadano a capo appropriatamente */
+.katex {
+  max-width: 100%;
+  white-space: normal;
+}
+
+/* Rendi la scrollbar più sottile e discreta */
+.katex-display::-webkit-scrollbar {
+  height: 4px;
+}
+
+.katex-display::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+}
+
+/* Aiuta il wrapping delle formule molto lunghe */
+.katex-html {
+  white-space: normal;
+}
+
+/* Aggiunta per migliorare la visualizzazione su diverse dimensioni dello schermo */
+@media screen and (max-width: 768px) {
+  .katex-display {
+    font-size: 0.9em;
+  }
+}

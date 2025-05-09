@@ -22,11 +22,11 @@
         "productName": "Mark",
         "fileAssociations": [
             {
-            "ext": "md",
-            "name": "Markdown File",
-            "description": "File Markdown",
-            "role": "Editor",
-            "icon": "build/mark.png"
+                "ext": "md",
+                "name": "Markdown File",
+                "description": "File Markdown",
+                "role": "Editor",
+                "icon": "build/mark.png"
             }
         ],
         "directories": {
@@ -34,14 +34,21 @@
         },
         "win": {
             "icon": "build/mark.ico",
-            "target": ["nsis"]
+            "target": [
+                "nsis"
+            ]
         },
         "mac": {
             "icon": "build/mark.icns",
-            "target": ["dmg"]
+            "target": [
+                "dmg"
+            ]
         },
         "linux": {
-            "target": ["AppImage", "deb"]
-	    }
+            "target": [
+                "AppImage",
+                "deb"
+            ]
+        }
     }
 }

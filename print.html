@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <style>
     @font-face {
         font-family: "JetBrains Mono";
@@ -118,6 +119,9 @@
       margin: 1em 0;
     }
     .katex { font-size: 1.1em; }
+    
+    /* Nascondi il codice sorgente KaTeX */
+    .katex-src { display: none; }
   </style>
 </head>
 <body>
@@ -128,6 +132,12 @@
     
     ipcRenderer.on('print-content', (event, content) => {
       document.getElementById('content').innerHTML = content;
+      
+      // Rimuovi i codici sorgente KaTeX che potrebbero apparire come testo
+      const sourceElements = document.querySelectorAll('span.katex-mathml');
+      sourceElements.forEach(element => {
+        element.classList.add('katex-src');
+      });
       
       setTimeout(() => {
         ipcRenderer.send('content-ready');
