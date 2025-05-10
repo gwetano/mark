@@ -35,7 +35,6 @@ cd mark
 
 ### Linux
 ```bash
-npm install
 bash install.sh
 ```
 ### Windows
