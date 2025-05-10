@@ -361,7 +361,30 @@ window.addEventListener("DOMContentLoaded", () => {
           { left: "$$", right: "$$", display: true },
           { left: "$", right: "$", display: false }
         ],
-        throwOnError: false
+        throwOnError: false,
+        output: 'html',    // Usa l'output HTML per migliore controllo
+        trust: true,       // Necessario per alcune operazioni avanzate
+        macros: {          // Macros personalizzate se necessarie
+          "\\eqref": "\\href{#1}{}",  // esempio
+        }
+      });
+    
+      // Post-processamento delle formule KaTeX per assicurare che rispettino lo spazio disponibile
+      const katexDisplays = preview.querySelectorAll('.katex-display');
+      katexDisplays.forEach(display => {
+        // Assicura che le formule display non escano dal contenitore
+        display.style.overflowX = 'auto';
+        display.style.maxWidth = '100%';
+      });
+    
+      // Gestione opzionale per formule inline molto lunghe
+      const katexInlines = preview.querySelectorAll('.katex');
+      katexInlines.forEach(inline => {
+        // Imposta una larghezza massima relativa per le formule inline
+        if (!inline.closest('.katex-display')) { // Solo per formule veramente inline
+          inline.style.maxWidth = '100%';
+          inline.style.whiteSpace = 'normal';
+        }
       });
     }
   };

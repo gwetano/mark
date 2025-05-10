@@ -45,6 +45,8 @@
       overflow-wrap: break-word;
       word-break: break-word;
       text-align: left;
+      /* Evita interruzioni di pagina in mezzo ai blocchi di codice */
+      break-inside: avoid;
     }
     code {
       font-size: 85%;
@@ -62,10 +64,25 @@
       padding: 0;
     }
     img {
-      max-width: 80%;
+      max-width: 70%; /* Ridotto dal precedente 80% */
       height: auto;
       display: block;
       margin: 1em auto;
+      /* Classe aggiunta dal JavaScript - non modificare direttamente qui */
+    }
+    
+    /* Classi per dimensione personalizzata delle immagini */
+    img.img-small {
+      max-width: 40%;
+    }
+    img.img-medium {
+      max-width: 60%;
+    }
+    img.img-large {
+      max-width: 80%;
+    }
+    img.img-full {
+      max-width: 95%;
     }
 
     ul, ol, li {
@@ -80,11 +97,15 @@
       padding-left: 1em;
       border-left: 4px solid #ddd;
       color: #3b3b3b;
+      /* Evita interruzioni di pagina in mezzo alle citazioni */
+      break-inside: avoid;
     }
     table {
       border-collapse: collapse;
       width: 100%;
       margin: 16px 0;
+      /* Evita interruzioni di pagina in mezzo alle tabelle */
+      break-inside: avoid;
     }
     table th, table td {
       padding: 8px;
@@ -101,8 +122,11 @@
       word-wrap: break-word;
       overflow-wrap: break-word;
       word-break: break-word;
+      /* Evita che i titoli appaiano alla fine di una pagina */
+      break-after: avoid-page;
+      page-break-after: avoid;
     }
-    p{
+    p {
       font-size: 0.9em;   
       text-align: left;
       word-wrap: break-word;
@@ -117,11 +141,38 @@
     .mermaid {
       text-align: center;
       margin: 1em 0;
+      /* Evita interruzioni di pagina in mezzo ai diagrammi */
+      break-inside: avoid;
     }
     .katex { font-size: 1.1em; }
     
     /* Nascondi il codice sorgente KaTeX */
     .katex-src { display: none; }
+    
+    /* Stili di stampa specifici per PDF */
+    @media print {
+      body {
+        height: auto;
+        overflow: visible;
+      }
+      .markdown-body {
+        height: auto;
+      }
+      /* Regole per un miglior controllo del layout di stampa */
+      .page-break {
+        page-break-before: always;
+        break-before: page;
+      }
+      /* Previene separazione di elementi che dovrebbero stare insieme */
+      li {
+        break-inside: avoid;
+      }
+      /* Previene che le immagini vengano tagliate tra pagine */
+      figure, img {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+    }
   </style>
 </head>
 <body>
@@ -130,15 +181,40 @@
   <script>
     const { ipcRenderer } = require('electron');
     
+    function processMdImage(html) {
+      // Elabora le immagini per aggiungere classi di dimensione basate su alt text
+      const imgRegex = /<img src="([^"]+)" alt="([^"]+)"([^>]*)>/gi;
+      return html.replace(imgRegex, (match, src, alt, rest) => {
+        // Cerca tag di dimensione nel testo alt come [small], [medium], [large], [full]
+        let sizeClass = '';
+        if (alt.includes('[small]')) {
+          sizeClass = ' class="img-small"';
+          alt = alt.replace('[small]', '').trim();
+        } else if (alt.includes('[medium]')) {
+          sizeClass = ' class="img-medium"';
+          alt = alt.replace('[medium]', '').trim();
+        } else if (alt.includes('[large]')) {
+          sizeClass = ' class="img-large"';
+          alt = alt.replace('[large]', '').trim();
+        } else if (alt.includes('[full]')) {
+          sizeClass = ' class="img-full"';
+          alt = alt.replace('[full]', '').trim();
+        }
+        
+        return `<img src="${src}" alt="${alt}"${sizeClass}${rest}>`;
+      });
+    }
+    
     ipcRenderer.on('print-content', (event, content) => {
-      document.getElementById('content').innerHTML = content;
+      // Processa immagini per dimensionamento
+      const processedContent = processMdImage(content);
+      document.getElementById('content').innerHTML = processedContent;
       
       // Rimuovi i codici sorgente KaTeX che potrebbero apparire come testo
       const sourceElements = document.querySelectorAll('span.katex-mathml');
       sourceElements.forEach(element => {
         element.classList.add('katex-src');
-      });
-      
+      });   
       setTimeout(() => {
         ipcRenderer.send('content-ready');
       }, 1000); // Breve ritardo per consentire il rendering di elementi complessi

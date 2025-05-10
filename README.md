@@ -1,30 +1,32 @@
 # 🖋️ Mark
 
-**Mark** è un editor Markdown semplice, potente e 100% in locale.  
+**Mark** is a simple, powerful, and 100% local Markdown editor.  
 
-*Nessun editor mi piaceva, troppa roba inutile e zero controllo.*
+*I didn’t vibe with any of the existing editors — too bloated, not enough control.*
 
-Per prendere appunti avevo bisogno di qualcosa che aprisse cartelle, leggesse file `.md` e salvasse. Nulla di più. Per avere un prodotto funzionante nel minor tempo possibile **gran parte delle funzionalità di questo progetto sono state generate da ChatGPT.**
-Il mio lavoro è stato principalmente di coerenza, comprensione e fix del codice.
+I needed something that could open folders, read .md files, and save. Nothing more. To get a working product as fast as possible, **most of the features in this project were generated with ChatGPT.**  
+My job was mostly about keeping it consistent, understanding how stuff worked, and fixing the code.
 
- ⚙️ Scritto in JavaScript
+⚡ It’s vibe-coded. Not over-engineered.  
+⚙️ Built with JavaScript
 
 ***
 
 ## ✨ Features
 
-- 📝 Editor Markdown con preview in tempo reale
-- 📁 Apertura di intere cartelle
-- 📄 File tree laterale in stile VS Code
-- 💾 Salvataggio veloce con `Cmd/Ctrl + S`
-- 📤 Conteggio parole automatico
-- 🧠 Supporto a formule matematiche (KaTeX)
-- 💡 Interfaccia essenziale, niente distrazioni
-- 🔒 Tutto locale, zero upload, zero cloud
+- 📝 Live Markdown editor with real-time preview
+- 📁 Open full folders with ease
+- 📄 Sidebar file tree, VS Code-style
+- 💾 Quick save with Cmd/Ctrl + S
+- 📤 Word count at a glance
+- 🧠 Math formula support (KaTeX)
+- 💡 Minimal UI, zero distractions
+- 🔒 Fully local – no uploads, no cloud
+- 🖼️ Custom image sizing for PDF export via caption tags  
 
 ---
 
-## Installazione
+## Installation
 
 ```bash
 git clone https://github.com/gwetano/mark.git
@@ -44,41 +46,75 @@ bash install.sh
 ![Screenshot Mark](./build/preview.gif)
 
 ***
-## 📝 Utilizzo
+## 📝 Usage
 
 ### Editor e Preview
+Mark lets you edit Markdown and instantly preview the result. You can switch between:
 
-Mark ti permette di editare file Markdown e vedere l'anteprima in tempo reale. Puoi scegliere tra le modalità:
-- Vista combinata (editor + preview)
-- Solo editor (per concentrarti sulla scrittura)
+- Split view (editor + preview)
+- Editor-only mode for focused writing
 
-### Explorer di File
+### File Explorer
 
-L'explorer ti consente di:
-- Navigare tra le cartelle del tuo progetto
-- Visualizzare e aprire file Markdown
-- Accedere rapidamente a tutti i documenti collegati
+The file explorer helps you:
+- Navigate through your folders
+- Open Markdown files
+- Quickly access all your docs
 
-Per aprire una cartella:
-1. Clicca sul pulsante "Explorer" nella barra in alto
-2. Usa il pulsante "📁" nell'explorer o usa il menu File -> Apri cartella...
-3. Seleziona la cartella desiderata
+To open a folder:
+1. Click "Explorer" on the top bar
+2. Hit the "📁" icon or go to File -> Open Folder...
+3. Pick your folder and you’re in
 
-### Scorciatoie da tastiera
+### Image Size in PDF Export
 
-- **Alt+(Shift)+M**: Cambia tema (chiaro/scuro)
-- **Alt+(Shift)+E**: Nascondi/mostra anteprima
-- **Ctrl+B**: Nascondi/mostra explorer
-- **Ctrl+N**: Nuovo file
-- **Ctrl+O**: Apri file
-- **Ctrl+Shift+O**: Apri cartella
-- **Ctrl+E**: Esporta come PDF
-- **Ctrl+S**: Salva file
-- **Ctrl+F**: Ricerca
+You can control the size of images in the exported PDF by adding a size tag in square brackets at the end of the alt text:
+
+```
+![Some image[small]](path/to/image.jpg)
+
+![Another one[medium]](path/to/image.jpg)
+
+![Bigger please[large]](path/to/image.jpg)
+
+![Full width[full]](path/to/image.jpg)
+```
+Supported **size tags**:
+- `[small]` -> 25% width
+- `[medium]` → 50% width
+- `[large]` → 75% width
+- `[full]` → 100% width
+
+If no tag is included, the default size will be used -> 70%.
+
+### Keyboard Shortcuts
+
+- **Alt+(Shift)+M**: Toggle light/dark theme
+- **Alt+(Shift)+E**: Show/hide preview
+- **Ctrl+N**: New file
+- **Ctrl+O**: Open file
+- **Ctrl+Shift+O**: Open folder
+- **Ctrl+E**: Export as PDF
+- **Ctrl+S**: Save file
+- **Ctrl+F**: Find text
+
+***
+## 🛠️ Things to Improve
+
+Wanna help out? Here’s what still needs love:
+
+- 📂 **Image path handling**  
+Right now, image paths are global — would be better if they were relative to the project folder.
+
+- 🔍 **Text search**  
+The current search is super basic. It needs smarter matching, maybe even fuzzy search or highlights.
+
+- 🎨 **Custom styling**  
+The UI is intentionally minimal, but if you’ve got specific style needs, feel free to tweak it. Themes, fonts, or whatever makes it yours.
 
 ***
 
-## 📜 Licenza
+## 📜 License
 
-Fai quello che vuoi.  
-Se lo migliori, forkalo. Se ti aiuta, fammelo sapere.
+Do whatever you want with it.  
+If you improve it, fork it. If it helps you, let me know.
