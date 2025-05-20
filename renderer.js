@@ -257,10 +257,8 @@ window.addEventListener("DOMContentLoaded", () => {
   const searchNextBtn = document.getElementById("search-next");
   const searchCloseBtn = document.getElementById("search-close");
 
-  // Inizialmente nascondi il pannello dell'explorer
   explorerPanel.classList.add("hidden");
 
-  // Pulsante per aprire cartella
   openFolderBtn.addEventListener("click", async () => {
     const result = await dialog.showOpenDialog({
       properties: ["openDirectory"]
@@ -298,14 +296,12 @@ window.addEventListener("DOMContentLoaded", () => {
   const updatePreview = () => {
     const raw = editor.value;
   
-    // Parse markdown in HTML
     let html = marked.parse(raw, {
       highlight: (code, lang) => {
         return hljs.highlightAuto(code).value;
       }
     });
   
-    // Trova i blocchi mermaid e rimpiazza con div
     html = html.replace(/<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/g, (match, code) => {
       return `<div class="mermaid">${code}</div>`;
     });
@@ -351,10 +347,8 @@ window.addEventListener("DOMContentLoaded", () => {
       });
     });  
   
-    // Renderizza i grafici mermaid
     mermaid.init(undefined, ".mermaid");
   
-    // Renderizza formule matematiche con KaTeX
     if (window.renderMathInElement) {
       renderMathInElement(preview, {
         delimiters: [
@@ -369,18 +363,14 @@ window.addEventListener("DOMContentLoaded", () => {
         }
       });
     
-      // Post-processamento delle formule KaTeX per assicurare che rispettino lo spazio disponibile
       const katexDisplays = preview.querySelectorAll('.katex-display');
       katexDisplays.forEach(display => {
-        // Assicura che le formule display non escano dal contenitore
         display.style.overflowX = 'auto';
         display.style.maxWidth = '100%';
       });
     
-      // Gestione opzionale per formule inline molto lunghe
       const katexInlines = preview.querySelectorAll('.katex');
       katexInlines.forEach(inline => {
-        // Imposta una larghezza massima relativa per le formule inline
         if (!inline.closest('.katex-display')) { // Solo per formule veramente inline
           inline.style.maxWidth = '100%';
           inline.style.whiteSpace = 'normal';
@@ -389,18 +379,86 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  // Gestione del Tab nell'editor
   editor.addEventListener("keydown", function (e) {
     if (e.key === "Tab") {
       e.preventDefault();
       const start = this.selectionStart;
       const end = this.selectionEnd;
-  
-      // Inserisci 4 spazi
-      this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
-  
-      // Sposta il cursore dopo i 4 spazi
-      this.selectionStart = this.selectionEnd = start + 4;
+      
+      const textBefore = this.value.substring(0, start);
+      const selectedText = this.value.substring(start, end);
+      const textAfter = this.value.substring(end);
+      
+      if (start === end) {
+        this.value = textBefore + "    " + textAfter;
+        this.selectionStart = this.selectionEnd = start + 4;
+      } else if (selectedText.includes('\n')) {
+        const indentedText = selectedText.replace(/^/gm, "    ");
+        this.value = textBefore + indentedText + textAfter;
+        
+        this.selectionStart = start;
+        this.selectionEnd = start + indentedText.length;
+      } else {
+        this.value = textBefore + "    " + selectedText + textAfter;
+        this.selectionStart = start + 4;
+        this.selectionEnd = end + 4;
+      }
+      return;
+    }
+    
+    if (e.ctrlKey) {
+      const start = this.selectionStart;
+      const end = this.selectionEnd;
+      
+      if (start === end) return; // Nessuna selezione, non fare nulla
+      
+      const selectedText = this.value.substring(start, end);
+      const textBefore = this.value.substring(0, start);
+      const textAfter = this.value.substring(end);
+      let formattedText = selectedText;
+      let newCursorPos = end;
+      let handled = true;
+      
+      switch (e.key) {
+        case "1": // H1 - # Testo
+          formattedText = `# ${selectedText}`;
+          newCursorPos = start + formattedText.length;
+          break;
+        case "2": // H2 - ## Testo
+          formattedText = `## ${selectedText}`;
+          newCursorPos = start + formattedText.length;
+          break;
+        case "3": // H3 - ### Testo
+          formattedText = `### ${selectedText}`;
+          newCursorPos = start + formattedText.length;
+          break;
+        case "b": // Bold - **Testo**
+        case "B":
+          formattedText = `**${selectedText}**`;
+          newCursorPos = start + formattedText.length;
+          break;
+        case "i": // Italic - *Testo*
+        case "I":
+          formattedText = `*${selectedText}*`;
+          newCursorPos = start + formattedText.length;
+          break;
+        case "u": // Underline - <u>Testo</u>
+        case "U":
+          formattedText = `<u>${selectedText}</u>`;
+          newCursorPos = start + formattedText.length;
+          break;
+        default:
+          handled = false;
+      }
+      
+      if (handled) {
+        e.preventDefault();
+        this.value = textBefore + formattedText + textAfter;
+        this.selectionStart = start;
+        this.selectionEnd = start + formattedText.length;
+        updatePreview();
+        setDirty(true);
+      }
     }
   });
 
@@ -546,15 +604,11 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Funzione per esportare in PDF
   function exportToPdf() {
-    // Ottieni solo il contenuto HTML della preview
     const content = preview.innerHTML;
     
-    // Invia il contenuto e il nome del file alla finestra principale
     ipcRenderer.send("print-to-pdf", content, path.basename(currentFilePath || ""));
     
-    // Feedback visivo all'utente
     const notification = document.createElement('div');
     notification.className = 'copy-notification';
     notification.textContent = 'Preparazione PDF in corso...';
@@ -564,7 +618,6 @@ window.addEventListener("DOMContentLoaded", () => {
     notification.style.transform = 'translate(-50%, -50%)';
     document.body.appendChild(notification);
     
-    // Rimuovi la notifica quando il PDF è stato salvato
     ipcRenderer.once('pdf-saved', (event, filePath) => {
       document.body.removeChild(notification);
     });
@@ -575,17 +628,13 @@ window.addEventListener("DOMContentLoaded", () => {
     currentFolderPath = folderPath;
     folderPathEl.textContent = folderPath;
     
-    // Pulisci l'albero dei file
     fileTree.innerHTML = '';
     
-    // Mostra il pannello explorer
     explorerPanel.classList.remove('hidden');
     
-    // Crea l'albero dei file
     createFileTree(folderPath, fileTree);
   }
 
-  // Funzione per salvare il file corrente
   function saveCurrentFile() {
     const content = editor.value;
 
@@ -601,7 +650,6 @@ window.addEventListener("DOMContentLoaded", () => {
         currentFilePath = file;
         setDirty(false);
         
-        // Se abbiamo una cartella aperta e il nuovo file è nella stessa cartella, aggiorna l'explorer
         if (currentFolderPath && file.startsWith(currentFolderPath)) {
           openFolder(currentFolderPath);
         }
@@ -610,7 +658,6 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   function createNewFile() {
-    // Controlla se ci sono modifiche non salvate
     if (isDirty) {
       const answer = dialog.showMessageBoxSync({
         type: 'question',
@@ -627,7 +674,6 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     }
     
-    // Chiedi il nome del nuovo file
     const filename = dialog.showSaveDialogSync({
       defaultPath: path.join(currentFolderPath, 'nuovo-file.md'),
       filters: [{ name: "Markdown", extensions: ["md"] }],
@@ -636,20 +682,16 @@ window.addEventListener("DOMContentLoaded", () => {
     
     if (!filename) return; // Utente ha annullato
     
-    // Crea il file vuoto
     fs.writeFileSync(filename, '', 'utf8');
     
-    // Carica il nuovo file nell'editor
     editor.value = '';
     updatePreview();
     updateWordCount();
     currentFilePath = filename;
     setDirty(false);
     
-    // Aggiorna l'explorer per mostrare il nuovo file
     openFolder(currentFolderPath);
     
-    // Evidenzia il nuovo file nell'explorer
     setTimeout(() => {
       document.querySelectorAll('.tree-item').forEach(item => {
         item.classList.remove('active');
@@ -678,11 +720,9 @@ window.addEventListener("DOMContentLoaded", () => {
   editor.addEventListener('paste', async (e) => {
     const clipboardItems = e.clipboardData.items;
     
-    // Controlla se ci sono immagini negli appunti
     for (let i = 0; i < clipboardItems.length; i++) {
       const item = clipboardItems[i];
       
-      // Verifica se l'elemento è di tipo immagine
       if (item.type.indexOf('image') !== -1) {
         e.preventDefault(); // Previeni il comportamento di incollare di default
         
@@ -721,11 +761,9 @@ window.addEventListener("DOMContentLoaded", () => {
           
           fs.writeFileSync(imagePath, buffer);
           
-          // Ottieni il percorso relativo dell'immagine rispetto al file markdown
           const relativeImagePath = path.relative(path.dirname(currentFilePath), imagePath).replace(/\\/g, "/");
           const markdownImage = `![immagine](${imagePath})`;
 
-          // Inserisci il tag dell'immagine nel punto in cui si trova il cursore
           const start = editor.selectionStart;
           const end = editor.selectionEnd;
           
@@ -741,7 +779,6 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Gestione dei messaggi IPC da main.js
   ipcRenderer.on("load-md", (event, filePath, content) => {
     editor.value = content;
     updatePreview();
@@ -749,7 +786,6 @@ window.addEventListener("DOMContentLoaded", () => {
     currentFilePath = filePath;
     setDirty(false);
     
-    // Evidenzia il file corrente nell'explorer se è presente
     document.querySelectorAll('.tree-item').forEach(item => {
       item.classList.remove('active');
       if (item.dataset.path === filePath) {

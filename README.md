@@ -97,6 +97,22 @@ If no tag is included, the default size will be used -> 70%.
 - **Ctrl+E**: Export as PDF
 - **Ctrl+S**: Save file
 - **Ctrl+F**: Find text
+- **Ctrl+L**: Show/hide explorer
+
+***
+
+## 🤷‍♂️ New to Markdown? No worries!
+
+You can still get the most out of Mark even if you don’t know Markdown syntax. Here are some handy shortcuts that let you format your text instantly:
+
+- **Ctrl+B**: Bold
+- **Ctrl+I**: Italic
+- **Ctrl+U**: Underline
+- **Ctrl+1**: Heading 1
+- **Ctrl+2**: Heading 2
+- **Ctrl+3**: Heading 3
+
+Stay focused on writing — we'll take care of the formatting.
 
 ***
 ## 🛠️ Things to Improve
@@ -112,9 +128,11 @@ The current search is super basic. It needs smarter matching, maybe even fuzzy s
 - 🎨 **Custom styling**  
 The UI is intentionally minimal, but if you’ve got specific style needs, feel free to tweak it. Themes, fonts, or whatever makes it yours.
 
+- 📃 **Synchronized scrolling**    
+Editor and preview should scroll together, especially in split view. This needs to be improved.
 ***
 
 ## 📜 License
 
-Do whatever you want with it.  
+Do whatever you want with it.    
 If you improve it, fork it. If it helps you, let me know.

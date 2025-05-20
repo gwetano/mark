@@ -145,7 +145,25 @@
       break-inside: avoid;
     }
     .katex { font-size: 1.1em; }
-    
+    .katex-display {
+      white-space: normal !important;
+      overflow-x: visible !important;
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+      word-break: break-word;
+      display: block;
+      text-align: left;
+      font-size: 1.05em;
+      page-break-inside: avoid;
+    }
+
+    .katex-display .katex {
+      display: inline !important;
+      white-space: normal !important;
+      overflow-wrap: break-word;
+      word-break: break-word;
+    }
+
     /* Nascondi il codice sorgente KaTeX */
     .katex-src { display: none; }
     
@@ -182,26 +200,32 @@
     const { ipcRenderer } = require('electron');
     
     function processMdImage(html) {
-      // Elabora le immagini per aggiungere classi di dimensione basate su alt text
-      const imgRegex = /<img src="([^"]+)" alt="([^"]+)"([^>]*)>/gi;
+      const imgRegex = /<img src="([^"]+)" alt="([^"]+)"([^>]*)\/?>/gi;
+
       return html.replace(imgRegex, (match, src, alt, rest) => {
-        // Cerca tag di dimensione nel testo alt come [small], [medium], [large], [full]
         let sizeClass = '';
-        if (alt.includes('[small]')) {
-          sizeClass = ' class="img-small"';
-          alt = alt.replace('[small]', '').trim();
-        } else if (alt.includes('[medium]')) {
-          sizeClass = ' class="img-medium"';
-          alt = alt.replace('[medium]', '').trim();
-        } else if (alt.includes('[large]')) {
-          sizeClass = ' class="img-large"';
-          alt = alt.replace('[large]', '').trim();
-        } else if (alt.includes('[full]')) {
-          sizeClass = ' class="img-full"';
-          alt = alt.replace('[full]', '').trim();
+        const originalAlt = alt.replace(/\u00A0/g, ' ').trim(); // Fix spazi invisibili
+
+        if (originalAlt.includes('[small]')) {
+          sizeClass = 'img-small';
+          alt = originalAlt.replace('[small]', '').trim();
+        } else if (originalAlt.includes('[medium]')) {
+          sizeClass = 'img-medium';
+          alt = originalAlt.replace('[medium]', '').trim();
+        } else if (originalAlt.includes('[large]')) {
+          sizeClass = 'img-large';
+          alt = originalAlt.replace('[large]', '').trim();
+        } else if (originalAlt.includes('[full]')) {
+          sizeClass = 'img-full';
+          alt = originalAlt.replace('[full]', '').trim();
+        } else {
+          return match; // Nessuna modifica
         }
-        
-        return `<img src="${src}" alt="${alt}"${sizeClass}${rest}>`;
+
+        // Rimuove classi esistenti
+        rest = rest.replace(/\s*class="[^"]*"/gi, '');
+
+        return `<img src="${src}" alt="${alt}" class="${sizeClass}"${rest}>`;
       });
     }
     
