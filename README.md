@@ -97,7 +97,7 @@ If no tag is included, the default size will be used -> 70%.
 - **Ctrl+E**: Export as PDF
 - **Ctrl+S**: Save file
 - **Ctrl+F**: Find text
-- **Ctrl+L**: Show/hide explorer
+- **Ctrl+R**: Show/hide explorer
 
 ***
 
@@ -111,6 +111,8 @@ You can still get the most out of Mark even if you don’t know Markdown syntax.
 - **Ctrl+1**: Heading 1
 - **Ctrl+2**: Heading 2
 - **Ctrl+3**: Heading 3
+- **Ctrl+ H**: Code (inline for selected text, multiline if not selected)
+- **Ctrl+L**: Link
 
 Stay focused on writing — we'll take care of the formatting.
 

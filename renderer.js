@@ -1,4 +1,4 @@
-const { ipcRenderer, remote } = require("electron");
+const { ipcRenderer, remote, shell } = require("electron");
 const fs = require("fs");
 const path = require("path");
 const { dialog } = require("@electron/remote");
@@ -218,7 +218,32 @@ function calculateLineHeights() {
   return 20;
 }
 
-// Funzione per aggiornare il contatore dei risultati di ricerca
+function formatAsCode() {
+  const editor = document.getElementById("editor");
+  const start = editor.selectionStart;
+  const end = editor.selectionEnd;
+  
+  if (start !== end) {
+    const selectedText = editor.value.substring(start, end);
+    editor.value = editor.value.substring(0, start) + "`" + selectedText + "`" + editor.value.substring(end);
+    
+    editor.selectionStart = start;
+    editor.selectionEnd = end + 2; // +2 per i due backtick aggiunti
+  } else {
+    const codeBlock = "```\n\n```";
+    editor.value = editor.value.substring(0, start) + codeBlock + editor.value.substring(end);
+    
+    const newCursorPos = start + 4; // 4 = "```\n".length
+    editor.selectionStart = newCursorPos;
+    editor.selectionEnd = newCursorPos;
+  }
+  
+  updatePreview();
+  setDirty(true);
+  
+  editor.focus();
+}
+
 function updateSearchResultsCounter() {
   const counter = document.getElementById("search-results");
   if (searchMatches.length > 0) {
@@ -228,16 +253,62 @@ function updateSearchResultsCounter() {
   }
 }
 
-// Funzione per rimuovere le evidenziazioni della ricerca
 function clearSearchHighlights() {
   searchMatches = [];
   currentMatchIndex = -1;
 }
 
-// Funzione di utilità per escape di caratteri speciali in regex
 function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+function setupExternalLinks() {
+  const preview = document.getElementById("preview");
+  
+  preview.addEventListener("click", (event) => {
+    let target = event.target;
+    
+    while (target && target !== preview) {
+      if (target.tagName === "A" && target.href) {
+        event.preventDefault();
+        
+        shell.openExternal(target.href);
+        return;
+      }
+      target = target.parentNode;
+    }
+  });
+}
+
+  function insertMarkdownLink() {
+    const editor = document.getElementById("editor");
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    
+    if (start !== end) {
+      // Testo selezionato: lo trasforma in [testo selezionato](insert your link...)
+      const selectedText = editor.value.substring(start, end);
+      const linkText = `[${selectedText}](insert your link...)`;
+      
+      editor.value = editor.value.substring(0, start) + linkText + editor.value.substring(end);
+      
+      const cursorPos = start + selectedText.length + 3;
+      editor.setSelectionRange(cursorPos, cursorPos + 19); // Seleziona "insert your link..."
+      
+      updatePreview();
+      setDirty(true);
+    } else {
+      // Nessun testo selezionato: inserisce un template vuoto
+      const linkText = "[](insert your link...)";
+      
+      editor.value = editor.value.substring(0, start) + linkText + editor.value.substring(end);
+      editor.setSelectionRange(start + 1, start + 1);
+      
+      updatePreview();
+      setDirty(true);
+    }
+  }
+
 
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -494,17 +565,14 @@ window.addEventListener("DOMContentLoaded", () => {
     setDirty(true);
   });
 
-  // Funzione per verificare se un percorso è un file markdown
   function isMarkdownFile(filePath) {
     return filePath.toLowerCase().endsWith('.md');
   }
 
-  // Crea la struttura dell'albero file da visualizzare nell'explorer
   function createFileTree(folderPath, parentElement) {
     try {
       const items = fs.readdirSync(folderPath);
       
-      // Prima mostro le cartelle
       items
         .filter(item => {
           const itemPath = path.join(folderPath, item);
@@ -580,15 +648,12 @@ window.addEventListener("DOMContentLoaded", () => {
               }
             }
             
-            // Rimuovi la classe active da tutti i file
             document.querySelectorAll('.tree-item').forEach(item => {
               item.classList.remove('active');
             });
             
-            // Aggiungi la classe active al file corrente
             fileElement.classList.add('active');
             
-            // Carica il file
             const content = fs.readFileSync(itemPath, 'utf8');
             editor.value = content;
             updatePreview();
@@ -834,7 +899,7 @@ window.addEventListener("DOMContentLoaded", () => {
         filters: [{ name: "Markdown", extensions: ["md"] }]
       });
       
-      if (!file) return; // L'utente ha annullato
+      if (!file) return;
       
       fs.writeFileSync(file, editor.value, "utf8");
       currentFilePath = file;
@@ -877,13 +942,11 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   updatePreview();
-  // Aggiungi event listener per l'invio sulla casella di ricerca
   searchInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
       performSearch();
       
-      // Decidi se andare al match precedente o successivo
       if (e.shiftKey) {
         goToPreviousMatch();
       } else {
@@ -892,19 +955,15 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Usa il pulsante di ricerca esistente invece di crearne uno nuovo
   const searchButton = document.getElementById("search-button");
   if (searchButton) {
-    // Rimuovi eventuali listener esistenti per sicurezza
     searchButton.replaceWith(searchButton.cloneNode(true));
     
-    // Ottieni il riferimento al nuovo elemento clonato
     const newSearchButton = document.getElementById("search-button");
     
-    // Aggiungi il listener al pulsante di ricerca esistente
     newSearchButton.addEventListener("click", () => {
       performSearch();
-      goToNextMatch(); // Vai al primo match quando si clicca il pulsante
+      goToNextMatch();
     });
   }
 
@@ -917,20 +976,27 @@ window.addEventListener("DOMContentLoaded", () => {
     toggleSearchPanel(false);
   });
 
-  // Gestione scorciatoia da tastiera Ctrl+F
   document.addEventListener("keydown", (e) => {
-    // Ctrl+F per aprire la ricerca
     if (e.ctrlKey && e.key === "f") {
-      e.preventDefault(); // Previeni il comportamento predefinito del browser
+      e.preventDefault();
       toggleSearchPanel(true);
     }
+
+    if (e.ctrlKey && e.key === "l") {
+      e.preventDefault();
+      insertMarkdownLink();
+    }
+
+
+    if (e.ctrlKey && e.key === "h") {
+      e.preventDefault();
+      formatAsCode();
+    }
     
-    // ESC per chiudere la ricerca
     if (e.key === "Escape" && !document.getElementById("search-container").classList.contains("hidden")) {
       toggleSearchPanel(false);
     }
     
-    // Enter per andare al prossimo risultato
     if (e.key === "Enter" && !document.getElementById("search-container").classList.contains("hidden")) {
       if (e.shiftKey) {
         goToPreviousMatch();
@@ -940,11 +1006,9 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
   
-  // Ricevi il messaggio per aprire la ricerca
   ipcRenderer.on("open-search", () => {
     toggleSearchPanel(true);
   });
 
-
-
+  setupExternalLinks();
 });

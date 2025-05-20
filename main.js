@@ -151,7 +151,7 @@ function createWindow() {
       submenu: [
         {
           label: "Explorer",
-          accelerator: "CmdOrCtrl+L",
+          accelerator: "CmdOrCtrl+R",
           click: () => {
             win.webContents.send("toggle-explorer");
           }
