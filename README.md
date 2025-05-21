@@ -120,9 +120,6 @@ Stay focused on writing — Mark will take care of the formatting.
 
 Wanna help out? Here’s what still needs love:
 
-- 📂 **Image path handling**  
-Right now, image paths are global — would be better if they were relative to the project folder.
-
 - 🔍 **Text search**  
 The current search is super basic. It needs smarter matching, maybe even fuzzy search or highlights.
 

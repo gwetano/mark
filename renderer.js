@@ -337,47 +337,61 @@ window.addEventListener("DOMContentLoaded", () => {
     const raw = editor.value;
 
     const scrollPercent = preview.scrollTop / (preview.scrollHeight - preview.clientHeight);
-  
     let html = marked.parse(raw, {
       highlight: (code, lang) => {
         return hljs.highlightAuto(code).value;
       }
     });
-  
+
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+
+    const imgs = tempDiv.querySelectorAll('img');
+    imgs.forEach(img => {
+      const src = img.getAttribute('src');
+      if (src && !src.match(/^(?:[a-z]+:)?\/\//i) && currentFilePath) {
+        const folder = path.dirname(currentFilePath);
+        const absolutePath = path.resolve(folder, src);
+        const fileUrl = 'file://' + absolutePath.replace(/\\/g, '/');
+        img.setAttribute('src', fileUrl);
+      }
+    });
+
+    html = tempDiv.innerHTML;
+
     html = html.replace(/<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/g, (match, code) => {
       return `<div class="mermaid">${code}</div>`;
     });
-  
+
     preview.innerHTML = html;
 
     const newScrollTop = scrollPercent * (preview.scrollHeight - preview.clientHeight);
     preview.scrollTop = newScrollTop;
 
-
     const codeBlocks = preview.querySelectorAll('pre code');
     codeBlocks.forEach(codeBlock => {
       codeBlock.classList.add('clickable-code');
       codeBlock.title = 'Click to copy the code';
-      codeBlock.addEventListener('click', function() {
+      codeBlock.addEventListener('click', function () {
         const text = this.textContent;
-        
+
         navigator.clipboard.writeText(text)
           .then(() => {
             const originalBg = this.style.backgroundColor;
             this.style.backgroundColor = '#4CAF50';
-            
+
             setTimeout(() => {
               this.style.backgroundColor = originalBg;
             }, 500);
-            
+
             const notification = document.createElement('div');
             notification.className = 'copy-notification';
             notification.textContent = 'Copied!';
             notification.style.position = 'absolute';
             notification.style.top = `${window.scrollY + this.getBoundingClientRect().top - 30}px`;
-            notification.style.left = `${window.scrollX + this.getBoundingClientRect().left + this.offsetWidth/2}px`;
+            notification.style.left = `${window.scrollX + this.getBoundingClientRect().left + this.offsetWidth / 2}px`;
             document.body.appendChild(notification);
-            
+
             setTimeout(() => {
               document.body.removeChild(notification);
             }, 1500);
@@ -386,10 +400,10 @@ window.addEventListener("DOMContentLoaded", () => {
             console.error('Errore durante la copia: ', err);
           });
       });
-    });  
-  
+    });
+
     mermaid.init(undefined, ".mermaid");
-  
+
     if (window.renderMathInElement) {
       renderMathInElement(preview, {
         delimiters: [
@@ -397,22 +411,22 @@ window.addEventListener("DOMContentLoaded", () => {
           { left: "$", right: "$", display: false }
         ],
         throwOnError: false,
-        output: 'html',    
-        trust: true,      
-        macros: {       
-          "\\eqref": "\\href{#1}{}", 
+        output: 'html',
+        trust: true,
+        macros: {
+          "\\eqref": "\\href{#1}{}",
         }
       });
-    
+
       const katexDisplays = preview.querySelectorAll('.katex-display');
       katexDisplays.forEach(display => {
         display.style.overflowX = 'auto';
         display.style.maxWidth = '100%';
       });
-    
+
       const katexInlines = preview.querySelectorAll('.katex');
       katexInlines.forEach(inline => {
-        if (!inline.closest('.katex-display')) { 
+        if (!inline.closest('.katex-display')) {
           inline.style.maxWidth = '100%';
           inline.style.whiteSpace = 'normal';
         }
@@ -813,8 +827,8 @@ window.addEventListener("DOMContentLoaded", () => {
           
           fs.writeFileSync(imagePath, buffer);
           
-          const relativeImagePath = path.relative(path.dirname(currentFilePath), imagePath).replace(/\\/g, "/");
-          const markdownImage = `![immagine](${imagePath})`;
+          const relativeImagePath = path.relative(folderPath, imagePath).replace(/\\/g, "/");
+          const markdownImage = `![immagine](${relativeImagePath})`;
 
           const start = editor.selectionStart;
           const end = editor.selectionEnd;
@@ -881,44 +895,43 @@ window.addEventListener("DOMContentLoaded", () => {
         title: 'File non salvato',
         message: 'Per inserire un\'immagine, devi prima salvare il file.'
       });
-      
+
       const file = dialog.showSaveDialogSync({
         filters: [{ name: "Markdown", extensions: ["md"] }]
       });
-      
+
       if (!file) return;
-      
+
       fs.writeFileSync(file, editor.value, "utf8");
       currentFilePath = file;
       setDirty(false);
     }
-    
-    const fileName = path.basename(imagePath);
-    
+
+    let fileName = path.basename(imagePath);
+    fileName = fileName.replace(/\s+/g, '_');
+
     const folderPath = path.dirname(currentFilePath);
     const destDir = path.join(folderPath, "images");
+    if (!fs.existsSync(destDir)) fs.mkdirSync(destDir);
+
     const destPath = path.join(destDir, fileName);
-    
+
     if (imagePath !== destPath) {
       fs.copyFileSync(imagePath, destPath);
     }
-    
-    const relativeImagePath = path.relative(folderPath, destPath);
-    
+    const relativeImagePath = path.relative(folderPath, destPath).replace(/\\/g, '/');
     const cursorPos = editor.selectionStart;
     const textBefore = editor.value.substring(0, cursorPos);
     const textAfter = editor.value.substring(cursorPos);
-    const imageTag = `![${fileName}](${destPath.replace(/\\/g, '/')})`;
-    
+    const imageTag = `![${fileName}](${relativeImagePath})`;
     editor.value = textBefore + imageTag + textAfter;
-    
     updatePreview();
     updateWordCount();
     setDirty(true);
-    
     editor.focus();
     editor.selectionStart = editor.selectionEnd = cursorPos + imageTag.length;
   });
+
 
   ipcRenderer.on("paste-image-from-clipboard", () => {
     editor.dispatchEvent(new ClipboardEvent('paste', {
