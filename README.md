@@ -7,7 +7,7 @@
 I needed something that could open folders, read .md files, and save. Nothing more. To get a working product as fast as possible, **most of the features in this project were generated with ChatGPT.**  
 My job was mostly about keeping it consistent, understanding how stuff worked, and fixing the code.
 
-⚡ It’s vibe-coded. Not over-engineered.  
+⚡ It’s vibe-coded.    
 ⚙️ Built with JavaScript
 
 ***
@@ -35,7 +35,6 @@ cd mark
 
 ### Linux
 ```bash
-npm install
 bash install.sh
 ```
 ### Windows
@@ -114,7 +113,7 @@ You can still get the most out of Mark even if you don’t know Markdown syntax.
 - **Ctrl+ H**: Code (inline for selected text, multiline if not selected)
 - **Ctrl+L**: Link
 
-Stay focused on writing — we'll take care of the formatting.
+Stay focused on writing — Mark will take care of the formatting.
 
 ***
 ## 🛠️ Things to Improve

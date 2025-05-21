@@ -1,3 +1,4 @@
+
 @font-face {
   font-family: "JetBrains Mono";
   src: url("./fonts/JetBrainsMono-Regular.ttf") format("truetype");
@@ -186,21 +187,21 @@ body {
 
 pre {
   max-width: 100%;
-  margin-right: 10px;         /* Aggiunge spazio a destra */
-  margin-left: 10px;          /* Aggiunge spazio a sinistra per consistenza */
-  box-sizing: border-box;     /* Assicura che padding e bordi siano inclusi nella larghezza */
+  margin-right: 10px;        
+  margin-left: 10px;          
+  box-sizing: border-box;    
 }
 
 pre code {
   display: block;
   padding: 10px;
-  white-space: pre-wrap;      /* Forza l'andare a capo */
-  word-wrap: break-word;      /* Permette il wrapping delle parole lunghe */
-  overflow-wrap: break-word;  /* Gestisce il wrapping per parole molto lunghe */
-  word-break: break-word;     /* Rompe le parole quando necessario */
-  width: 100%;                /* Imposta larghezza al 100% del contenitore */
-  box-sizing: border-box;     /* Assicura che padding e bordi siano inclusi nella larghezza */
-  border-radius: 4px;         /* Angoli arrotondati per estetica */
+  white-space: pre-wrap;
+  word-wrap: break-word;      
+  overflow-wrap: break-word; 
+  word-break: break-word;     
+  width: 100%;                
+  box-sizing: border-box;    
+  border-radius: 4px;         
 }
 
 code {
@@ -251,7 +252,6 @@ code {
   padding: 10px;
 }
 
-/* Dark mode */
 body.dark {
   --editor-bg: #1f1f1f;
   --preview-bg: #080808;
@@ -269,12 +269,10 @@ body.dark {
   max-width: 100%;
 }
 
-/* Explorer visibility toggle */
 #explorer-panel.hidden {
   display: none;
 }
 
-/* Stile per le immagini nel preview */
 #preview img {
   max-width: 100%;
   height: auto;
@@ -282,7 +280,6 @@ body.dark {
   margin: 1rem 0;
 }
 
-/* Stile per i blocchi di codice cliccabili */
 .clickable-code {
   cursor: pointer;
   position: relative;
@@ -302,7 +299,6 @@ body.dark {
   opacity: 0.7;
 }
 
-/* Stile per la notifica di copiato */
 .copy-notification {
   background-color: rgba(0, 0, 0, 0.8);
   color: white;
@@ -322,13 +318,11 @@ body.dark {
   100% { opacity: 0; }
 }
 
-/* Stile specifico per il codice quando viene copiato */
 body.dark .clickable-code:active,
 .clickable-code:active {
   background-color: rgba(76, 175, 80, 0.3) !important;
 }
 
-/* Stile per il container di ricerca */
 #search-container {
   position: fixed;
   top: 76px;
@@ -384,7 +378,6 @@ body.dark .clickable-code:active,
   text-align: center;
 }
 
-/* Stile per evidenziare i risultati di ricerca */
 .search-highlight {
   background-color: #ffeb3b;
   color: black;
@@ -395,24 +388,18 @@ body.dark .clickable-code:active,
   color: black;
 }
 
-/* Aggiungi questo CSS alla fine del tuo file style.css */
-
-/* Assicura che le formule matematiche si adattino alla larghezza disponibile */
 .katex-display {
   max-width: 100%;
   overflow: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
-  padding-bottom: 5px; /* Spazio per la scrollbar orizzontale */
+  padding-bottom: 5px; 
 }
-
-/* Per le formule inline, assicura che vadano a capo appropriatamente */
 .katex {
   max-width: 100%;
   white-space: normal;
 }
 
-/* Rendi la scrollbar più sottile e discreta */
 .katex-display::-webkit-scrollbar {
   height: 4px;
 }
@@ -422,14 +409,13 @@ body.dark .clickable-code:active,
   border-radius: 2px;
 }
 
-/* Aiuta il wrapping delle formule molto lunghe */
 .katex-html {
   white-space: normal;
 }
 
-/* Aggiunta per migliorare la visualizzazione su diverse dimensioni dello schermo */
 @media screen and (max-width: 768px) {
   .katex-display {
     font-size: 0.9em;
   }
 }
+

@@ -2,10 +2,16 @@ const { ipcRenderer, remote, shell } = require("electron");
 const fs = require("fs");
 const path = require("path");
 const { dialog } = require("@electron/remote");
-let isSyncingScroll = false;
 let currentFilePath = null;
 let isDirty = false;
 let currentFolderPath = null;
+let isSyncingScroll = false;
+let userIsScrollingEditor = false;
+let userIsScrollingPreview = false;
+let scrollTimeoutEditor = null;
+let scrollTimeoutPreview = null;
+
+const SCROLL_DEBOUNCE_DELAY = 200;
 
 function debounce(func, delay) {
    let timeout;
@@ -31,7 +37,6 @@ document.getElementById("toggle-preview").addEventListener("click", () => {
     editor.style.width = '100%';
   }
   
-  // Ricalcola le altezze dopo il toggle
   setTimeout(calculateLineHeights, 100);
 });
 
@@ -40,11 +45,9 @@ document.getElementById("toggle-explorer").addEventListener("click", () => {
   explorerPanel.classList.toggle("hidden");
 });
 
-// Funzionalità di ricerca
 let searchMatches = [];
 let currentMatchIndex = -1;
 
-// Aggiorna la funzione toggleSearchPanel per ripulire la ricerca
 function toggleSearchPanel(show = true) {
   const searchContainer = document.getElementById("search-container");
   if (show) {
@@ -59,13 +62,11 @@ function toggleSearchPanel(show = true) {
   }
 }
 
-// Gestione della ricerca
 function performSearch() {
   const searchTerm = document.getElementById("search-input").value;
   const editor = document.getElementById("editor");
   const text = editor.value;
   
-  // Pulisci le evidenziazioni precedenti
   clearSearchHighlights();
   
   if (!searchTerm) {
@@ -74,7 +75,6 @@ function performSearch() {
     return;
   }
   
-  // Trova tutte le occorrenze
   searchMatches = [];
   let match;
   const regex = new RegExp(escapeRegExp(searchTerm), "gi");
@@ -86,17 +86,14 @@ function performSearch() {
     });
   }
   
-  // Aggiorna il contatore dei risultati
   updateSearchResultsCounter();
   
-  // Vai al primo risultato se ce ne sono
   if (searchMatches.length > 0) {
     currentMatchIndex = 0;
     navigateToMatch(currentMatchIndex);
   }
 }
 
-// Funzione per navigare al match precedente
 function goToPreviousMatch() {
   if (searchMatches.length === 0) return;
   
@@ -104,7 +101,6 @@ function goToPreviousMatch() {
   navigateToMatch(currentMatchIndex);
 }
 
-// Funzione per navigare al match successivo
 function goToNextMatch() {
   if (searchMatches.length === 0) return;
   
@@ -112,21 +108,15 @@ function goToNextMatch() {
   navigateToMatch(currentMatchIndex);
 }
 
-// Funzione migliorata per evidenziare e navigare al match corrente
 function navigateToMatch(index) {
   const editor = document.getElementById("editor");
   const match = searchMatches[index];
   
   if (!match) return;
   
-  // Seleziona il testo corrispondente
   editor.focus();
   editor.setSelectionRange(match.start, match.end);
   
-  // Per calcolare la posizione esatta del match nel testo:
-  // 1. Crea un elemento temporaneo che rispecchi le proprietà dell'editor
-  // 2. Inserisci solo il testo fino al match
-  // 3. Misura l'altezza di questo testo
   const temp = document.createElement('textarea');
   temp.style.position = 'absolute';
   temp.style.left = '-9999px';
@@ -142,26 +132,18 @@ function navigateToMatch(index) {
   temp.style.border = window.getComputedStyle(editor).border;
   temp.style.boxSizing = window.getComputedStyle(editor).boxSizing;
   
-  // Inserisci il testo fino al match
   temp.value = editor.value.substring(0, match.start);
   document.body.appendChild(temp);
   
-  // Calcola la posizione esatta (l'altezza del testo fino al match)
   const matchPosition = temp.scrollHeight;
   
-  // Rimuovi l'elemento temporaneo
   document.body.removeChild(temp);
   
-  // Scorri l'editor in modo che il match sia visibile al centro
-  // Usa scrollIntoView se disponibile, altrimenti posiziona manualmente
   try {
-    // Calcola la posizione di scorrimento
     const scrollPosition = matchPosition - (editor.clientHeight / 2);
     
-    // Assicurati che la posizione non sia negativa
     editor.scrollTop = Math.max(0, scrollPosition);
     
-    // Opzionale: aggiungi un effetto per rendere visibile il match
     const origBackground = editor.style.background;
     const origTransition = editor.style.transition;
     
@@ -175,45 +157,36 @@ function navigateToMatch(index) {
   } catch (e) {
     console.error("Errore nel calcolo della posizione di scorrimento:", e);
     
-    // Fallback alla vecchia logica come piano B
     const textBeforeMatch = editor.value.substring(0, match.start);
     const lineBreaks = textBeforeMatch.split("\n").length - 1;
     
-    // Calcola l'altezza della riga in modo dinamico
     const computedLineHeight = parseInt(window.getComputedStyle(editor).lineHeight) || 20;
     const scrollPosition = lineBreaks * computedLineHeight;
     editor.scrollTop = scrollPosition - editor.clientHeight / 2;
   }
   
-  // Aggiorna il contatore
   updateSearchResultsCounter();
 }
 
-// Funzione per calcolare l'altezza delle righe in base al contenuto effettivo
 function calculateLineHeights() {
   const editor = document.getElementById('editor');
   if (!editor) return;
   
-  // Ottieni lo stile calcolato dell'editor
   const style = window.getComputedStyle(editor);
   const lineHeight = parseFloat(style.lineHeight);
   
-  // Se lineHeight è in pixel, usa direttamente quel valore
   if (!isNaN(lineHeight)) {
     editor.dataset.lineHeight = lineHeight;
     return lineHeight;
   }
   
-  // Altrimenti, calcola in base all'altezza del font
   const fontSize = parseFloat(style.fontSize);
   if (!isNaN(fontSize)) {
-    // lineHeight normale è generalmente circa 1.2 volte la dimensione del font
     const calculatedLineHeight = fontSize * 1.2;
     editor.dataset.lineHeight = calculatedLineHeight;
     return calculatedLineHeight;
   }
   
-  // Fallback a un valore di default
   editor.dataset.lineHeight = 20;
   return 20;
 }
@@ -280,36 +253,32 @@ function setupExternalLinks() {
   });
 }
 
-  function insertMarkdownLink() {
-    const editor = document.getElementById("editor");
-    const start = editor.selectionStart;
-    const end = editor.selectionEnd;
+function insertMarkdownLink() {
+  const editor = document.getElementById("editor");
+  const start = editor.selectionStart;
+  const end = editor.selectionEnd;
+  
+  if (start !== end) {
+    const selectedText = editor.value.substring(start, end);
+    const linkText = `[${selectedText}](insert your link...)`;
     
-    if (start !== end) {
-      // Testo selezionato: lo trasforma in [testo selezionato](insert your link...)
-      const selectedText = editor.value.substring(start, end);
-      const linkText = `[${selectedText}](insert your link...)`;
-      
-      editor.value = editor.value.substring(0, start) + linkText + editor.value.substring(end);
-      
-      const cursorPos = start + selectedText.length + 3;
-      editor.setSelectionRange(cursorPos, cursorPos + 19); // Seleziona "insert your link..."
-      
-      updatePreview();
-      setDirty(true);
-    } else {
-      // Nessun testo selezionato: inserisce un template vuoto
-      const linkText = "[](insert your link...)";
-      
-      editor.value = editor.value.substring(0, start) + linkText + editor.value.substring(end);
-      editor.setSelectionRange(start + 1, start + 1);
-      
-      updatePreview();
-      setDirty(true);
-    }
+    editor.value = editor.value.substring(0, start) + linkText + editor.value.substring(end);
+    
+    const cursorPos = start + selectedText.length + 3;
+    editor.setSelectionRange(cursorPos, cursorPos + 19); // Seleziona "insert your link..."
+    
+    updatePreview();
+    setDirty(true);
+  } else {
+    const linkText = "[](insert your link...)";
+    
+    editor.value = editor.value.substring(0, start) + linkText + editor.value.substring(end);
+    editor.setSelectionRange(start + 1, start + 1);
+    
+    updatePreview();
+    setDirty(true);
   }
-
-
+}
 
 window.addEventListener("DOMContentLoaded", () => {
   const editor = document.getElementById("editor");
@@ -366,6 +335,8 @@ window.addEventListener("DOMContentLoaded", () => {
 
   const updatePreview = () => {
     const raw = editor.value;
+
+    const scrollPercent = preview.scrollTop / (preview.scrollHeight - preview.clientHeight);
   
     let html = marked.parse(raw, {
       highlight: (code, lang) => {
@@ -379,30 +350,29 @@ window.addEventListener("DOMContentLoaded", () => {
   
     preview.innerHTML = html;
 
+    const newScrollTop = scrollPercent * (preview.scrollHeight - preview.clientHeight);
+    preview.scrollTop = newScrollTop;
+
+
     const codeBlocks = preview.querySelectorAll('pre code');
     codeBlocks.forEach(codeBlock => {
       codeBlock.classList.add('clickable-code');
-      codeBlock.title = 'Clicca per copiare il codice';
+      codeBlock.title = 'Click to copy the code';
       codeBlock.addEventListener('click', function() {
-        // Ottieni il testo non formattato (senza la formattazione HTML)
         const text = this.textContent;
         
-        // Copia negli appunti
         navigator.clipboard.writeText(text)
           .then(() => {
-            // Mostra feedback visivo temporaneo
             const originalBg = this.style.backgroundColor;
             this.style.backgroundColor = '#4CAF50';
             
-            // Ripristina lo sfondo originale dopo 500ms
             setTimeout(() => {
               this.style.backgroundColor = originalBg;
             }, 500);
             
-            // Opzionale: mostra un tooltip o notifica
             const notification = document.createElement('div');
             notification.className = 'copy-notification';
-            notification.textContent = 'Copiato!';
+            notification.textContent = 'Copied!';
             notification.style.position = 'absolute';
             notification.style.top = `${window.scrollY + this.getBoundingClientRect().top - 30}px`;
             notification.style.left = `${window.scrollX + this.getBoundingClientRect().left + this.offsetWidth/2}px`;
@@ -427,10 +397,10 @@ window.addEventListener("DOMContentLoaded", () => {
           { left: "$", right: "$", display: false }
         ],
         throwOnError: false,
-        output: 'html',    // Usa l'output HTML per migliore controllo
-        trust: true,       // Necessario per alcune operazioni avanzate
-        macros: {          // Macros personalizzate se necessarie
-          "\\eqref": "\\href{#1}{}",  // esempio
+        output: 'html',    
+        trust: true,      
+        macros: {       
+          "\\eqref": "\\href{#1}{}", 
         }
       });
     
@@ -442,7 +412,7 @@ window.addEventListener("DOMContentLoaded", () => {
     
       const katexInlines = preview.querySelectorAll('.katex');
       katexInlines.forEach(inline => {
-        if (!inline.closest('.katex-display')) { // Solo per formule veramente inline
+        if (!inline.closest('.katex-display')) { 
           inline.style.maxWidth = '100%';
           inline.style.whiteSpace = 'normal';
         }
@@ -481,7 +451,7 @@ window.addEventListener("DOMContentLoaded", () => {
       const start = this.selectionStart;
       const end = this.selectionEnd;
       
-      if (start === end) return; // Nessuna selezione, non fare nulla
+      if (start === end) return;
       
       const selectedText = this.value.substring(start, end);
       const textBefore = this.value.substring(0, start);
@@ -533,28 +503,45 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Sincronizzazione dello scroll
+
   editor.addEventListener('scroll', () => {
     if (isSyncingScroll) return;
-    isSyncingScroll = true;
-    
-    const scrollPercent = editor.scrollTop / (editor.scrollHeight - editor.clientHeight);
-    preview.scrollTop = scrollPercent * (preview.scrollHeight - preview.clientHeight);
-    
-    setTimeout(() => { isSyncingScroll = false; }, 100);
+
+    userIsScrollingEditor = true;
+    clearTimeout(scrollTimeoutEditor);
+    scrollTimeoutEditor = setTimeout(() => {
+      userIsScrollingEditor = false;
+    }, SCROLL_DEBOUNCE_DELAY);
+
+    if (!userIsScrollingPreview) {
+      isSyncingScroll = true;
+
+      const scrollPercent = editor.scrollTop / (editor.scrollHeight - editor.clientHeight);
+      preview.scrollTop = scrollPercent * (preview.scrollHeight - preview.clientHeight);
+
+      setTimeout(() => { isSyncingScroll = false; }, 50);
+    }
   });
-  
+
   preview.addEventListener('scroll', () => {
     if (isSyncingScroll) return;
-    isSyncingScroll = true;
-    
-    const scrollPercent = preview.scrollTop / (preview.scrollHeight - preview.clientHeight);
-    editor.scrollTop = scrollPercent * (editor.scrollHeight - editor.clientHeight);
-    
-    setTimeout(() => { isSyncingScroll = false; }, 100);
+
+    userIsScrollingPreview = true;
+    clearTimeout(scrollTimeoutPreview);
+    scrollTimeoutPreview = setTimeout(() => {
+      userIsScrollingPreview = false;
+    }, SCROLL_DEBOUNCE_DELAY);
+
+    if (!userIsScrollingEditor) {
+      isSyncingScroll = true;
+
+      const scrollPercent = preview.scrollTop / (preview.scrollHeight - preview.clientHeight);
+      editor.scrollTop = scrollPercent * (editor.scrollHeight - editor.clientHeight);
+
+      setTimeout(() => { isSyncingScroll = false; }, 50);
+    }
   });
   
-  // Gestione input editor
   const debouncedUpdate = debounce(() => {
     updatePreview();
     updateWordCount();
