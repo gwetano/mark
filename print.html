@@ -45,7 +45,6 @@
       overflow-wrap: break-word;
       word-break: break-word;
       text-align: left;
-      /* Evita interruzioni di pagina in mezzo ai blocchi di codice */
       break-inside: avoid;
     }
     code {
@@ -64,14 +63,12 @@
       padding: 0;
     }
     img {
-      max-width: 70%; /* Ridotto dal precedente 80% */
+      max-width: 70%;
       height: auto;
       display: block;
       margin: 1em auto;
-      /* Classe aggiunta dal JavaScript - non modificare direttamente qui */
     }
     
-    /* Classi per dimensione personalizzata delle immagini */
     img.img-small {
       max-width: 40%;
     }
@@ -97,14 +94,12 @@
       padding-left: 1em;
       border-left: 4px solid #ddd;
       color: #3b3b3b;
-      /* Evita interruzioni di pagina in mezzo alle citazioni */
       break-inside: avoid;
     }
     table {
       border-collapse: collapse;
       width: 100%;
       margin: 16px 0;
-      /* Evita interruzioni di pagina in mezzo alle tabelle */
       break-inside: avoid;
     }
     table th, table td {
@@ -122,7 +117,6 @@
       word-wrap: break-word;
       overflow-wrap: break-word;
       word-break: break-word;
-      /* Evita che i titoli appaiano alla fine di una pagina */
       break-after: avoid-page;
       page-break-after: avoid;
     }
@@ -141,7 +135,6 @@
     .mermaid {
       text-align: center;
       margin: 1em 0;
-      /* Evita interruzioni di pagina in mezzo ai diagrammi */
       break-inside: avoid;
     }
     .katex { font-size: 1.1em; }
@@ -164,10 +157,72 @@
       word-break: break-word;
     }
 
-    /* Nascondi il codice sorgente KaTeX */
     .katex-src { display: none; }
+
+    .table-of-contents {
+      margin-bottom: 2em;
+      page-break-after: avoid;
+    }
+
+    .table-of-contents h2 {
+      font-size: 1.5em;
+      margin-bottom: 1em;
+      color: #333;
+    }
+
+    .toc-list {
+      list-style: none;
+      padding-left: 0;
+      margin: 0;
+    }
+
+    .toc-sublist {
+      list-style: none;
+      padding-left: 1.5em;
+      margin: 0.5em 0;
+    }
+
+    .toc-item {
+      margin: 0.3em 0;
+      line-height: 1.4;
+    }
+
+    .toc-link {
+      color: #0366d6;
+      text-decoration: none;
+      display: block;
+      padding: 0.2em 0;
+    }
+
+    .toc-link:hover {
+      text-decoration: underline;
+    }
+
+    .toc-level-1 .toc-link {
+      font-weight: 600;
+      font-size: 1em;
+    }
+
+    .toc-level-2 .toc-link {
+      font-weight: 500;
+      font-size: 0.95em;
+    }
+
+    .toc-level-3 .toc-link {
+      font-weight: normal;
+      font-size: 0.9em;
+    }
+
+    .toc-level-4, .toc-level-5, .toc-level-6 {
+      font-size: 0.85em;
+    }
+
+    .toc-separator {
+      margin: 2em 0;
+      border: none;
+      border-top: 1px solid #ddd;
+    }
     
-    /* Stili di stampa specifici per PDF */
     @media print {
       body {
         height: auto;
@@ -176,19 +231,19 @@
       .markdown-body {
         height: auto;
       }
-      /* Regole per un miglior controllo del layout di stampa */
       .page-break {
         page-break-before: always;
         break-before: page;
       }
-      /* Previene separazione di elementi che dovrebbero stare insieme */
       li {
         break-inside: avoid;
       }
-      /* Previene che le immagini vengano tagliate tra pagine */
       figure, img {
         break-inside: avoid;
         page-break-inside: avoid;
+      }
+      .table-of-contents {
+        page-break-after: always;
       }
     }
   </style>
@@ -219,29 +274,99 @@
           sizeClass = 'img-full';
           alt = originalAlt.replace('[full]', '').trim();
         } else {
-          return match; // Nessuna modifica
+          return match;
         }
 
-        // Rimuove classi esistenti
         rest = rest.replace(/\s*class="[^"]*"/gi, '');
 
         return `<img src="${src}" alt="${alt}" class="${sizeClass}"${rest}>`;
       });
     }
+
+    function generateTableOfContentsForPDF(content) {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = content;
+      
+      const firstNode = tempDiv.firstChild;
+      let hasTOCMarker = false;
+      
+      if (firstNode && firstNode.nodeType === Node.COMMENT_NODE && 
+          firstNode.textContent.trim().match(/^\s*TOC\s*$/i)) {
+        hasTOCMarker = true;
+        firstNode.remove();
+      }
+      
+      if (!hasTOCMarker) {
+        return content;
+      }
+      
+      const headings = tempDiv.querySelectorAll('h1, h2, h3, h4, h5, h6');
+      
+      if (headings.length === 0) {
+        return tempDiv.innerHTML;
+      }
+      
+      let tocHTML = '<div class="table-of-contents"><h2>Indice</h2><ul class="toc-list">';
+      
+      let currentLevel = 0;
+      let openLists = 0;
+      
+      headings.forEach((heading, index) => {
+        const level = parseInt(heading.tagName.substring(1));
+        const title = heading.textContent;
+        const anchor = `heading-${index}`;
+        
+        heading.id = anchor;
+        
+        if (level > currentLevel) {
+          while (currentLevel < level) {
+            if (currentLevel > 0) {
+              tocHTML += '<ul class="toc-sublist">';
+              openLists++;
+            }
+            currentLevel++;
+          }
+        } else if (level < currentLevel) {
+          while (currentLevel > level) {
+            if (openLists > 0) {
+              tocHTML += '</ul>';
+              openLists--;
+            }
+            currentLevel--;
+          }
+        }
+        
+        const indent = level - 1;
+        tocHTML += `<li class="toc-item toc-level-${level}">
+          <a href="#${anchor}" class="toc-link">${title}</a>
+        </li>`;
+      });
+      
+      while (openLists > 0) {
+        tocHTML += '</ul>';
+        openLists--;
+      }
+      
+      tocHTML += '</ul><hr class="toc-separator"></div>';
+      
+      tempDiv.innerHTML = tocHTML + tempDiv.innerHTML;
+      
+      return tempDiv.innerHTML;
+    }
     
     ipcRenderer.on('print-content', (event, content) => {
-      // Processa immagini per dimensionamento
-      const processedContent = processMdImage(content);
+      let processedContent = generateTableOfContentsForPDF(content);
+      
+      processedContent = processMdImage(processedContent);
       document.getElementById('content').innerHTML = processedContent;
       
-      // Rimuovi i codici sorgente KaTeX che potrebbero apparire come testo
       const sourceElements = document.querySelectorAll('span.katex-mathml');
       sourceElements.forEach(element => {
         element.classList.add('katex-src');
       });   
       setTimeout(() => {
         ipcRenderer.send('content-ready');
-      }, 1000); // Breve ritardo per consentire il rendering di elementi complessi
+      }, 1000);
     });
   </script>
 </body>

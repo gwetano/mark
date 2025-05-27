@@ -98,6 +98,14 @@ If no tag is included, the default size will be used -> 70%.
 - **Ctrl+F**: Find text
 - **Ctrl+R**: Show/hide explorer
 
+
+### Table of Contents
+To add a Table of Contents (TOC) to your PDF export, simply add the following comment at the top of your markdown file:
+```
+<!-- TOC -->
+```
+This will generate a first page in the PDF with an index of all headings and subheadings, with clickable links that navigate to the respective section in the document.
+
 ***
 
 ## 🤷‍♂️ New to Markdown? No worries!
