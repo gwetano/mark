@@ -845,6 +845,41 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Menu contestuale personalizzato per l'editor
+
+  editor.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    
+    const { Menu, MenuItem } = require('@electron/remote');
+    const menu = new Menu();
+    
+    menu.append(new MenuItem({
+      label: 'Taglia',
+      accelerator: 'CmdOrCtrl+X',
+      click: () => {
+        document.execCommand('cut');
+      }
+    }));
+    
+    menu.append(new MenuItem({
+      label: 'Copia',
+      accelerator: 'CmdOrCtrl+C',
+      click: () => {
+        document.execCommand('copy');
+      }
+    }));
+    
+    menu.append(new MenuItem({
+      label: 'Incolla',
+      accelerator: 'CmdOrCtrl+V',
+      click: () => {
+        document.execCommand('paste');
+      }
+    }));
+    
+    menu.popup();
+  });
+
   ipcRenderer.on("load-md", (event, filePath, content) => {
     editor.value = content;
     updatePreview();
