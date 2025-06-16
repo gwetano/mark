@@ -10,6 +10,420 @@ let userIsScrollingEditor = false;
 let userIsScrollingPreview = false;
 let scrollTimeoutEditor = null;
 let scrollTimeoutPreview = null;
+const GROQ_API_KEY = '';
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+
+function showNotification(message, type = 'info') {
+  const notification = document.createElement('div');
+  notification.className = `ai-notification ${type}`;
+  notification.textContent = message;
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
+    color: white;
+    padding: 12px 20px;
+    border-radius: 4px;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    transition: opacity 0.3s ease;
+  `;
+  
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.style.opacity = '0';
+    setTimeout(() => {
+      if (notification.parentNode) {
+        document.body.removeChild(notification);
+      }
+    }, 300);
+  }, 3000);
+}
+
+
+// Funzione per chiamare l'API Groq
+async function queryGroqAI(selectedText, query) {
+  if (!GROQ_API_KEY) {
+    showNotification('Chiave API Groq mancante. Configurala dal menu AI.', 'error');
+    return null;
+  }
+
+  const prompt = `Testo selezionato: "${selectedText}"
+
+Query utente: ${query}
+
+Fornisci una risposta utile e precisa basata sul testo selezionato. Se la query non è correlata al testo, fornisci comunque una risposta informativa.`;
+
+  try {
+    const response = await fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile', // Modello gratuito di Groq
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: 1000,
+        temperature: 0.7
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`API Error: ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+      return data.choices[0]?.message?.content || 'Nessuna risposta ricevuta.';
+    } catch (error) {
+      console.error('Errore API Groq:', error);
+      showNotification(`Errore: ${error.message}`, 'error');
+      return null;
+    }
+  }
+
+  // Funzione per mostrare la finestra di ricerca AI con il tasto "Invio" accanto al campo
+function showAISearchDialog(selectedText) {
+  // Rimuovi dialog esistente se presente
+  const existingDialog = document.getElementById('ai-search-dialog');
+  if (existingDialog) {
+    existingDialog.remove();
+  }
+
+  const dialog = document.createElement('div');
+  dialog.id = 'ai-search-dialog';
+  dialog.innerHTML = `
+    <div class="ai-dialog-overlay">
+      <div class="ai-dialog-content">
+        <div class="ai-dialog-header">
+          <h3>Ricerca AI</h3>
+          <button class="ai-dialog-close">✕</button>
+        </div>
+        <div class="ai-dialog-body">
+          <div class="ai-selected-text">
+            <strong>Testo selezionato:</strong>
+            <div class="selected-text-preview">${selectedText.substring(0, 200)}${selectedText.length > 200 ? '...' : ''}</div>
+          </div>
+          <div class="ai-query-section">
+            <label for="ai-query-input">Cosa vuoi sapere su questo testo?</label>
+            <div class="ai-query-wrapper">
+              <input type="text" id="ai-query-input" placeholder="es. Spiega questo concetto, Traduci in inglese..." />
+              <button id="ai-submit-btn" class="ai-primary-btn">Invio</button>
+            </div>
+            <!-- Aggiunta dei blocchi rotondi -->
+            <div class="ai-blocks">
+              <button class="ai-block" id="explain-btn">Spiega</button>
+              <button class="ai-block" id="translate-btn">Traduci</button>
+              <button class="ai-block" id="correct-btn">Correggi</button>
+            </div>
+          </div>
+          <div id="ai-response-section" class="ai-response-section hidden">
+            <div class="ai-response-header">
+              <strong>Risposta AI:</strong>
+            </div>
+            <div id="ai-response-content" class="ai-response-content"></div>
+          </div>
+          <div id="ai-loading" class="ai-loading hidden">
+            <div class="ai-spinner"></div>
+            <span>Elaborazione in corso...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Aggiungi stili CSS
+  const style = document.createElement('style');
+  style.textContent = `
+    .ai-dialog-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+    }
+
+    .ai-dialog-content {
+      background: var(--bg-color, #fff);
+      border-radius: 8px;
+      width: 90%;
+      max-width: 600px;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .ai-dialog-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      border-bottom: 1px solid var(--border-color, #ddd);
+    }
+
+    .ai-dialog-header h3 {
+      margin: 0;
+      color: var(--text-color, #333);
+    }
+
+    .ai-dialog-close {
+      background: none;
+      border: none;
+      font-size: 18px;
+      cursor: pointer;
+      padding: 5px;
+      color: var(--text-color, #666);
+    }
+
+    .ai-dialog-body {
+      padding: 20px;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+
+    .ai-selected-text {
+      margin-bottom: 20px;
+    }
+
+    .selected-text-preview {
+      background: var(--code-bg, #f5f5f5);
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 8px;
+      font-family: monospace;
+      font-size: 12px;
+      max-height: 100px;
+      overflow-y: auto;
+      color: var(--text-color, #333);
+    }
+
+    .ai-query-section {
+      margin-bottom: 20px;
+    }
+
+    .ai-query-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #ai-query-input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border-color, #ddd);
+      border-radius: 4px;
+      font-size: 14px;
+      background: var(--input-bg, #fff);
+      color: var(--text-color, #333);
+      box-sizing: border-box;
+    }
+
+    .ai-primary-btn {
+      background: #28a745;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .ai-primary-btn:hover {
+      background: #218838;
+    }
+
+    .ai-blocks {
+      margin-top: 15px;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .ai-block {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 8px 20px;
+      border-radius: 50px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.3s;
+    }
+
+    .ai-block:hover {
+      background-color: #0056b3;
+    }
+
+    .ai-response-section {
+      border-top: 1px solid var(--border-color, #ddd);
+      padding-top: 20px;
+      overflow: hidden; /* Rimuove la scrollbar */
+    }
+
+    .ai-response-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .ai-response-content {
+      background: var(--code-bg, #f8f9fa);
+      padding: 15px;
+      border-radius: 4px;
+      white-space: pre-wrap;
+      color: var(--text-color, #333);
+      line-height: 1.5;
+      cursor: pointer; /* Permette di cliccare sul contenuto per copiarlo */
+      transition: background-color 0.3s ease; /* Aggiunto effetto hover */
+    }
+
+    .ai-response-content:hover {
+      background-color: --bg-color;
+    }
+
+    .ai-loading {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 20px;
+      justify-content: center;
+    }
+
+    .ai-spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border-color, #ddd);
+      border-top: 2px solid var(--accent-color, #007bff);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* Dark mode support */
+    .dark .ai-dialog-content {
+      --bg-color: #2d2d2d;
+      --text-color: #fff;
+      --border-color: #444;
+      --code-bg: #1e1e1e;
+      --input-bg: #3d3d3d;
+      --secondary-bg: #555;
+      --accent-color: #0d6efd;
+      --accent-hover: #0b5ed7;
+    }
+  `;
+  
+  document.head.appendChild(style);
+  document.body.appendChild(dialog);
+
+  // Event listeners
+  const queryInput = document.getElementById('ai-query-input');
+  const submitBtn = document.getElementById('ai-submit-btn');
+  const explainBtn = document.getElementById('explain-btn');
+  const translateBtn = document.getElementById('translate-btn');
+  const correctBtn = document.getElementById('correct-btn');
+  const closeBtn = dialog.querySelector('.ai-dialog-close');
+  const responseSection = document.getElementById('ai-response-section');
+  const responseContent = document.getElementById('ai-response-content');
+  const loading = document.getElementById('ai-loading');
+
+  // Focus input
+  setTimeout(() => queryInput.focus(), 100);
+
+  // Assign quick action buttons to pre-fill the input field
+  explainBtn.addEventListener('click', () => queryInput.value = 'Spiega questo concetto');
+  translateBtn.addEventListener('click', () => queryInput.value = 'Traduci in inglese');
+  correctBtn.addEventListener('click', () => queryInput.value = 'Correggi eventuali errori grammaticali');
+
+  // Submit action (on click of the "Invio" button or press Enter)
+  const performAISearch = async () => {
+    const query = queryInput.value.trim();
+    if (!query) {
+      showNotification('Inserisci una domanda!', 'error');
+      return;
+    }
+
+    submitBtn.disabled = true;
+    loading.classList.remove('hidden');
+    responseSection.classList.add('hidden');
+
+    const response = await queryGroqAI(selectedText, query);
+    
+    loading.classList.add('hidden');
+    submitBtn.disabled = false;
+
+    if (response) {
+      responseContent.textContent = response;
+      responseSection.classList.remove('hidden');
+      // Scroll automatico verso il basso con scroll fluido
+      const dialogBody = dialog.querySelector('.ai-dialog-body');
+      dialogBody.scrollTo({
+        top: dialogBody.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  submitBtn.addEventListener('click', performAISearch);
+  
+  queryInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      performAISearch();
+    }
+  });
+
+  // Copia la risposta cliccando sul contenuto
+  responseContent.addEventListener('click', () => {
+    navigator.clipboard.writeText(responseContent.textContent)
+      .then(() => showNotification('Risposta copiata!', 'success'))
+      .catch(() => showNotification('Errore nella copia', 'error'));
+  });
+
+  // Close dialog
+  const closeDialog = () => {
+    dialog.remove();
+  };
+
+  closeBtn.addEventListener('click', closeDialog);
+  dialog.addEventListener('click', (e) => {
+    if (e.target === dialog.querySelector('.ai-dialog-overlay')) {
+      closeDialog();
+    }
+  });
+
+  // ESC key
+  const handleEscape = (e) => {
+    if (e.key === 'Escape') {
+      closeDialog();
+      document.removeEventListener('keydown', handleEscape);
+    }
+  };
+  document.addEventListener('keydown', handleEscape);
+}
+
 
 const SCROLL_DEBOUNCE_DELAY = 200;
 
@@ -298,7 +712,6 @@ window.addEventListener("DOMContentLoaded", () => {
   const searchCloseBtn = document.getElementById("search-close");
 
   explorerPanel.classList.add("hidden");
-
   openFolderBtn.addEventListener("click", async () => {
     const result = await dialog.showOpenDialog({
       properties: ["openDirectory"]
@@ -845,40 +1258,46 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Menu contestuale personalizzato per l'editor
-
   editor.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     
     const { Menu, MenuItem } = require('@electron/remote');
     const menu = new Menu();
     
+    const selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd).trim();
+    
     menu.append(new MenuItem({
       label: 'Taglia',
       accelerator: 'CmdOrCtrl+X',
-      click: () => {
-        document.execCommand('cut');
-      }
+      click: () => document.execCommand('cut')
     }));
     
     menu.append(new MenuItem({
       label: 'Copia',
       accelerator: 'CmdOrCtrl+C',
-      click: () => {
-        document.execCommand('copy');
-      }
+      click: () => document.execCommand('copy')
     }));
     
     menu.append(new MenuItem({
       label: 'Incolla',
       accelerator: 'CmdOrCtrl+V',
-      click: () => {
-        document.execCommand('paste');
-      }
+      click: () => document.execCommand('paste')
     }));
+    
+    if (selectedText) {
+      menu.append(new MenuItem({ type: 'separator' }));
+
+      menu.append(new MenuItem({
+        label: 'AI Tool',
+        accelerator: 'CmdOrCtrl+Shift+A',
+        click: () => showAISearchDialog(selectedText)
+      }));
+      
+    }
     
     menu.popup();
   });
+
 
   ipcRenderer.on("load-md", (event, filePath, content) => {
     editor.value = content;
