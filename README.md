@@ -138,6 +138,51 @@ The UI is intentionally minimal, but if you’ve got specific style needs, feel 
 Editor and preview should scroll together, especially in split view. This needs to be improved.
 ***
 
+## 🧠 AI Tool (Groq)
+
+Mark includes an integrated AI assistant that can help you:
+
+* Explain selected text  
+* Translate content  
+* Correct grammar mistakes  
+
+### How to Enable It
+
+To use the AI features, you'll need a **Groq API key**. Here's how to get one:
+
+1. Visit [https://console.groq.com/keys](https://console.groq.com/keys)  
+2. Sign up or log in  
+3. Click **"Generate API Key"**  
+4. Copy the key
+
+### 🔐 Secure API Key Handling
+
+To keep your Groq API key private and secure:
+
+1. Create a file called `.env.local` in the root of your project:
+```
+GROQ_API_KEY=your_actual_groq_key_here
+
+```
+
+2. Make sure `.env.local` is listed in `.gitignore` to prevent committing it:
+```
+.env.local
+```
+
+3. The app will automatically load your key at startup.
+
+**Important:** Never commit your API key to version control.
+
+### 💬 How It Works
+
+* Select any text in the editor
+* Right-click and choose AI Tool
+* Type your query (e.g. “Explain this concept”)
+* The AI will return a helpful answer in seconds
+
+***
+
 ## 📜 License
 
 Do whatever you want with it.    

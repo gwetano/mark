@@ -10,7 +10,28 @@ let userIsScrollingEditor = false;
 let userIsScrollingPreview = false;
 let scrollTimeoutEditor = null;
 let scrollTimeoutPreview = null;
-const GROQ_API_KEY = '';
+
+let GROQ_API_KEY = '';
+
+try {
+  const envPath = path.join(__dirname, '.env.local');
+  if (fs.existsSync(envPath)) {
+    const content = fs.readFileSync(envPath, 'utf8');
+    const match = content.match(/^GROQ_API_KEY=(.+)$/m);
+    if (match) {
+      GROQ_API_KEY = match[1].trim();
+      console.log('[GROQ] API key loaded from .env.local');
+    } else {
+      console.warn('[GROQ] API key not found in .env.local');
+    }
+  } else {
+    console.warn('[GROQ] .env.local not found');
+  }
+} catch (err) {
+  console.error('[GROQ] Error reading .env.local:', err);
+}
+
+
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 function showNotification(message, type = 'info') {
@@ -43,7 +64,6 @@ function showNotification(message, type = 'info') {
 }
 
 
-// Funzione per chiamare l'API Groq
 async function queryGroqAI(selectedText, query) {
   if (!GROQ_API_KEY) {
     showNotification('Chiave API Groq mancante. Configurala dal menu AI.', 'error');
@@ -54,7 +74,7 @@ async function queryGroqAI(selectedText, query) {
 
 Query utente: ${query}
 
-Fornisci una risposta utile e precisa basata sul testo selezionato. Se la query non è correlata al testo, fornisci comunque una risposta informativa.`;
+Fornisci una risposta utile e precisa basata sul testo selezionato. Se la query non è correlata al testo, fornisci comunque una risposta informativa evitando introduzioni e conclusioni.`;
 
   try {
     const response = await fetch(GROQ_API_URL, {
@@ -64,7 +84,7 @@ Fornisci una risposta utile e precisa basata sul testo selezionato. Se la query 
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile', // Modello gratuito di Groq
+        model: 'llama-3.3-70b-versatile', 
         messages: [
           {
             role: 'user',
@@ -90,9 +110,7 @@ Fornisci una risposta utile e precisa basata sul testo selezionato. Se la query 
     }
   }
 
-  // Funzione per mostrare la finestra di ricerca AI con il tasto "Invio" accanto al campo
 function showAISearchDialog(selectedText) {
-  // Rimuovi dialog esistente se presente
   const existingDialog = document.getElementById('ai-search-dialog');
   if (existingDialog) {
     existingDialog.remove();
@@ -104,36 +122,35 @@ function showAISearchDialog(selectedText) {
     <div class="ai-dialog-overlay">
       <div class="ai-dialog-content">
         <div class="ai-dialog-header">
-          <h3>Ricerca AI</h3>
+          <h3>AI Tool</h3>
           <button class="ai-dialog-close">✕</button>
         </div>
         <div class="ai-dialog-body">
           <div class="ai-selected-text">
-            <strong>Testo selezionato:</strong>
+            <strong>Selected text:</strong>
             <div class="selected-text-preview">${selectedText.substring(0, 200)}${selectedText.length > 200 ? '...' : ''}</div>
           </div>
           <div class="ai-query-section">
-            <label for="ai-query-input">Cosa vuoi sapere su questo testo?</label>
+            <label for="ai-query-input">What do you want to know about this text?</label>
             <div class="ai-query-wrapper">
               <input type="text" id="ai-query-input" placeholder="es. Spiega questo concetto, Traduci in inglese..." />
-              <button id="ai-submit-btn" class="ai-primary-btn">Invio</button>
+              <button id="ai-submit-btn" class="ai-primary-btn">Send</button>
             </div>
-            <!-- Aggiunta dei blocchi rotondi -->
             <div class="ai-blocks">
-              <button class="ai-block" id="explain-btn">Spiega</button>
-              <button class="ai-block" id="translate-btn">Traduci</button>
-              <button class="ai-block" id="correct-btn">Correggi</button>
+              <button class="ai-block" id="explain-btn">Explain</button>
+              <button class="ai-block" id="translate-btn">Translate</button>
+              <button class="ai-block" id="correct-btn">Check</button>
             </div>
           </div>
           <div id="ai-response-section" class="ai-response-section hidden">
             <div class="ai-response-header">
-              <strong>Risposta AI:</strong>
+              <strong>Response:</strong>
             </div>
             <div id="ai-response-content" class="ai-response-content"></div>
           </div>
           <div id="ai-loading" class="ai-loading hidden">
             <div class="ai-spinner"></div>
-            <span>Elaborazione in corso...</span>
+            <span>llama-3.3-70b-versatile thinking...</span>
           </div>
         </div>
       </div>
@@ -338,7 +355,6 @@ function showAISearchDialog(selectedText) {
   document.head.appendChild(style);
   document.body.appendChild(dialog);
 
-  // Event listeners
   const queryInput = document.getElementById('ai-query-input');
   const submitBtn = document.getElementById('ai-submit-btn');
   const explainBtn = document.getElementById('explain-btn');
@@ -349,10 +365,8 @@ function showAISearchDialog(selectedText) {
   const responseContent = document.getElementById('ai-response-content');
   const loading = document.getElementById('ai-loading');
 
-  // Focus input
   setTimeout(() => queryInput.focus(), 100);
 
-  // Assign quick action buttons to pre-fill the input field
   explainBtn.addEventListener('click', () => queryInput.value = 'Spiega questo concetto');
   translateBtn.addEventListener('click', () => queryInput.value = 'Traduci in inglese');
   correctBtn.addEventListener('click', () => queryInput.value = 'Correggi eventuali errori grammaticali');
@@ -395,14 +409,12 @@ function showAISearchDialog(selectedText) {
     }
   });
 
-  // Copia la risposta cliccando sul contenuto
   responseContent.addEventListener('click', () => {
     navigator.clipboard.writeText(responseContent.textContent)
       .then(() => showNotification('Risposta copiata!', 'success'))
       .catch(() => showNotification('Errore nella copia', 'error'));
   });
 
-  // Close dialog
   const closeDialog = () => {
     dialog.remove();
   };
@@ -738,7 +750,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const updateWordCount = () => {
     const text = editor.value;
     const words = text.trim().split(/\s+/).filter(Boolean);
-    wordCountEl.textContent = `Parole: ${words.length}`;
+    wordCountEl.textContent = `word-count: ${words.length}`;
   };
   
   const setDirty = (dirty) => {
@@ -924,6 +936,41 @@ window.addEventListener("DOMContentLoaded", () => {
         this.value = textBefore + formattedText + textAfter;
         this.selectionStart = start;
         this.selectionEnd = start + formattedText.length;
+        updatePreview();
+        setDirty(true);
+      }
+    }
+    if (e.key === "Enter") {
+      const cursorPos = this.selectionStart;
+      const textBefore = this.value.substring(0, cursorPos);
+      const currentLine = textBefore.split('\n').pop();
+      
+      // Controlla se la riga corrente inizia con un asterisco
+      const listMatch = currentLine.match(/^(\s*)\* (.*)$/);
+      
+      if (listMatch) {
+        const [, indent, content] = listMatch;
+        
+        // Se la riga contiene solo l'asterisco (senza contenuto), rimuovi l'asterisco
+        if (content.trim() === '') {
+          e.preventDefault();
+          const lineStart = cursorPos - currentLine.length;
+          this.value = this.value.substring(0, lineStart) + 
+                      indent + 
+                      this.value.substring(cursorPos);
+          this.selectionStart = this.selectionEnd = lineStart + indent.length;
+          updatePreview();
+          setDirty(true);
+          return;
+        }
+        
+        // Altrimenti, aggiungi una nuova riga con asterisco
+        e.preventDefault();
+        const newListItem = `\n${indent}* `;
+        this.value = this.value.substring(0, cursorPos) + 
+                    newListItem + 
+                    this.value.substring(cursorPos);
+        this.selectionStart = this.selectionEnd = cursorPos + newListItem.length;
         updatePreview();
         setDirty(true);
       }
@@ -1267,19 +1314,19 @@ window.addEventListener("DOMContentLoaded", () => {
     const selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd).trim();
     
     menu.append(new MenuItem({
-      label: 'Taglia',
+      label: 'Cut',
       accelerator: 'CmdOrCtrl+X',
       click: () => document.execCommand('cut')
     }));
     
     menu.append(new MenuItem({
-      label: 'Copia',
+      label: 'Copy',
       accelerator: 'CmdOrCtrl+C',
       click: () => document.execCommand('copy')
     }));
     
     menu.append(new MenuItem({
-      label: 'Incolla',
+      label: 'Paste',
       accelerator: 'CmdOrCtrl+V',
       click: () => document.execCommand('paste')
     }));

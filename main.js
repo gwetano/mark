@@ -24,7 +24,7 @@ function createWindow() {
   remoteMain.enable(win.webContents);
 
   win.loadFile("index.html");
-
+  
   const menu = Menu.buildFromTemplate([
     {
       label: "File",

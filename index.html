@@ -30,7 +30,6 @@
 </script>
 <script>
   window.addEventListener('DOMContentLoaded', () => {
-    // Funzione per adattare le formule KaTeX quando la finestra cambia dimensione
     function adjustKatexFormulas() {
       const katexDisplays = document.querySelectorAll('.katex-display');
       katexDisplays.forEach(display => {
@@ -39,7 +38,6 @@
       });
     }
     
-    // Esegui all'avvio e quando la finestra cambia dimensione
     adjustKatexFormulas();
     window.addEventListener('resize', adjustKatexFormulas);
   });
@@ -53,12 +51,12 @@
         <button id="toggle-explorer" accesskey="x">Explorer</button>
     </div>
     <div id="search-container" class="hidden">
-      <input type="text" id="search-input" placeholder="Cerca..." />
+      <input type="text" id="search-input" placeholder="Search..." />
       <div id="search-buttons">
-        <button id="search-button" title="Cerca">&rarr;</button>
-        <button id="search-prev" title="Precedente">&uarr;</button>
-        <button id="search-next" title="Successivo">&darr;</button>
-        <button id="search-close" title="Chiudi">✕</button>
+        <button id="search-button" title="Search">&rarr;</button>
+        <button id="search-prev" title="Previous">&uarr;</button>
+        <button id="search-next" title="Next">&darr;</button>
+        <button id="search-close" title="Close">✕</button>
       </div>
       <span id="search-results">0/0</span>
     </div>
@@ -67,22 +65,22 @@
         <div id="explorer-header">
           <span>EXPLORER</span>
           <div class="explorer-actions">
-            <button id="new-file" title="Nuovo file">+</button>
-            <button id="open-folder" title="Apri cartella">📁</button>
-            <button id="collapse-all" title="Comprimi tutto">-</button>
-            <button id="refresh-explorer" title="Aggiorna">🔄</button>
+            <button id="new-file" title="New file">+</button>
+            <button id="open-folder" title="Open folder">📁</button>
+            <button id="collapse-all" title="Collapse">-</button>
+            <button id="refresh-explorer" title="Refresh">🔄</button>
           </div>
         </div>
         <div id="folder-path"></div>
         <div id="file-tree"></div>
       </div>
       <div id="container">
-        <textarea id="editor" placeholder="Scrivi markdown qui..."></textarea>
+        <textarea id="editor" placeholder="Write markdown here..." spellcheck="false"></textarea>
         <div id="preview" class="markdown-body"></div>
       </div>
     </div>
     <div id="footer">
-      <span id="word-count">Parole: 0</span>
+      <span id="word-count">word-count: 0</span>
     </div>
   </div>
   <script src="renderer.js"></script>
