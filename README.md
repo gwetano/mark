@@ -24,7 +24,7 @@ My job was mostly about keeping it consistent, understanding how stuff worked, a
 - 🔒 Fully local – no uploads, no cloud
 - 🖼️ Custom image sizing for PDF export via caption tags  
 
----
+***
 
 ## Installation
 
@@ -32,7 +32,6 @@ My job was mostly about keeping it consistent, understanding how stuff worked, a
 git clone https://github.com/gwetano/mark.git
 cd mark
 ```
-
 ### Linux
 ```bash
 bash install.sh
@@ -88,18 +87,18 @@ If no tag is included, the default size will be used -> 70%.
 
 ### Keyboard Shortcuts
 
-- **Alt+(Shift)+M**: Toggle light/dark theme
-- **Alt+(Shift)+E**: Show/hide preview
-- **Ctrl+N**: New file
-- **Ctrl+O**: Open file
-- **Ctrl+Shift+O**: Open folder
-- **Ctrl+E**: Export as PDF
-- **Ctrl+S**: Save file
-- **Ctrl+F**: Find text
-- **Ctrl+R**: Show/hide explorer
-
+* **Ctrl+M**: Toggle light/dark theme
+* **Ctrl+E**: Show/hide preview
+* **Ctrl+N**: New file
+* **Ctrl+O**: Open file
+* *Ctrl+Shift+O**: Open folder
+* **Ctrl+E**: Export as PDF
+* **Ctrl+S**: Save file
+* **Ctrl+F**: Find text
+* **Ctrl+R**: Show/hide explorer
 
 ### Table of Contents
+
 To add a Table of Contents (TOC) to your PDF export, simply add the following comment at the top of your markdown file:
 ```
 <!-- TOC -->
@@ -112,30 +111,32 @@ This will generate a first page in the PDF with an index of all headings and sub
 
 You can still get the most out of Mark even if you don’t know Markdown syntax. Here are some handy shortcuts that let you format your text instantly:
 
-- **Ctrl+B**: Bold
-- **Ctrl+I**: Italic
-- **Ctrl+U**: Underline
-- **Ctrl+1**: Heading 1
-- **Ctrl+2**: Heading 2
-- **Ctrl+3**: Heading 3
-- **Ctrl+ H**: Code (inline for selected text, multiline if not selected)
-- **Ctrl+L**: Link
+* **Ctrl+B**: Bold
+* **Ctrl+I**: Italic
+* **Ctrl+U**: Underline
+* **Ctrl+1**: Heading 1
+* **Ctrl+2**: Heading 2
+* **Ctrl+3**: Heading 3
+* **Ctrl+ H**: Code (inline for selected text, multiline if not selected)
+* **Ctrl+L**: Link
 
 Stay focused on writing — Mark will take care of the formatting.
 
 ***
+
 ## 🛠️ Things to Improve
 
 Wanna help out? Here’s what still needs love:
 
-- 🔍 **Text search**  
+* 🔍 **Text search**  
 The current search is super basic. It needs smarter matching, maybe even fuzzy search or highlights.
 
-- 🎨 **Custom styling**  
+* 🎨 **Custom styling**  
 The UI is intentionally minimal, but if you’ve got specific style needs, feel free to tweak it. Themes, fonts, or whatever makes it yours.
 
-- 📃 **Synchronized scrolling**    
+* 📃 **Synchronized scrolling**    
 Editor and preview should scroll together, especially in split view. This needs to be improved.
+
 ***
 
 ## 🧠 AI Tool (Groq)
@@ -162,7 +163,6 @@ To keep your Groq API key private and secure:
 1. Create a file called `.env.local` in the root of your project:
 ```
 GROQ_API_KEY=your_actual_groq_key_here
-
 ```
 
 2. Make sure `.env.local` is listed in `.gitignore` to prevent committing it:

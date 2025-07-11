@@ -13,7 +13,6 @@ function createWindow() {
     width: 1200,
     height: 800,
     webPreferences: {
-      preload: path.join(__dirname, "renderer.js"),
       nodeIntegration: true,
       contextIsolation: false,
       clipboard: true
@@ -158,7 +157,7 @@ function createWindow() {
         },
         {
           label: "Only Editor",
-          accelerator: "Alt+E",
+          accelerator: "CmdOrCtrl+E",
           click: () => {
             win.webContents.send("toggle-preview");
           }
@@ -166,7 +165,7 @@ function createWindow() {
         { type: "separator" },
         {
           label: "Dark Mode",
-          accelerator: "Alt+M",
+          accelerator: "CmdOrCtrl+M",
           click: () => {
             win.webContents.send("toggle-theme");
           }
@@ -188,27 +187,19 @@ function createPrintWindow() {
     }
   });
 
-  printWin.loadFile('print.html');
-  
-  // Facoltativo: per debug
-  // printWin.webContents.openDevTools();
 }
 
 ipcMain.on("print-to-pdf", async (event, content, title) => {
-  // Crea la finestra di stampa se non esiste
   if (!printWin) {
     createPrintWindow();
     
-    // Attendi che la finestra sia pronta
     await new Promise(resolve => {
       printWin.webContents.once('did-finish-load', resolve);
     });
   }
   
-  // Invia il contenuto alla finestra di stampa
   printWin.webContents.send('print-content', content);
   
-  // Attendi che il contenuto sia elaborato
   await new Promise(resolve => {
     ipcMain.once('content-ready', resolve);
   });
