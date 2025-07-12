@@ -836,6 +836,32 @@ window.addEventListener("DOMContentLoaded", () => {
   };
 
   editor.addEventListener("keydown", function (e) {
+
+    const pairs = {
+      '(': ')',
+      '[': ']',
+      '{': '}',
+      '"': '"',
+      '`': '`'
+    };
+
+    if (Object.keys(pairs).includes(e.key)) {
+      e.preventDefault();
+
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      const left = editor.value.substring(0, start);
+      const right = editor.value.substring(end);
+      const pair = pairs[e.key];
+
+      editor.value = left + e.key + pair + right;
+      editor.selectionStart = editor.selectionEnd = start + 1;
+
+      updatePreview();
+      setDirty(true);
+      return;
+    }
+
     if (e.key === "Tab") {
       e.preventDefault();
       const start = this.selectionStart;
@@ -921,13 +947,36 @@ window.addEventListener("DOMContentLoaded", () => {
       const textBefore = this.value.substring(0, cursorPos);
       const currentLine = textBefore.split('\n').pop();
       
-      // Controlla se la riga corrente inizia con un asterisco
       const listMatch = currentLine.match(/^(\s*)\* (.*)$/);
-      
+      const numberedListMatch = currentLine.match(/^(\s*)(\d+)\.\s(.*)$/);
+
+      if (numberedListMatch) {
+        const [, indent, number, content] = numberedListMatch;
+
+        if (content.trim() === '') {
+          e.preventDefault();
+          const lineStart = cursorPos - currentLine.length;
+          this.value = this.value.substring(0, lineStart) + indent + this.value.substring(cursorPos);
+          this.selectionStart = this.selectionEnd = lineStart + indent.length;
+          updatePreview();
+          setDirty(true);
+          return;
+        }
+
+        e.preventDefault();
+        const nextNumber = parseInt(number, 10) + 1;
+        const newLine = `\n${indent}${nextNumber}. `;
+        this.value = this.value.substring(0, cursorPos) + newLine + this.value.substring(cursorPos);
+        this.selectionStart = this.selectionEnd = cursorPos + newLine.length;
+        updatePreview();
+        setDirty(true);
+        return;
+      }
+
+          
       if (listMatch) {
         const [, indent, content] = listMatch;
         
-        // Se la riga contiene solo l'asterisco (senza contenuto), rimuovi l'asterisco
         if (content.trim() === '') {
           e.preventDefault();
           const lineStart = cursorPos - currentLine.length;
@@ -940,7 +989,6 @@ window.addEventListener("DOMContentLoaded", () => {
           return;
         }
         
-        // Altrimenti, aggiungi una nuova riga con asterisco
         e.preventDefault();
         const newListItem = `\n${indent}* `;
         this.value = this.value.substring(0, cursorPos) + 

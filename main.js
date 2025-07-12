@@ -157,7 +157,7 @@ function createWindow() {
         },
         {
           label: "Only Editor",
-          accelerator: "CmdOrCtrl+E",
+          accelerator: "CmdOrCtrl+P",
           click: () => {
             win.webContents.send("toggle-preview");
           }
@@ -180,13 +180,14 @@ function createPrintWindow() {
   printWin = new BrowserWindow({
     width: 800,
     height: 600,
-    show: false, // Finestra nascosta
+    show: false,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
     }
   });
 
+  printWin.loadFile("print.html");
 }
 
 ipcMain.on("print-to-pdf", async (event, content, title) => {

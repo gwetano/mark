@@ -91,7 +91,7 @@ If no tag is included, the default size will be used -> 70%.
 * **Ctrl+E**: Show/hide preview
 * **Ctrl+N**: New file
 * **Ctrl+O**: Open file
-* *Ctrl+Shift+O**: Open folder
+* **Ctrl+Shift+O**: Open folder
 * **Ctrl+E**: Export as PDF
 * **Ctrl+S**: Save file
 * **Ctrl+F**: Find text
