@@ -1354,6 +1354,12 @@ window.addEventListener("DOMContentLoaded", () => {
       accelerator: 'CmdOrCtrl+V',
       click: () => document.execCommand('paste')
     }));
+
+    menu.append(new MenuItem({
+      label: 'Format',
+      accelerator: 'CmdOrCtrl+K',
+      click: () => formatMarkdown()
+    }));
     
     if (selectedText) {
       menu.append(new MenuItem({ type: 'separator' }));
@@ -1363,9 +1369,8 @@ window.addEventListener("DOMContentLoaded", () => {
         accelerator: 'CmdOrCtrl+Shift+A',
         click: () => showAISearchDialog(selectedText)
       }));
-      
     }
-    
+
     menu.popup();
   });
 
@@ -1529,7 +1534,12 @@ window.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       formatAsCode();
     }
-    
+
+    if (e.ctrlKey && e.key === "k") {
+      e.preventDefault();
+      formatMarkdown();
+    }
+
     if (e.key === "Escape" && !document.getElementById("search-container").classList.contains("hidden")) {
       toggleSearchPanel(false);
     }
@@ -1546,6 +1556,28 @@ window.addEventListener("DOMContentLoaded", () => {
   ipcRenderer.on("open-search", () => {
     toggleSearchPanel(true);
   });
+
+  function formatMarkdown() {
+    const editor = document.getElementById("editor");
+    let text = editor.value;
+
+    text = text.replace(/\s+([.,!?;:])/g, '$1');
+
+    text = text.replace(/([.,!?;:])(?=\S)/g, '$1 ');
+
+    text = text.replace(/\n{3,}/g, '\n\n');
+
+    text = text.replace(/\n?\s*\*{3,}\s*\n?/g, '\n\n***\n\n');
+
+    text = text.trim();
+
+    editor.value = text;
+    editor.focus();
+    editor.setSelectionRange(text.length, text.length);
+    updatePreview();
+    showNotification('Formato applicato con successo!', 'success');
+  }
+
 
   setupExternalLinks();
 });
