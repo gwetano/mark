@@ -1559,21 +1559,36 @@ window.addEventListener("DOMContentLoaded", () => {
 
   function formatMarkdown() {
     const editor = document.getElementById("editor");
-    let text = editor.value;
+    const originalText = editor.value;
 
-    text = text.replace(/\s+([.,!?;:])/g, '$1');
+    const blocks = originalText.split(/(```[\s\S]*?```)/g);
 
-    text = text.replace(/([.,!?;:])(?=\S)/g, '$1 ');
+    const formatted = blocks.map(block => {
+      if (block.startsWith('```')) {
+        return `\n\n${block.trim()}\n\n`;
+      }
 
-    text = text.replace(/\n{3,}/g, '\n\n');
+      let text = block;
 
-    text = text.replace(/\n?\s*\*{3,}\s*\n?/g, '\n\n***\n\n');
+      text = text.replace(/\s+([.,!?;:])/g, '$1');
 
-    text = text.trim();
+      text = text.replace(/([.,!?;:])(?=\S)/g, '$1 ');
 
-    editor.value = text;
+      text = text.replace(/\n{3,}/g, '\n\n');
+
+      text = text.replace(/\n?\s*\*{3,}\s*\n?/g, '\n\n***\n\n');
+
+      text = text.replace(/([^\n])\n(#{1,6} .+)/g, '$1\n\n$2'); 
+      text = text.replace(/(#{1,6} .+)\n([^\n])/g, '$1\n\n$2'); 
+
+      return text.trim();
+    });
+
+    const finalText = formatted.join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
+
+    editor.value = finalText;
     editor.focus();
-    editor.setSelectionRange(text.length, text.length);
+    editor.setSelectionRange(finalText.length, finalText.length);
     updatePreview();
     showNotification('Formato applicato con successo!', 'success');
   }
