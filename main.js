@@ -7,8 +7,16 @@ let win;
 let printWin = null;
 let openFilePath = null; 
 
+function initializeRemote() {
+  if (!remoteMain.isInitialized()) {
+    remoteMain.initialize();
+  }
+}
 
 function createWindow() {
+
+  initializeRemote();
+
   win = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -19,7 +27,6 @@ function createWindow() {
     }
   });
 
-  remoteMain.initialize();
   remoteMain.enable(win.webContents);
 
   win.loadFile("index.html");
