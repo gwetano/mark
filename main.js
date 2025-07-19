@@ -163,10 +163,17 @@ function createWindow() {
           }
         },
         {
-          label: "Only Editor",
-          accelerator: "CmdOrCtrl+P",
+          label: "Editor",
+          accelerator: "CmdOrCtrl+L",
           click: () => {
             win.webContents.send("toggle-preview");
+          }
+        },
+                {
+          label: "Preview",
+          accelerator: "CmdOrCtrl+P",
+          click: () => {
+            win.webContents.send("toggle-editor");
           }
         },
         { type: "separator" },

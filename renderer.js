@@ -1426,6 +1426,21 @@ window.addEventListener("DOMContentLoaded", () => {
     setTimeout(calculateLineHeights, 100);  
   });
 
+  ipcRenderer.on("toggle-editor", () => {
+    const preview = document.getElementById('preview');
+    const editor = document.getElementById('editor');
+    
+    if (editor.style.display === 'none') {
+      editor.style.display = 'block';
+      preview.style.width = '50%';
+    } else {
+      editor.style.display = 'none';
+      preview.style.width = '100%';
+    }
+    
+    setTimeout(calculateLineHeights, 100);  
+  });
+
   ipcRenderer.on("toggle-theme", () => {
     document.body.classList.toggle("dark");
   });

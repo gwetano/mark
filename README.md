@@ -34,12 +34,18 @@ cd mark
 ```
 ### Linux
 ```bash
-bash install.sh
+bash lin-install.sh
 ```
 ### Windows
 ```bash
-./install.bat
+./win-install.bat
 ```
+### macOS
+```bash
+bash mac-install.bat
+```
+
+## Preview
 
 ![Screenshot Mark](./build/preview.gif)
 
@@ -187,3 +193,4 @@ GROQ_API_KEY=your_actual_groq_key_here
 
 Do whatever you want with it.    
 If you improve it, fork it. If it helps you, let me know.
+[](insert your link...)
