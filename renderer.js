@@ -942,17 +942,18 @@ window.addEventListener("DOMContentLoaded", () => {
         setDirty(true);
       }
     }
+
     if (e.key === "Enter") {
       const cursorPos = this.selectionStart;
       const textBefore = this.value.substring(0, cursorPos);
       const currentLine = textBefore.split('\n').pop();
       
-      const listMatch = currentLine.match(/^(\s*)\* (.*)$/);
+      const listMatch = currentLine.match(/^(\s*)([*-])\s(.*)$/);
       const numberedListMatch = currentLine.match(/^(\s*)(\d+)\.\s(.*)$/);
-
+    
       if (numberedListMatch) {
         const [, indent, number, content] = numberedListMatch;
-
+    
         if (content.trim() === '') {
           e.preventDefault();
           const lineStart = cursorPos - currentLine.length;
@@ -962,7 +963,7 @@ window.addEventListener("DOMContentLoaded", () => {
           setDirty(true);
           return;
         }
-
+    
         e.preventDefault();
         const nextNumber = parseInt(number, 10) + 1;
         const newLine = `\n${indent}${nextNumber}. `;
@@ -972,10 +973,9 @@ window.addEventListener("DOMContentLoaded", () => {
         setDirty(true);
         return;
       }
-
-          
+    
       if (listMatch) {
-        const [, indent, content] = listMatch;
+        const [, indent, marker, content] = listMatch;
         
         if (content.trim() === '') {
           e.preventDefault();
@@ -990,7 +990,7 @@ window.addEventListener("DOMContentLoaded", () => {
         }
         
         e.preventDefault();
-        const newListItem = `\n${indent}* `;
+        const newListItem = `\n${indent}${marker} `;
         this.value = this.value.substring(0, cursorPos) + 
                     newListItem + 
                     this.value.substring(cursorPos);
@@ -1319,6 +1319,9 @@ window.addEventListener("DOMContentLoaded", () => {
           
           editor.value = editor.value.slice(0, start) + markdownImage + editor.value.slice(end);
           
+          const newCursorPos = start + markdownImage.length;
+          editor.setSelectionRange(newCursorPos, newCursorPos);
+      
           updatePreview();
           updateWordCount();
           setDirty(true);
@@ -1481,12 +1484,16 @@ window.addEventListener("DOMContentLoaded", () => {
     const textBefore = editor.value.substring(0, cursorPos);
     const textAfter = editor.value.substring(cursorPos);
     const imageTag = `![${fileName}](${relativeImagePath})`;
+    
     editor.value = textBefore + imageTag + textAfter;
+    
+    const newCursorPos = cursorPos + imageTag.length;
+    editor.setSelectionRange(newCursorPos, newCursorPos);
+    
     updatePreview();
     updateWordCount();
     setDirty(true);
     editor.focus();
-    editor.selectionStart = editor.selectionEnd = cursorPos + imageTag.length;
   });
 
 
@@ -1575,32 +1582,45 @@ window.addEventListener("DOMContentLoaded", () => {
   function formatMarkdown() {
     const editor = document.getElementById("editor");
     const originalText = editor.value;
-
+  
     const blocks = originalText.split(/(```[\s\S]*?```)/g);
-
+  
     const formatted = blocks.map(block => {
       if (block.startsWith('```')) {
         return `\n\n${block.trim()}\n\n`;
       }
-
-      let text = block;
-
-      text = text.replace(/\s+([.,!?;:])/g, '$1');
-
-      text = text.replace(/([.,!?;:])(?=\S)/g, '$1 ');
-
+  
+      const patterns = [];
+      let text = block.replace(/(\*\*.*?\*\*|\*.*?\*|!\[.*?\]\(.*?\)|\[.*?\]\(.*?\))/g, (match) => {
+        patterns.push(match);
+        return `§§${patterns.length - 1}§§`;
+      });
+  
+      text = text.replace(/([.,!?;:])(?=[^\s])/g, '$1 ');
+      text = text.replace(/\s+([.,!?;:)"])/g, '$1');
       text = text.replace(/\n{3,}/g, '\n\n');
-
       text = text.replace(/\n?\s*\*{3,}\s*\n?/g, '\n\n***\n\n');
-
-      text = text.replace(/([^\n])\n(#{1,6} .+)/g, '$1\n\n$2'); 
-      text = text.replace(/(#{1,6} .+)\n([^\n])/g, '$1\n\n$2'); 
-
+  
+      text = text.replace(/([^\n])\n(#{1,6} .+)/g, '$1\n\n$2');
+      text = text.replace(/(#{1,6} .+)\n([^\n])/g, '$1\n\n$2');
+  
+      text = text.replace(/§§(\d+)§§/g, (match, index) => {
+        const pattern = patterns[parseInt(index)];
+        
+        if (pattern.startsWith('![') || (pattern.startsWith('[') && pattern.includes('](')) ) {
+          return `\n\n${pattern}\n\n`;
+        }
+        
+        return pattern;
+      });
+  
+      text = text.replace(/\n{3,}/g, '\n\n');
+  
       return text.trim();
     });
-
+  
     const finalText = formatted.join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
-
+  
     editor.value = finalText;
     editor.focus();
     editor.setSelectionRange(finalText.length, finalText.length);

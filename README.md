@@ -4,7 +4,7 @@
 
 *I didn’t vibe with any of the existing editors — too bloated, not enough control.*
 
-I needed something that could open folders, read .md files, and save. Nothing more. To get a working product as fast as possible, **most of the features in this project were generated with ChatGPT.**  
+I needed something that could open folders, read. md files, and save. Nothing more. To get a working product as fast as possible, **most of the features in this project were generated with ChatGPT.**  
 My job was mostly about keeping it consistent, understanding how stuff worked, and fixing the code.
 
 ⚡ It’s vibe-coded.    
@@ -22,7 +22,7 @@ My job was mostly about keeping it consistent, understanding how stuff worked, a
 - 🧠 Math formula support (KaTeX)
 - 💡 Minimal UI, zero distractions
 - 🔒 Fully local – no uploads, no cloud
-- 🖼️ Custom image sizing for PDF export via caption tags  
+- 🖼️ Custom image sizing for PDF export via caption tags
 
 ***
 
@@ -32,27 +32,37 @@ My job was mostly about keeping it consistent, understanding how stuff worked, a
 git clone https://github.com/gwetano/mark.git
 cd mark
 ```
+
 ### Linux
+
 ```bash
 bash lin-install.sh
 ```
+
 ### Windows
+
 ```bash
 ./win-install.bat
 ```
+
 ### macOS
+
 ```bash
-bash mac-install.bat
+bash mac-install.sh
 ```
+
+***
 
 ## Preview
 
 ![Screenshot Mark](./build/preview.gif)
 
 ***
+
 ## 📝 Usage
 
 ### Editor e Preview
+
 Mark lets you edit Markdown and instantly preview the result. You can switch between:
 
 - Split view (editor + preview)
@@ -67,7 +77,7 @@ The file explorer helps you:
 
 To open a folder:
 1. Click "Explorer" on the top bar
-2. Hit the "📁" icon or go to File -> Open Folder...
+2. Hit the "📁" icon or go to File -> Open Folder. . .
 3. Pick your folder and you’re in
 
 ### Image Size in PDF Export
@@ -83,6 +93,7 @@ You can control the size of images in the exported PDF by adding a size tag in s
 
 ![Full width[full]](path/to/image.jpg)
 ```
+
 Supported **size tags**:
 - `[small]` -> 25% width
 - `[medium]` → 50% width
@@ -106,9 +117,11 @@ If no tag is included, the default size will be used -> 70%.
 ### Table of Contents
 
 To add a Table of Contents (TOC) to your PDF export, simply add the following comment at the top of your markdown file:
+
 ```
 <!-- TOC -->
 ```
+
 This will generate a first page in the PDF with an index of all headings and subheadings, with clickable links that navigate to the respective section in the document.
 
 ***
@@ -157,7 +170,7 @@ Mark includes an integrated AI assistant that can help you:
 
 To use the AI features, you'll need a **Groq API key**. Here's how to get one:
 
-1. Visit [https://console.groq.com/keys](https://console.groq.com/keys)  
+1. Visit [https: //console. groq. com/keys](https: //console. groq. com/keys)  
 2. Sign up or log in  
 3. Click **"Generate API Key"**  
 4. Copy the key
@@ -167,11 +180,13 @@ To use the AI features, you'll need a **Groq API key**. Here's how to get one:
 To keep your Groq API key private and secure:
 
 1. Create a file called `.env.local` in the root of your project:
+
 ```
 GROQ_API_KEY=your_actual_groq_key_here
 ```
 
 2. Make sure `.env.local` is listed in `.gitignore` to prevent committing it:
+
 ```
 .env.local
 ```
@@ -184,7 +199,7 @@ GROQ_API_KEY=your_actual_groq_key_here
 
 * Select any text in the editor
 * Right-click and choose AI Tool
-* Type your query (e.g. “Explain this concept”)
+* Type your query (e. g. “Explain this concept”)
 * The AI will return a helpful answer in seconds
 
 ***
@@ -193,4 +208,3 @@ GROQ_API_KEY=your_actual_groq_key_here
 
 Do whatever you want with it.    
 If you improve it, fork it. If it helps you, let me know.
-[](insert your link...)

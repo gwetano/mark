@@ -1,7 +1,27 @@
+@font-face {
+  font-family: "Inter";
+  src: url("./fonts/inter/Inter-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("./fonts/inter/Inter-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("./fonts/inter/Inter-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+}
 
 @font-face {
   font-family: "JetBrains Mono";
-  src: url("./fonts/JetBrainsMono-Regular.ttf") format("truetype");
+  src: url("./fonts/jetbrains/JetBrainsMono-Regular.ttf") format("truetype");
   font-weight: normal;
   font-style: normal;
 }
@@ -15,13 +35,18 @@
   --preview-bg: #ffffff;
   --fg: #1e1e1e;
   --code-bg: #f4f4f4;
-  --font-family: "JetBrains Mono", monospace;
+  --font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --code-font-family: "JetBrains Mono", monospace;
   --explorer-bg: #f5f5f5;
   --explorer-fg: #333333;
   --explorer-hover: #e0e0e0;
   --explorer-active: #d0d0d0;
   --explorer-border: #cccccc;
   --explorer-width: 250px;
+}
+
+code, pre code {
+  font-family: var(--code-font-family);
 }
 
 body {
