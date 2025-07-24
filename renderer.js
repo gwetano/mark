@@ -66,11 +66,11 @@ function showNotification(message, type = 'info') {
 
 async function queryGroqAI(selectedText, query) {
   if (!GROQ_API_KEY) {
-    showNotification('Chiave API Groq mancante. Configurala dal menu AI.', 'error');
+    showNotification('API Groq key missing.', 'error');
     return null;
   }
 
-  const prompt = `Testo selezionato: "${selectedText}"
+  const prompt = `Selected Text: "${selectedText}"
 
 Query utente: ${query}
 
@@ -662,24 +662,28 @@ function insertMarkdownLink() {
   
   if (start !== end) {
     const selectedText = editor.value.substring(start, end);
-    const linkText = `[${selectedText}](insert your link...)`;
+    const linkText = `[${selectedText}](url)`;
     
     editor.value = editor.value.substring(0, start) + linkText + editor.value.substring(end);
     
-    const cursorPos = start + selectedText.length + 3;
-    editor.setSelectionRange(cursorPos, cursorPos + 19); // Seleziona "insert your link..."
+    const linkStart = start + selectedText.length + 3;
+    const linkEnd = linkStart + 3;
+    editor.setSelectionRange(linkStart, linkEnd);
     
     updatePreview();
     setDirty(true);
   } else {
-    const linkText = "[](insert your link...)";
+    const linkText = "[text](url)";
     
     editor.value = editor.value.substring(0, start) + linkText + editor.value.substring(end);
-    editor.setSelectionRange(start + 1, start + 1);
+    const linkStart = start + 7;
+    const linkEnd = linkStart + 3;
+    editor.setSelectionRange(linkStart, linkEnd);
     
     updatePreview();
     setDirty(true);
   }
+  editor.focus();
 }
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -1116,7 +1120,6 @@ window.addEventListener("DOMContentLoaded", () => {
           fileElement.dataset.path = itemPath;
           
           fileElement.addEventListener('click', () => {
-            // Prima di caricare un nuovo file, controlla se ci sono modifiche non salvate
             if (isDirty) {
               const answer = dialog.showMessageBoxSync({
                 type: 'question',
@@ -1126,9 +1129,9 @@ window.addEventListener("DOMContentLoaded", () => {
                 message: 'Ci sono modifiche non salvate. Vuoi salvare prima di aprire un nuovo file?'
               });
               
-              if (answer === 0) { // Salva
+              if (answer === 0) { 
                 saveCurrentFile();
-              } else if (answer === 2) { // Annulla
+              } else if (answer === 2) {
                 return;
               }
             }
@@ -1180,7 +1183,7 @@ window.addEventListener("DOMContentLoaded", () => {
     
     fileTree.innerHTML = '';
     
-    explorerPanel.classList.remove('hidden');
+    explorerPanel.classList.remove("hidden");
     
     createFileTree(folderPath, fileTree);
   }
@@ -1625,9 +1628,154 @@ window.addEventListener("DOMContentLoaded", () => {
     editor.focus();
     editor.setSelectionRange(finalText.length, finalText.length);
     updatePreview();
-    showNotification('Formato applicato con successo!', 'success');
   }
 
+
+  const btnBold = document.getElementById("btn-bold");
+  const btnItalic = document.getElementById("btn-italic");
+  const btnCode = document.getElementById("btn-code");
+  const btnImage = document.getElementById("btn-image");
+  const btnUl = document.getElementById("btn-ul");
+  const btnOl = document.getElementById("btn-ol");
+  const btnLink = document.getElementById("btn-link");
+  const btnHr = document.getElementById("btn-hr");
+  const dropdownTitle = document.getElementById("dropdown-title");
+  const btnTitle = document.getElementById("btn-title");
+  const dropdownContent = document.getElementById("dropdown-content");
+  const dropdownItems = document.querySelectorAll(".dropdown-item");
+
+  function preserveScroll(fn) {
+    const scroll = editor.scrollTop;
+    fn();
+    editor.scrollTop = scroll;
+  }
+
+  btnBold && btnBold.addEventListener("click", () => {
+    preserveScroll(() => {
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      const selected = editor.value.substring(start, end);
+      editor.value = editor.value.substring(0, start) + `**${selected || 'text'}**` + editor.value.substring(end);
+      editor.focus();
+      editor.setSelectionRange(start + 2, start + 2 + (selected ? selected.length : 5));
+      updatePreview();
+      setDirty(true);
+    });
+  });
+
+  btnItalic && btnItalic.addEventListener("click", () => {
+    preserveScroll(() => {
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      const selected = editor.value.substring(start, end);
+      editor.value = editor.value.substring(0, start) + `*${selected || 'text'}*` + editor.value.substring(end);
+      editor.focus();
+      editor.setSelectionRange(start + 1, start + 1 + (selected ? selected.length : 5));
+      updatePreview();
+      setDirty(true);
+    });
+  });
+
+  btnCode && btnCode.addEventListener("click", () => {
+    preserveScroll(() => {
+      formatAsCode();
+    });
+  });
+
+  btnImage && btnImage.addEventListener("click", () => {
+    preserveScroll(() => {
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      const selected = editor.value.substring(start, end);
+      const imageMd = `![alt](${selected || 'url'})`;
+      editor.value = editor.value.substring(0, start) + imageMd + editor.value.substring(end);
+      editor.focus();
+      editor.setSelectionRange(start + 7, start + 10);
+      updatePreview();
+      setDirty(true);
+    });
+  });
+
+  btnUl && btnUl.addEventListener("click", () => {
+    preserveScroll(() => {
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      const selected = editor.value.substring(start, end);
+      const listMd = `* ${selected || 'elem'}`;
+      editor.value = editor.value.substring(0, start) + listMd + editor.value.substring(end);
+      editor.focus();
+      editor.setSelectionRange(start + 2, start + 2 + (selected ? selected.length : 8));
+      updatePreview();
+      setDirty(true);
+    });
+  });
+
+  btnOl && btnOl.addEventListener("click", () => {
+    preserveScroll(() => {
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      const selected = editor.value.substring(start, end);
+      const listMd = `1. ${selected || 'elem'}`;
+      editor.value = editor.value.substring(0, start) + listMd + editor.value.substring(end);
+      editor.focus();
+      editor.setSelectionRange(start + 3, start + 3 + (selected ? selected.length : 8));
+      updatePreview();
+      setDirty(true);
+    });
+  });
+
+  btnLink && btnLink.addEventListener("click", () => {
+    preserveScroll(() => {
+      insertMarkdownLink();
+    });
+  });
+
+  btnHr && btnHr.addEventListener("click", () => {
+    preserveScroll(() => {
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      editor.value = editor.value.substring(0, start) + "***\n" + editor.value.substring(end);
+      editor.focus();
+      editor.setSelectionRange(start + 4, start + 4);
+      updatePreview();
+      setDirty(true);
+    });
+  });
+
+  btnTitle && btnTitle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    dropdownTitle.classList.toggle("open");
+    btnTitle.classList.toggle("active");
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!dropdownTitle.contains(e.target)) {
+      dropdownTitle.classList.remove("open");
+      btnTitle.classList.remove("active");
+    }
+  });
+
+  dropdownItems.forEach(item => {
+    item.addEventListener("click", () => {
+      preserveScroll(() => {
+        const level = item.getAttribute("data-level");
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+        const selected = editor.value.substring(start, end) || "Title";
+        let prefix = "";
+        if (level === "1") prefix = "# ";
+        else if (level === "2") prefix = "## ";
+        else if (level === "3") prefix = "### ";
+        editor.value = editor.value.substring(0, start) + prefix + selected + editor.value.substring(end);
+        editor.focus();
+        editor.setSelectionRange(start + prefix.length, start + prefix.length + selected.length);
+        updatePreview();
+        setDirty(true);
+        dropdownTitle.classList.remove("open");
+        btnTitle.classList.remove("active");
+      });
+    });
+  });
 
   setupExternalLinks();
 });

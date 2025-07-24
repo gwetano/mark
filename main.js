@@ -87,7 +87,7 @@ function createWindow() {
           }
         },
         { type: "separator" },
-        { role: "quit", label: "Esci" }
+        { role: "quit", label: "Quit" }
       ]
     },
     {

@@ -26,7 +26,7 @@ My job was mostly about keeping it consistent, understanding how stuff worked, a
 
 ***
 
-## Installation
+## Installation 
 
 ```bash
 git clone https://github.com/gwetano/mark.git
@@ -76,8 +76,8 @@ The file explorer helps you:
 - Quickly access all your docs
 
 To open a folder:
-1. Click "Explorer" on the top bar
-2. Hit the "📁" icon or go to File -> Open Folder. . .
+1. Click"Explorer" on the top bar
+2. Hit the"📁" icon or go to File -> Open Folder...
 3. Pick your folder and you’re in
 
 ### Image Size in PDF Export
@@ -170,7 +170,7 @@ Mark includes an integrated AI assistant that can help you:
 
 To use the AI features, you'll need a **Groq API key**. Here's how to get one:
 
-1. Visit [https: //console. groq. com/keys](https: //console. groq. com/keys)  
+1. Visit [https://console.groq.com/keys](https://console.groq.com/keys)
 2. Sign up or log in  
 3. Click **"Generate API Key"**  
 4. Copy the key
