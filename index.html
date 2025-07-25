@@ -54,12 +54,26 @@
           </div>
           <button id="btn-bold" title="Bold"><b>B</b></button>
           <button id="btn-italic" title="Italic"><i>I</i></button>
+          <button id="btn-hr" title="Line">―</button>
           <button id="btn-code" title="Code">{ }</button>
+          <button id="btn-link" title="Link">🔗</button>
           <button id="btn-image" title="Image">🖼️</button>
           <button id="btn-ul" title="Pointer List">• List</button>
           <button id="btn-ol" title="Numeric List">1. List</button>
-          <button id="btn-link" title="Link">🔗</button>
-          <button id="btn-hr" title="Line">―</button>
+          <button id="btn-underline" title="Underline"><u>U</u></button>
+          <!-- Visualizzazione: solo editor, solo preview, split-view -->
+          <div id="view-modes" style="display:inline-block; margin-left:16px;">
+            <button id="btn-view-editor" title="Solo Editor" style="font-weight:bold;">📝</button>
+            <button id="btn-view-preview" title="Solo Preview" style="font-weight:bold;">👁️</button>
+            <button id="btn-view-split" title="Split View" style="font-weight:bold;">🔀</button>
+          </div>
+          <label id="autosave-switch" style="margin-left:16px; font-size:14px; display:inline-flex; align-items:center; gap:4px; cursor:pointer;">
+            <span style="margin-right:4px;">Autosave</span>
+            <span class="switch">
+              <input type="checkbox" id="toggle-autosave" style="display:none;" />
+              <span class="slider"></span>
+            </span>
+          </label>
         </div>
     </div>
     <div id="search-container" class="hidden">

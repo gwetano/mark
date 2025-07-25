@@ -702,6 +702,8 @@ window.addEventListener("DOMContentLoaded", () => {
   const searchPrevBtn = document.getElementById("search-prev");
   const searchNextBtn = document.getElementById("search-next");
   const searchCloseBtn = document.getElementById("search-close");
+  const autosaveSwitch = document.getElementById("toggle-autosave");
+  let autosaveInterval = null;
 
   explorerPanel.classList.add("hidden");
   openFolderBtn.addEventListener("click", async () => {
@@ -1643,6 +1645,10 @@ window.addEventListener("DOMContentLoaded", () => {
   const btnTitle = document.getElementById("btn-title");
   const dropdownContent = document.getElementById("dropdown-content");
   const dropdownItems = document.querySelectorAll(".dropdown-item");
+  const btnUnderline = document.getElementById("btn-underline");
+  const btnViewEditor = document.getElementById("btn-view-editor");
+  const btnViewPreview = document.getElementById("btn-view-preview");
+  const btnViewSplit = document.getElementById("btn-view-split");
 
   function preserveScroll(fn) {
     const scroll = editor.scrollTop;
@@ -1777,5 +1783,82 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  // Underline
+  btnUnderline && btnUnderline.addEventListener("click", () => {
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    if (start !== end) {
+      const selectedText = editor.value.substring(start, end);
+      editor.value = editor.value.substring(0, start) + '<u>' + selectedText + '</u>' + editor.value.substring(end);
+      editor.selectionStart = start;
+      editor.selectionEnd = end + 7; // <u> + </u>
+    } else {
+      editor.value = editor.value.substring(0, start) + '<u></u>' + editor.value.substring(end);
+      editor.selectionStart = start + 3;
+      editor.selectionEnd = start + 3;
+    }
+    updatePreview();
+    setDirty(true);
+    editor.focus();
+  });
+
+  // View mode logic
+  function setViewMode(mode) {
+    if (!editor || !preview) return;
+    btnViewEditor.classList.remove('active');
+    btnViewPreview.classList.remove('active');
+    btnViewSplit.classList.remove('active');
+    if (mode === 'editor') {
+      editor.style.display = '';
+      preview.style.display = 'none';
+      btnViewEditor.classList.add('active');
+    } else if (mode === 'preview') {
+      editor.style.display = 'none';
+      preview.style.display = '';
+      btnViewPreview.classList.add('active');
+    } else {
+      editor.style.display = '';
+      preview.style.display = '';
+      btnViewSplit.classList.add('active');
+    }
+    setTimeout(calculateLineHeights, 100);
+  }
+  btnViewEditor && btnViewEditor.addEventListener('click', () => setViewMode('editor'));
+  btnViewPreview && btnViewPreview.addEventListener('click', () => setViewMode('preview'));
+  btnViewSplit && btnViewSplit.addEventListener('click', () => setViewMode('split'));
+  setViewMode('split');
+
   setupExternalLinks();
+
+
+  const savedAutosave = localStorage.getItem('autosave-enabled');
+  if (savedAutosave === 'true') {
+    autosaveSwitch.checked = true;
+    startAutosave();
+  }
+
+  autosaveSwitch.addEventListener('change', function() {
+    if (this.checked) {
+      localStorage.setItem('autosave-enabled', 'true');
+      startAutosave();
+    } else {
+      localStorage.setItem('autosave-enabled', 'false');
+      stopAutosave();
+    }
+  });
+
+  function startAutosave() {
+    stopAutosave();
+    autosaveInterval = setInterval(() => {
+      if (isDirty) {
+        saveCurrentFile();
+      }
+    }, 10000);
+  }
+  function stopAutosave() {
+    if (autosaveInterval) {
+      clearInterval(autosaveInterval);
+      autosaveInterval = null;
+    }
+  }
 });
