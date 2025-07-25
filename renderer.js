@@ -705,6 +705,31 @@ window.addEventListener("DOMContentLoaded", () => {
   const autosaveSwitch = document.getElementById("toggle-autosave");
   let autosaveInterval = null;
 
+  // AUTOSAVE SWITCH
+  autosaveSwitch.addEventListener("change", function() {
+    if (this.checked) {
+      if (!autosaveInterval) {
+        autosaveInterval = setInterval(() => {
+          if (isDirty) {
+            const event = new Event('autosave');
+            document.dispatchEvent(event);
+            saveCurrentFile();
+          }
+        }, 2000);
+      }
+    } else {
+      if (autosaveInterval) {
+        clearInterval(autosaveInterval);
+        autosaveInterval = null;
+      }
+    }
+  });
+
+  // Evento custom per autosave (puoi usarlo per notifiche)
+  document.addEventListener('autosave', () => {
+    // showNotification('Salvataggio automatico...', 'info');
+  });
+
   explorerPanel.classList.add("hidden");
   openFolderBtn.addEventListener("click", async () => {
     const result = await dialog.showOpenDialog({
@@ -1663,7 +1688,7 @@ window.addEventListener("DOMContentLoaded", () => {
       const selected = editor.value.substring(start, end);
       editor.value = editor.value.substring(0, start) + `**${selected || 'text'}**` + editor.value.substring(end);
       editor.focus();
-      editor.setSelectionRange(start + 2, start + 2 + (selected ? selected.length : 5));
+      editor.setSelectionRange(start + 2, start + 2 + (selected ? selected.length : 4));
       updatePreview();
       setDirty(true);
     });
@@ -1676,7 +1701,7 @@ window.addEventListener("DOMContentLoaded", () => {
       const selected = editor.value.substring(start, end);
       editor.value = editor.value.substring(0, start) + `*${selected || 'text'}*` + editor.value.substring(end);
       editor.focus();
-      editor.setSelectionRange(start + 1, start + 1 + (selected ? selected.length : 5));
+      editor.setSelectionRange(start + 1, start + 1 + (selected ? selected.length : 4));
       updatePreview();
       setDirty(true);
     });
@@ -1710,7 +1735,7 @@ window.addEventListener("DOMContentLoaded", () => {
       const listMd = `* ${selected || 'elem'}`;
       editor.value = editor.value.substring(0, start) + listMd + editor.value.substring(end);
       editor.focus();
-      editor.setSelectionRange(start + 2, start + 2 + (selected ? selected.length : 8));
+      editor.setSelectionRange(start + 2, start + 2 + (selected ? selected.length : 4));
       updatePreview();
       setDirty(true);
     });
@@ -1724,7 +1749,7 @@ window.addEventListener("DOMContentLoaded", () => {
       const listMd = `1. ${selected || 'elem'}`;
       editor.value = editor.value.substring(0, start) + listMd + editor.value.substring(end);
       editor.focus();
-      editor.setSelectionRange(start + 3, start + 3 + (selected ? selected.length : 8));
+      editor.setSelectionRange(start + 3, start + 3 + (selected ? selected.length : 4));
       updatePreview();
       setDirty(true);
     });
@@ -1748,117 +1773,112 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  btnTitle && btnTitle.addEventListener("click", (e) => {
+  btnUnderline && btnUnderline.addEventListener("click", () => {
+    preserveScroll(() => {
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      const selected = editor.value.substring(start, end);
+      editor.value = editor.value.substring(0, start) + `<u>${selected || 'testo'}</u>` + editor.value.substring(end);
+      editor.focus();
+      editor.setSelectionRange(start + 3, start + 3 + (selected ? selected.length : 5));
+      updatePreview();
+      setDirty(true);
+    });
+  });
+
+  // Dropdown Extra
+  const btnExtra = document.getElementById("btn-extra");
+  const dropdownExtra = document.getElementById("dropdown-extra");
+  btnExtra.addEventListener("click", (e) => {
+    e.stopPropagation();
+    dropdownExtra.classList.toggle("open");
+    // Chiudi altri dropdown
+    document.getElementById("dropdown-title").classList.remove("open");
+    document.getElementById("dropdown-options").classList.remove("open");
+    btnExtra.classList.toggle("active");
+  });
+
+  // Dropdown Options
+  const btnOptions = document.getElementById("btn-options");
+  const dropdownOptions = document.getElementById("dropdown-options");
+  btnOptions.addEventListener("click", (e) => {
+    e.stopPropagation();
+    dropdownOptions.classList.toggle("open");
+    // Chiudi altri dropdown
+    document.getElementById("dropdown-title").classList.remove("open");
+    document.getElementById("dropdown-extra").classList.remove("open");
+    btnOptions.classList.toggle("active");
+  });
+
+  // Dropdown Titoli (già presente, ma assicuriamoci che chiuda gli altri)
+  btnTitle.addEventListener("click", (e) => {
     e.stopPropagation();
     dropdownTitle.classList.toggle("open");
+    document.getElementById("dropdown-extra").classList.remove("open");
+    document.getElementById("dropdown-options").classList.remove("open");
     btnTitle.classList.toggle("active");
   });
 
+  // Gestione click sui titoli H1/H2/H3
+  dropdownItems.forEach(item => {
+    item.addEventListener('click', function () {
+      preserveScroll(() => {
+        const level = this.getAttribute('data-level');
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+        const selected = editor.value.substring(start, end) || 'Titolo';
+        const hashes = '#'.repeat(level);
+        editor.value = editor.value.substring(0, start) + `${hashes} ${selected}` + editor.value.substring(end);
+        editor.focus();
+        // Seleziona solo il testo del titolo, non i #
+        editor.setSelectionRange(start + parseInt(level) + 1, start + parseInt(level) + 1 + selected.length);
+        updatePreview();
+        setDirty(true);
+      });
+      // Chiudi il dropdown dopo il click
+      dropdownTitle.classList.remove('open');
+      btnTitle.classList.remove('active');
+    });
+  });
+
+  // Chiudi tutti i dropdown cliccando fuori
   document.addEventListener("click", (e) => {
+    if (!dropdownExtra.contains(e.target)) {
+      dropdownExtra.classList.remove("open");
+      btnExtra.classList.remove("active");
+    }
+    if (!dropdownOptions.contains(e.target)) {
+      dropdownOptions.classList.remove("open");
+      btnOptions.classList.remove("active");
+    }
     if (!dropdownTitle.contains(e.target)) {
       dropdownTitle.classList.remove("open");
       btnTitle.classList.remove("active");
     }
   });
 
-  dropdownItems.forEach(item => {
-    item.addEventListener("click", () => {
-      preserveScroll(() => {
-        const level = item.getAttribute("data-level");
-        const start = editor.selectionStart;
-        const end = editor.selectionEnd;
-        const selected = editor.value.substring(start, end) || "Title";
-        let prefix = "";
-        if (level === "1") prefix = "# ";
-        else if (level === "2") prefix = "## ";
-        else if (level === "3") prefix = "### ";
-        editor.value = editor.value.substring(0, start) + prefix + selected + editor.value.substring(end);
-        editor.focus();
-        editor.setSelectionRange(start + prefix.length, start + prefix.length + selected.length);
-        updatePreview();
-        setDirty(true);
-        dropdownTitle.classList.remove("open");
-        btnTitle.classList.remove("active");
-      });
-    });
-  });
+  // Gestione view mode slider
+  const viewModeSlider = document.getElementById("view-mode-slider");
 
-  // Underline
-  btnUnderline && btnUnderline.addEventListener("click", () => {
-    const start = editor.selectionStart;
-    const end = editor.selectionEnd;
-    if (start !== end) {
-      const selectedText = editor.value.substring(start, end);
-      editor.value = editor.value.substring(0, start) + '<u>' + selectedText + '</u>' + editor.value.substring(end);
-      editor.selectionStart = start;
-      editor.selectionEnd = end + 7; // <u> + </u>
-    } else {
-      editor.value = editor.value.substring(0, start) + '<u></u>' + editor.value.substring(end);
-      editor.selectionStart = start + 3;
-      editor.selectionEnd = start + 3;
-    }
-    updatePreview();
-    setDirty(true);
-    editor.focus();
-  });
-
-  // View mode logic
-  function setViewMode(mode) {
-    if (!editor || !preview) return;
-    btnViewEditor.classList.remove('active');
-    btnViewPreview.classList.remove('active');
-    btnViewSplit.classList.remove('active');
-    if (mode === 'editor') {
-      editor.style.display = '';
-      preview.style.display = 'none';
-      btnViewEditor.classList.add('active');
-    } else if (mode === 'preview') {
-      editor.style.display = 'none';
-      preview.style.display = '';
-      btnViewPreview.classList.add('active');
-    } else {
-      editor.style.display = '';
-      preview.style.display = '';
-      btnViewSplit.classList.add('active');
-    }
-    setTimeout(calculateLineHeights, 100);
-  }
-  btnViewEditor && btnViewEditor.addEventListener('click', () => setViewMode('editor'));
-  btnViewPreview && btnViewPreview.addEventListener('click', () => setViewMode('preview'));
-  btnViewSplit && btnViewSplit.addEventListener('click', () => setViewMode('split'));
-  setViewMode('split');
-
-  setupExternalLinks();
-
-
-  const savedAutosave = localStorage.getItem('autosave-enabled');
-  if (savedAutosave === 'true') {
-    autosaveSwitch.checked = true;
-    startAutosave();
-  }
-
-  autosaveSwitch.addEventListener('change', function() {
-    if (this.checked) {
-      localStorage.setItem('autosave-enabled', 'true');
-      startAutosave();
-    } else {
-      localStorage.setItem('autosave-enabled', 'false');
-      stopAutosave();
+  viewModeSlider.addEventListener("input", () => {
+    const value = parseInt(viewModeSlider.value);
+    switch(value) {
+      case 0: // Solo Editor
+        editor.style.display = "block";
+        editor.style.width = "100%";
+        preview.style.display = "none";
+        break;
+      case 1: // Split View
+        editor.style.display = "block";
+        editor.style.width = "50%";
+        preview.style.display = "block";
+        preview.style.width = "50%";
+        break;
+      case 2: // Solo Preview
+        editor.style.display = "none";
+        preview.style.display = "block";
+        preview.style.width = "100%";
+        break;
     }
   });
-
-  function startAutosave() {
-    stopAutosave();
-    autosaveInterval = setInterval(() => {
-      if (isDirty) {
-        saveCurrentFile();
-      }
-    }, 10000);
-  }
-  function stopAutosave() {
-    if (autosaveInterval) {
-      clearInterval(autosaveInterval);
-      autosaveInterval = null;
-    }
-  }
 });

@@ -41,8 +41,11 @@
 <body>
   <div id="main">
     <div id="navbar">
-        <img id="logo" src="./images/logo_white.png" alt="Logo" />
-        <span id="title">*</span>
+        <div class="navbar-left">
+          <img id="logo" src="./images/logo_white.png" alt="Logo" />
+          <span id="title">*</span>
+        </div>
+        
         <div id="toolbar">
           <div id="dropdown-title" class="dropdown">
             <button id="btn-title" title="Title">#</button>
@@ -54,26 +57,45 @@
           </div>
           <button id="btn-bold" title="Bold"><b>B</b></button>
           <button id="btn-italic" title="Italic"><i>I</i></button>
-          <button id="btn-hr" title="Line">―</button>
-          <button id="btn-code" title="Code">{ }</button>
-          <button id="btn-link" title="Link">🔗</button>
-          <button id="btn-image" title="Image">🖼️</button>
-          <button id="btn-ul" title="Pointer List">• List</button>
-          <button id="btn-ol" title="Numeric List">1. List</button>
           <button id="btn-underline" title="Underline"><u>U</u></button>
-          <!-- Visualizzazione: solo editor, solo preview, split-view -->
-          <div id="view-modes" style="display:inline-block; margin-left:16px;">
-            <button id="btn-view-editor" title="Solo Editor" style="font-weight:bold;">📝</button>
-            <button id="btn-view-preview" title="Solo Preview" style="font-weight:bold;">👁️</button>
-            <button id="btn-view-split" title="Split View" style="font-weight:bold;">🔀</button>
+          <button id="btn-hr" title="Line">-</button>
+          <button id="btn-code" title="Code">{ }</button>
+
+          <div id="dropdown-extra" class="dropdown">
+            <button id="btn-extra" title="Extra">+</button>
+            <div class="dropdown-content">
+              <button id="btn-link" class="dropdown-item" title="Link">Link</button>
+              <button id="btn-image" class="dropdown-item" title="Image">Image</button>
+              <button id="btn-ul" class="dropdown-item" title="Pointer List">• List</button>
+              <button id="btn-ol" class="dropdown-item" title="Numeric List">1. List</button>
+            </div>
           </div>
-          <label id="autosave-switch" style="margin-left:16px; font-size:14px; display:inline-flex; align-items:center; gap:4px; cursor:pointer;">
-            <span style="margin-right:4px;">Autosave</span>
-            <span class="switch">
-              <input type="checkbox" id="toggle-autosave" style="display:none;" />
-              <span class="slider"></span>
-            </span>
-          </label>
+        </div>
+
+        <div class="navbar-right">
+          <div id="dropdown-options" class="dropdown">
+            <button id="btn-options" title="Options">Options</button>
+            <div class="dropdown-content">
+              <div class="dropdown-section">
+                <span>View Mode</span>
+                <input type="range" id="view-mode-slider" min="0" max="2" value="1" />
+                <div class="view-mode-labels">
+                  <span>Editor</span>
+                  <span>Split</span>
+                  <span>Preview</span>
+                </div>
+              </div>
+              <div class="dropdown-section">
+                <label class="autosave-switch">
+                  <span>Autosave</span>
+                  <span class="switch">
+                    <input type="checkbox" id="toggle-autosave" />
+                    <span class="slider"></span>
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
         </div>
     </div>
     <div id="search-container" class="hidden">

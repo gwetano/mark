@@ -8,7 +8,7 @@ I needed something that could open folders, read. md files, and save. Nothing mo
 My job was mostly about keeping it consistent, understanding how stuff worked, and fixing the code.
 
 ⚡ It’s vibe-coded.    
-⚙️ Built with JavaScript
+⚙️ Built with JavaScript 
 
 ***
 
