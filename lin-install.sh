@@ -34,7 +34,7 @@ clear
 
 for i in "${!steps[@]}"; do
   step=${steps[$i]}
-  echo "\n$step..."
+  echo "$step..."
   progress_bar $((i+1)) $total
   sleep 1 # Simula tempo di esecuzione
   case $step in
@@ -76,4 +76,4 @@ EOF
 chmod +x "$DESKTOP_FILE"
 update-desktop-database ~/.local/share/applications/
 
-echo "\nPuoi trovare Mark nel menu applicazioni o eseguirlo da terminale con 'mark' o 'mark nomefile.md'"
+echo "Puoi trovare Mark nel menu applicazioni o eseguirlo da terminale con 'mark' o 'mark nomefile.md'"

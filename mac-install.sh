@@ -20,7 +20,7 @@ total=${#steps[@]}
 clear
 for i in "${!steps[@]}"; do
   step=${steps[$i]}
-  echo "\n$step..."
+  echo "$step..."
   progress_bar $((i+1)) $total
   sleep 1 # Simula tempo di esecuzione
   case $step in

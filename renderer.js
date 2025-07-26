@@ -391,7 +391,6 @@ function showAISearchDialog(selectedText) {
     if (response) {
       responseContent.textContent = response;
       responseSection.classList.remove('hidden');
-      // Scroll automatico verso il basso con scroll fluido
       const dialogBody = dialog.querySelector('.ai-dialog-body');
       dialogBody.scrollTo({
         top: dialogBody.scrollHeight,
@@ -426,7 +425,6 @@ function showAISearchDialog(selectedText) {
     }
   });
 
-  // ESC key
   const handleEscape = (e) => {
     if (e.key === 'Escape') {
       closeDialog();
@@ -455,12 +453,12 @@ function toggleSearchPanel(show = true) {
   if (show) {
     searchContainer.classList.remove("hidden");
     document.getElementById("search-input").focus();
-    document.getElementById("search-input").select(); // Seleziona tutto il testo nella casella
+    document.getElementById("search-input").select();
   } else {
     searchContainer.classList.add("hidden");
     clearSearchHighlights();
-    document.getElementById("search-input").value = ""; // Pulisci l'input quando chiudi
-    document.getElementById("search-results").textContent = "0/0"; // Resetta il contatore
+    document.getElementById("search-input").value = "";
+    document.getElementById("search-results").textContent = "0/0";
   }
 }
 
@@ -754,8 +752,23 @@ window.addEventListener("DOMContentLoaded", () => {
 
   const updateWordCount = () => {
     const text = editor.value;
-    const words = text.trim().split(/\s+/).filter(Boolean);
-    wordCountEl.textContent = `word-count: ${words.length}`;
+    let clean = text
+      .replace(/```[\s\S]*?```/g, ' ')
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+      .replace(/\[[^\]]*\]\([^)]*\)/g, ' ')
+      .replace(/(^|\n)[*\-]{3,}(\n|$)/g, ' ')
+      .replace(/(^|\n)#+\s+/g, ' ')
+      .replace(/(^|\n)[*\-]\s+/g, ' ')
+      .replace(/(^|\n)\d+\.\s+/g, ' ')
+      .replace(/[*_]{1,3}/g, '')
+      .replace(/(^|\n)>+/g, ' ')
+      .replace(/(^|\n)-{3,}(\n|$)/g, ' ')
+      .replace(/\b\d+\b/g, ' ')
+      .replace(/[.,!?;:()\[\]{}<>"'`~|\\/]/g, ' ')
+      .replace(/`[^`]*`/g, ' ')
+      .replace(/\s+/g, ' ');
+    const words = clean.match(/\b[a-zA-ZÀ-ÿ]{2,}\b/g);
+    wordCountEl.textContent = `word-count: ${words ? words.length : 0}`;
   };
   
   const setDirty = (dirty) => {
@@ -1312,7 +1325,7 @@ window.addEventListener("DOMContentLoaded", () => {
             filters: [{ name: "Markdown", extensions: ["md"] }]
           });
           
-          if (!file) return; // L'utente ha annullato
+          if (!file) return; 
           
           fs.writeFileSync(file, editor.value, "utf8");
           currentFilePath = file;
@@ -1326,7 +1339,7 @@ window.addEventListener("DOMContentLoaded", () => {
           const buffer = Buffer.from(reader.result);
           
           const timestamp = new Date().getTime();
-          const imageExt = blob.type.split('/')[1]; // es. png, jpeg, gif
+          const imageExt = blob.type.split('/')[1];
           const imageName = `image_${timestamp}.${imageExt}`;
           
           const folderPath = path.dirname(currentFilePath);
