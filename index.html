@@ -73,23 +73,26 @@
         </div>
 
         <div class="navbar-right">
+          <button id="btn-view-editor" title="Solo Editor"><</button>
+          <button id="btn-view-split" title="Split View">>|<</button>
+          <button id="btn-view-preview" title="Solo Render">></button>
           <div id="dropdown-options" class="dropdown">
-            <button id="btn-options" title="Options">Options</button>
+            <button id="btn-options" title="Options">Settings</button>
             <div class="dropdown-content">
-              <div class="dropdown-section">
-                <span>View Mode</span>
-                <input type="range" id="view-mode-slider" min="0" max="2" value="1" />
-                <div class="view-mode-labels">
-                  <span>Editor</span>
-                  <span>Split</span>
-                  <span>Preview</span>
-                </div>
-              </div>
               <div class="dropdown-section">
                 <label class="autosave-switch">
                   <span>Autosave</span>
                   <span class="switch">
                     <input type="checkbox" id="toggle-autosave" />
+                    <span class="slider"></span>
+                  </span>
+                </label>
+              </div>
+              <div class="dropdown-section">
+                <label class="theme-switch">
+                  <span>Dark Mode</span>
+                  <span class="switch">
+                    <input type="checkbox" id="toggle-theme-switch" />
                     <span class="slider"></span>
                   </span>
                 </label>
@@ -111,12 +114,12 @@
     <div id="app-container">
       <div id="explorer-panel">
         <div id="explorer-header">
-          <span>EXPLORER</span>
+          <span>Explorer</span>
           <div class="explorer-actions">
             <button id="new-file" title="New file">+</button>
             <button id="open-folder" title="Open folder">📁</button>
-            <button id="collapse-all" title="Collapse">-</button>
             <button id="refresh-explorer" title="Refresh">🔄</button>
+            <button id="collapse-all" title="Collapse"><</button>
           </div>
         </div>
         <div id="folder-path"></div>

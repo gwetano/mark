@@ -550,8 +550,7 @@ function navigateToMatch(index) {
     const origTransition = editor.style.transition;
     
     editor.style.transition = 'background-color 0.3s ease';
-    editor.style.backgroundColor = '#ffff9980'; // Giallo chiaro con trasparenza
-    
+    editor.style.backgroundColor = '#ffff9980'; 
     setTimeout(() => {
       editor.style.backgroundColor = origBackground;
       editor.style.transition = origTransition;
@@ -705,8 +704,12 @@ window.addEventListener("DOMContentLoaded", () => {
   const autosaveSwitch = document.getElementById("toggle-autosave");
   let autosaveInterval = null;
 
-  // AUTOSAVE SWITCH
   autosaveSwitch.addEventListener("change", function() {
+    if (!currentFilePath) {
+      this.checked = false;
+      showNotification('You must save the file first to enable autosave.', 'error');
+      return;
+    }
     if (this.checked) {
       if (!autosaveInterval) {
         autosaveInterval = setInterval(() => {
@@ -725,9 +728,7 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Evento custom per autosave (puoi usarlo per notifiche)
   document.addEventListener('autosave', () => {
-    // showNotification('Salvataggio automatico...', 'info');
   });
 
   explorerPanel.classList.add("hidden");
@@ -742,10 +743,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   collapseAllBtn.addEventListener("click", () => {
-    const folders = document.querySelectorAll('.tree-folder');
-    folders.forEach(folder => {
-      folder.classList.add('collapsed');
-    });
+    explorerPanel.classList.add("hidden");
   });
 
   refreshExplorerBtn.addEventListener("click", () => {
@@ -1120,11 +1118,9 @@ window.addEventListener("DOMContentLoaded", () => {
           folderElement.appendChild(folderContent);
           parentElement.appendChild(folderElement);
           
-          // Gestisci il click sulla cartella per espandere/comprimere
           folderHeader.addEventListener('click', () => {
             folderElement.classList.toggle('collapsed');
             
-            // Carica il contenuto solo quando viene espanso per la prima volta
             if (!folderElement.dataset.loaded && !folderElement.classList.contains('collapsed')) {
               createFileTree(itemPath, folderContent);
               folderElement.dataset.loaded = 'true';
@@ -1132,7 +1128,6 @@ window.addEventListener("DOMContentLoaded", () => {
           });
         });
       
-      // Poi mostro i file
       items
         .filter(item => {
           const itemPath = path.join(folderPath, item);
@@ -1247,9 +1242,9 @@ window.addEventListener("DOMContentLoaded", () => {
         message: 'Ci sono modifiche non salvate. Vuoi salvare prima di creare un nuovo file?'
       });
       
-      if (answer === 0) { // Salva
+      if (answer === 0) {
         saveCurrentFile();
-      } else if (answer === 2) { // Annulla
+      } else if (answer === 2) {
         return;
       }
     }
@@ -1260,7 +1255,7 @@ window.addEventListener("DOMContentLoaded", () => {
       title: 'Crea nuovo file'
     });
     
-    if (!filename) return; // Utente ha annullato
+    if (!filename) return;
     
     fs.writeFileSync(filename, '', 'utf8');
     
@@ -1304,7 +1299,7 @@ window.addEventListener("DOMContentLoaded", () => {
       const item = clipboardItems[i];
       
       if (item.type.indexOf('image') !== -1) {
-        e.preventDefault(); // Previeni il comportamento di incollare di default
+        e.preventDefault();
         
         if (!currentFilePath) {
           dialog.showMessageBoxSync({
@@ -1476,6 +1471,18 @@ window.addEventListener("DOMContentLoaded", () => {
 
   ipcRenderer.on("toggle-theme", () => {
     document.body.classList.toggle("dark");
+  });
+
+  const themeSwitch = document.getElementById("toggle-theme-switch");
+
+  themeSwitch.addEventListener("change", function() {
+    if (this.checked) {
+      document.body.classList.add("dark");
+      localStorage.setItem("mark-theme", "dark");
+    } else {
+      document.body.classList.remove("dark");
+      localStorage.setItem("mark-theme", "light");
+    }
   });
 
   ipcRenderer.on("insert-image-from-file", async (event, imagePath) => {
@@ -1778,39 +1785,34 @@ window.addEventListener("DOMContentLoaded", () => {
       const start = editor.selectionStart;
       const end = editor.selectionEnd;
       const selected = editor.value.substring(start, end);
-      editor.value = editor.value.substring(0, start) + `<u>${selected || 'testo'}</u>` + editor.value.substring(end);
+      editor.value = editor.value.substring(0, start) + `<u>${selected || 'text'}</u>` + editor.value.substring(end);
       editor.focus();
-      editor.setSelectionRange(start + 3, start + 3 + (selected ? selected.length : 5));
+      editor.setSelectionRange(start + 3, start + 3 + (selected ? selected.length : 4));
       updatePreview();
       setDirty(true);
     });
   });
 
-  // Dropdown Extra
   const btnExtra = document.getElementById("btn-extra");
   const dropdownExtra = document.getElementById("dropdown-extra");
   btnExtra.addEventListener("click", (e) => {
     e.stopPropagation();
     dropdownExtra.classList.toggle("open");
-    // Chiudi altri dropdown
     document.getElementById("dropdown-title").classList.remove("open");
     document.getElementById("dropdown-options").classList.remove("open");
     btnExtra.classList.toggle("active");
   });
 
-  // Dropdown Options
   const btnOptions = document.getElementById("btn-options");
   const dropdownOptions = document.getElementById("dropdown-options");
   btnOptions.addEventListener("click", (e) => {
     e.stopPropagation();
     dropdownOptions.classList.toggle("open");
-    // Chiudi altri dropdown
     document.getElementById("dropdown-title").classList.remove("open");
     document.getElementById("dropdown-extra").classList.remove("open");
     btnOptions.classList.toggle("active");
   });
 
-  // Dropdown Titoli (già presente, ma assicuriamoci che chiuda gli altri)
   btnTitle.addEventListener("click", (e) => {
     e.stopPropagation();
     dropdownTitle.classList.toggle("open");
@@ -1819,7 +1821,6 @@ window.addEventListener("DOMContentLoaded", () => {
     btnTitle.classList.toggle("active");
   });
 
-  // Gestione click sui titoli H1/H2/H3
   dropdownItems.forEach(item => {
     item.addEventListener('click', function () {
       preserveScroll(() => {
@@ -1830,18 +1831,15 @@ window.addEventListener("DOMContentLoaded", () => {
         const hashes = '#'.repeat(level);
         editor.value = editor.value.substring(0, start) + `${hashes} ${selected}` + editor.value.substring(end);
         editor.focus();
-        // Seleziona solo il testo del titolo, non i #
         editor.setSelectionRange(start + parseInt(level) + 1, start + parseInt(level) + 1 + selected.length);
         updatePreview();
         setDirty(true);
       });
-      // Chiudi il dropdown dopo il click
       dropdownTitle.classList.remove('open');
       btnTitle.classList.remove('active');
     });
   });
 
-  // Chiudi tutti i dropdown cliccando fuori
   document.addEventListener("click", (e) => {
     if (!dropdownExtra.contains(e.target)) {
       dropdownExtra.classList.remove("open");
@@ -1857,28 +1855,21 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Gestione view mode slider
-  const viewModeSlider = document.getElementById("view-mode-slider");
-
-  viewModeSlider.addEventListener("input", () => {
-    const value = parseInt(viewModeSlider.value);
-    switch(value) {
-      case 0: // Solo Editor
-        editor.style.display = "block";
-        editor.style.width = "100%";
-        preview.style.display = "none";
-        break;
-      case 1: // Split View
-        editor.style.display = "block";
-        editor.style.width = "50%";
-        preview.style.display = "block";
-        preview.style.width = "50%";
-        break;
-      case 2: // Solo Preview
-        editor.style.display = "none";
-        preview.style.display = "block";
-        preview.style.width = "100%";
-        break;
-    }
+  btnViewEditor.addEventListener("click", () => {
+    editor.style.display = "block";
+    editor.style.width = "100%";
+    preview.style.display = "none";
+    preview.style.width = "100%";
+  });
+  btnViewSplit.addEventListener("click", () => {
+    editor.style.display = "block";
+    editor.style.width = "50%";
+    preview.style.display = "block";
+    preview.style.width = "50%";
+  });
+  btnViewPreview.addEventListener("click", () => {
+    editor.style.display = "none";
+    preview.style.display = "block";
+    preview.style.width = "100%";
   });
 });
