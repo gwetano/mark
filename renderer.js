@@ -371,7 +371,6 @@ function showAISearchDialog(selectedText) {
   translateBtn.addEventListener('click', () => queryInput.value = 'Traduci in inglese');
   correctBtn.addEventListener('click', () => queryInput.value = 'Correggi eventuali errori grammaticali');
 
-  // Submit action (on click of the "Invio" button or press Enter)
   const performAISearch = async () => {
     const query = queryInput.value.trim();
     if (!query) {
@@ -1689,7 +1688,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const dropdownTitle = document.getElementById("dropdown-title");
   const btnTitle = document.getElementById("btn-title");
   const dropdownContent = document.getElementById("dropdown-content");
-  const dropdownItems = document.querySelectorAll(".dropdown-item"); // solo titoli
+  const dropdownItems = document.querySelectorAll(".dropdown-item");
   const btnUnderline = document.getElementById("btn-underline");
   const btnViewEditor = document.getElementById("btn-view-editor");
   const btnViewPreview = document.getElementById("btn-view-preview");
@@ -1800,7 +1799,10 @@ window.addEventListener("DOMContentLoaded", () => {
   btnUnderline && btnUnderline.addEventListener("click", () => {
     preserveScroll(() => {
       const start = editor.selectionStart;
-      editor.value = editor.value.substring(0, start) + `<u>${selected || 'text'}</u>` + editor.value.substring(end);
+      const end = editor.selectionEnd;
+      const selected = editor.value.substring(start, end);
+      const text = `<u>${selected || 'text'}</u>`;
+      editor.setRangeText(text, start, end, 'end');
       editor.focus();
       editor.setSelectionRange(start + 3, start + 3 + (selected ? selected.length : 4));
       updatePreview();
