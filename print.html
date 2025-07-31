@@ -117,42 +117,52 @@
       border-collapse: collapse;
       width: 100%;
       margin: 16px 0;
-      break-inside: avoid;
+      background: #fff;
+      border: 1px solid #d0d7de;
+      font-size: 16px;
     }
-    table th, table td {
-      padding: 8px;
+    th, td {
+      border: 1px solid #d0d7de;
+      padding: 8px 12px;
+      text-align: left;
     }
-    table tr:nth-child(even) {
-      background-color: #f2f2f2;
-    }
-    h1, h2, h3, h4, h5, h6 {
-      margin-top: 24px;
-      margin-bottom: 16px;
+    th {
+      background: #f6f8fa;
       font-weight: 600;
-      line-height: 1.25;
-      text-align: left;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-      word-break: break-word;
-      break-after: avoid-page;
-      page-break-after: avoid;
+      color: #24292f;
     }
-    p {
-      font-size: 0.9em;   
-      text-align: left;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-      word-break: break-word;
+    tr:nth-child(even) {
+      background: #f6f8fa;
     }
-    h1 { font-size: 2em; }
-    h2 { font-size: 1.5em; }
-    h3 { font-size: 1.25em; }
-    a { color: #0366d6; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    .mermaid {
-      text-align: center;
-      margin: 1em 0;
-      break-inside: avoid;
+    tr:hover {
+      background: #eaeef2;
+    }
+    @media print {
+      body {
+        height: auto;
+        overflow: visible;
+      }
+      .markdown-body {
+        height: auto;
+      }
+      .page-break {
+        page-break-before: always;
+        break-before: page;
+      }
+      li {
+        break-inside: avoid;
+      }
+      figure, img {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      .table-of-contents {
+        page-break-after: always;
+      }
+      table {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
     }
     .katex { font-size: 1.1em; }
     .katex-display {
@@ -238,30 +248,6 @@
       margin: 2em 0;
       border: none;
       border-top: 1px solid #ddd;
-    }
-    
-    @media print {
-      body {
-        height: auto;
-        overflow: visible;
-      }
-      .markdown-body {
-        height: auto;
-      }
-      .page-break {
-        page-break-before: always;
-        break-before: page;
-      }
-      li {
-        break-inside: avoid;
-      }
-      figure, img {
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
-      .table-of-contents {
-        page-break-after: always;
-      }
     }
   </style>
 </head>

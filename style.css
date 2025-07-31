@@ -757,6 +757,95 @@ body.dark .clickable-code:active,
   border-bottom: none;
 }
 
+.markdown-body blockquote, #preview blockquote, .markdown-body blockquote {
+  border-left: 4px solid #d0d7de;
+  color: #656d76;
+  background: #f6f8fa;
+  padding: 8px 16px;
+  margin: 8px 0 8px 0;
+  font-size: 17px;
+  border-radius: 4px;
+  font-style: italic;
+}
+
+.markdown-body blockquote p {
+  margin: 0;
+}
+
+body.dark .markdown-body blockquote,
+body.dark #preview blockquote,
+body.dark .markdown-body blockquote {
+  border-left: 4px solid #3b4252;
+  color: #bfc7d5;
+  background: #23272e;
+}
+
+body.dark .markdown-body table,
+body.dark #preview table,
+body.dark .markdown-body table {
+  background: #23272e;
+  border: 1px solid #3b4252;
+  color: #eaeaea;
+}
+
+body.dark .markdown-body th,
+body.dark #preview th {
+  background: #2d323b;
+  color: #eaeaea;
+}
+
+body.dark .markdown-body td,
+body.dark #preview td {
+  border: 1px solid #3b4252;
+}
+
+body.dark .markdown-body tr:nth-child(even),
+body.dark #preview tr:nth-child(even) {
+  background: #23272e;
+}
+
+body.dark .markdown-body tr:hover,
+body.dark #preview tr:hover {
+  background: #2d323b;
+}
+
+/* Stile tabelle stile GitHub */
+.markdown-body table, #preview table, .markdown-body table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 16px 0;
+  background: #fff;
+  border: 1px solid #d0d7de;
+  font-size: 16px;
+}
+
+.markdown-body th, .markdown-body td, #preview th, #preview td {
+  border: 1px solid #d0d7de;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.markdown-body th, #preview th {
+  background: #f6f8fa;
+  font-weight: 600;
+  color: #24292f;
+}
+
+.markdown-body tr:nth-child(even), #preview tr:nth-child(even) {
+  background: #f6f8fa;
+}
+
+.markdown-body tr:hover, #preview tr:hover {
+  background: #eaeef2;
+}
+
+@media print {
+  .markdown-body table, #preview table {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
+
 @media (max-width: 900px) {
   .dropdown .dropdown-content,
   #dropdown-options .dropdown-content,

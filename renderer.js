@@ -1689,11 +1689,13 @@ window.addEventListener("DOMContentLoaded", () => {
   const dropdownTitle = document.getElementById("dropdown-title");
   const btnTitle = document.getElementById("btn-title");
   const dropdownContent = document.getElementById("dropdown-content");
-  const dropdownItems = document.querySelectorAll(".dropdown-item");
+  const dropdownItems = document.querySelectorAll(".dropdown-item"); // solo titoli
   const btnUnderline = document.getElementById("btn-underline");
   const btnViewEditor = document.getElementById("btn-view-editor");
   const btnViewPreview = document.getElementById("btn-view-preview");
   const btnViewSplit = document.getElementById("btn-view-split");
+  const btnQuote = document.getElementById("btn-quote");
+  const btnTable = document.getElementById("btn-table");
 
   function preserveScroll(fn) {
     const scroll = editor.scrollTop;
@@ -1706,7 +1708,8 @@ window.addEventListener("DOMContentLoaded", () => {
       const start = editor.selectionStart;
       const end = editor.selectionEnd;
       const selected = editor.value.substring(start, end);
-      editor.value = editor.value.substring(0, start) + `**${selected || 'text'}**` + editor.value.substring(end);
+      const text = `**${selected || 'text'}**`;
+      editor.setRangeText(text, start, end, 'end');
       editor.focus();
       editor.setSelectionRange(start + 2, start + 2 + (selected ? selected.length : 4));
       updatePreview();
@@ -1719,7 +1722,8 @@ window.addEventListener("DOMContentLoaded", () => {
       const start = editor.selectionStart;
       const end = editor.selectionEnd;
       const selected = editor.value.substring(start, end);
-      editor.value = editor.value.substring(0, start) + `*${selected || 'text'}*` + editor.value.substring(end);
+      const text = `*${selected || 'text'}*`;
+      editor.setRangeText(text, start, end, 'end');
       editor.focus();
       editor.setSelectionRange(start + 1, start + 1 + (selected ? selected.length : 4));
       updatePreview();
@@ -1739,7 +1743,7 @@ window.addEventListener("DOMContentLoaded", () => {
       const end = editor.selectionEnd;
       const selected = editor.value.substring(start, end);
       const imageMd = `![alt](${selected || 'url'})`;
-      editor.value = editor.value.substring(0, start) + imageMd + editor.value.substring(end);
+      editor.setRangeText(imageMd, start, end, 'end');
       editor.focus();
       editor.setSelectionRange(start + 7, start + 10);
       updatePreview();
@@ -1753,7 +1757,7 @@ window.addEventListener("DOMContentLoaded", () => {
       const end = editor.selectionEnd;
       const selected = editor.value.substring(start, end);
       const listMd = `* ${selected || 'elem'}`;
-      editor.value = editor.value.substring(0, start) + listMd + editor.value.substring(end);
+      editor.setRangeText(listMd, start, end, 'end');
       editor.focus();
       editor.setSelectionRange(start + 2, start + 2 + (selected ? selected.length : 4));
       updatePreview();
@@ -1767,7 +1771,7 @@ window.addEventListener("DOMContentLoaded", () => {
       const end = editor.selectionEnd;
       const selected = editor.value.substring(start, end);
       const listMd = `1. ${selected || 'elem'}`;
-      editor.value = editor.value.substring(0, start) + listMd + editor.value.substring(end);
+      editor.setRangeText(listMd, start, end, 'end');
       editor.focus();
       editor.setSelectionRange(start + 3, start + 3 + (selected ? selected.length : 4));
       updatePreview();
@@ -1785,7 +1789,7 @@ window.addEventListener("DOMContentLoaded", () => {
     preserveScroll(() => {
       const start = editor.selectionStart;
       const end = editor.selectionEnd;
-      editor.value = editor.value.substring(0, start) + "***\n" + editor.value.substring(end);
+      editor.setRangeText("***\n", start, end, 'end');
       editor.focus();
       editor.setSelectionRange(start + 4, start + 4);
       updatePreview();
@@ -1796,11 +1800,37 @@ window.addEventListener("DOMContentLoaded", () => {
   btnUnderline && btnUnderline.addEventListener("click", () => {
     preserveScroll(() => {
       const start = editor.selectionStart;
-      const end = editor.selectionEnd;
-      const selected = editor.value.substring(start, end);
       editor.value = editor.value.substring(0, start) + `<u>${selected || 'text'}</u>` + editor.value.substring(end);
       editor.focus();
       editor.setSelectionRange(start + 3, start + 3 + (selected ? selected.length : 4));
+      updatePreview();
+      setDirty(true);
+    });
+  });
+
+  btnQuote && btnQuote.addEventListener("click", () => {
+    preserveScroll(() => {
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      const selected = editor.value.substring(start, end);
+      const quoteMd = `> ${selected || 'quote'}`;
+      editor.value = editor.value.substring(0, start) + quoteMd + editor.value.substring(end);
+      editor.focus();
+      editor.setSelectionRange(start + 2, start + 2 + (selected ? selected.length : 5));
+      updatePreview();
+      setDirty(true);
+    });
+  });
+
+  btnTable && btnTable.addEventListener("click", () => {
+    preserveScroll(() => {
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      const tableMd = `| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |\n| Cell 3   | Cell 4   |`;
+      editor.setRangeText(tableMd, start, end, 'end');
+      editor.focus();
+      editor.setSelectionRange(start + tableMd.length, start + tableMd.length);
+      editor.dispatchEvent(new Event('input', {bubbles:true}));
       updatePreview();
       setDirty(true);
     });
@@ -1840,7 +1870,7 @@ window.addEventListener("DOMContentLoaded", () => {
         const level = this.getAttribute('data-level');
         const start = editor.selectionStart;
         const end = editor.selectionEnd;
-        const selected = editor.value.substring(start, end) || 'Titolo';
+        const selected = editor.value.substring(start, end) || 'Title';
         const hashes = '#'.repeat(level);
         editor.value = editor.value.substring(0, start) + `${hashes} ${selected}` + editor.value.substring(end);
         editor.focus();
