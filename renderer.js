@@ -699,7 +699,9 @@ window.addEventListener("DOMContentLoaded", () => {
   const searchNextBtn = document.getElementById("search-next");
   const searchCloseBtn = document.getElementById("search-close");
   const autosaveSwitch = document.getElementById("toggle-autosave");
+  const autoscrollSwitch = document.getElementById("toggle-autoscroll");
   let autosaveInterval = null;
+  let autoscrollEnabled = true;
 
   autosaveSwitch.addEventListener("change", function() {
     if (!currentFilePath) {
@@ -1042,8 +1044,15 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  autoscrollEnabled = autoscrollSwitch ? autoscrollSwitch.checked : true;
+  if (autoscrollSwitch) {
+    autoscrollSwitch.addEventListener("change", function() {
+      autoscrollEnabled = this.checked;
+    });
+  }
 
   editor.addEventListener('scroll', () => {
+    if (!autoscrollEnabled) return; // <--- AGGIUNTO
     if (isSyncingScroll) return;
 
     userIsScrollingEditor = true;
@@ -1063,6 +1072,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   preview.addEventListener('scroll', () => {
+    if (!autoscrollEnabled) return;
     if (isSyncingScroll) return;
 
     userIsScrollingPreview = true;
@@ -1695,6 +1705,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const btnViewSplit = document.getElementById("btn-view-split");
   const btnQuote = document.getElementById("btn-quote");
   const btnTable = document.getElementById("btn-table");
+  
 
   function preserveScroll(fn) {
     const scroll = editor.scrollTop;

@@ -745,6 +745,51 @@ body.dark .clickable-code:active,
   transform: translateX(18px);
 }
 
+.autoscroll-switch .switch input[type="checkbox"] {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.autoscroll-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 16px;
+  font-weight: 500;
+  gap: 10px;
+}
+
+.autoscroll-switch .slider {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+  background: #ccc;
+  border-radius: 22px;
+  transition: background 0.3s;
+  vertical-align: middle;
+}
+.autoscroll-switch .slider:before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.3s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+}
+.autoscroll-switch input[type="checkbox"]:checked + .slider {
+  background: #007bff;
+}
+.autoscroll-switch input[type="checkbox"]:checked + .slider:before {
+  transform: translateX(18px);
+}
+
 #dropdown-options .dropdown-section {
   display: flex;
   flex-direction: column;
