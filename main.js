@@ -2,6 +2,7 @@ const { app, BrowserWindow, Menu, dialog, clipboard, ipcMain } = require("electr
 const path = require("path");
 const fs = require("fs");
 const remoteMain = require("@electron/remote/main");
+const { autoUpdater } = require("electron-updater");
 
 let win;
 let printWin = null;
@@ -268,6 +269,16 @@ app.whenReady().then(() => {
       win.webContents.send('load-md', openFilePath, content);
     });
   }
+
+  autoUpdater.checkForUpdatesAndNotify();
+
+  autoUpdater.on('update-available', () => {
+    win.webContents.send('update-available');
+  });
+
+  autoUpdater.on('update-downloaded', () => {
+    win.webContents.send('update-downloaded');
+  });
 });
 
 

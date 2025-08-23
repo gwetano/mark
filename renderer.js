@@ -11,6 +11,14 @@ let userIsScrollingPreview = false;
 let scrollTimeoutEditor = null;
 let scrollTimeoutPreview = null;
 
+ipcRenderer.on('update-available', () => {
+  showNotification('Aggiornamento disponibile! Verrà scaricato in background.', 'info');
+});
+
+ipcRenderer.on('update-downloaded', () => {
+  showNotification('Aggiornamento scaricato! Riavvia per applicare.', 'success');
+});
+
 let GROQ_API_KEY = '';
 
 try {
@@ -50,9 +58,9 @@ function showNotification(message, type = 'info') {
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     transition: opacity 0.3s ease;
   `;
-  
+
   document.body.appendChild(notification);
-  
+
   setTimeout(() => {
     notification.style.opacity = '0';
     setTimeout(() => {
@@ -84,7 +92,7 @@ Fornisci una risposta utile e precisa basata sul testo selezionato. Se la query 
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile', 
+        model: 'llama-3.3-70b-versatile',
         messages: [
           {
             role: 'user',
@@ -102,13 +110,13 @@ Fornisci una risposta utile e precisa basata sul testo selezionato. Se la query 
     }
 
     const data = await response.json();
-      return data.choices[0]?.message?.content || 'Nessuna risposta ricevuta.';
-    } catch (error) {
-      console.error('Errore API Groq:', error);
-      showNotification(`Errore: ${error.message}`, 'error');
-      return null;
-    }
+    return data.choices[0]?.message?.content || 'Nessuna risposta ricevuta.';
+  } catch (error) {
+    console.error('Errore API Groq:', error);
+    showNotification(`Errore: ${error.message}`, 'error');
+    return null;
   }
+}
 
 function showAISearchDialog(selectedText) {
   const existingDialog = document.getElementById('ai-search-dialog');
@@ -351,7 +359,7 @@ function showAISearchDialog(selectedText) {
       --accent-hover: #0b5ed7;
     }
   `;
-  
+
   document.head.appendChild(style);
   document.body.appendChild(dialog);
 
@@ -383,7 +391,7 @@ function showAISearchDialog(selectedText) {
     responseSection.classList.add('hidden');
 
     const response = await queryGroqAI(selectedText, query);
-    
+
     loading.classList.add('hidden');
     submitBtn.disabled = false;
 
@@ -399,7 +407,7 @@ function showAISearchDialog(selectedText) {
   };
 
   submitBtn.addEventListener('click', performAISearch);
-  
+
   queryInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -437,11 +445,11 @@ function showAISearchDialog(selectedText) {
 const SCROLL_DEBOUNCE_DELAY = 200;
 
 function debounce(func, delay) {
-   let timeout;
-   return (...args) => {
-     clearTimeout(timeout);
-     timeout = setTimeout(() => func.apply(this, args), delay);
-   };
+  let timeout;
+  return (...args) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(this, args), delay);
+  };
 }
 
 let searchMatches = [];
@@ -465,28 +473,28 @@ function performSearch() {
   const searchTerm = document.getElementById("search-input").value;
   const editor = document.getElementById("editor");
   const text = editor.value;
-  
+
   clearSearchHighlights();
-  
+
   if (!searchTerm) {
     document.getElementById("search-results").textContent = "0/0";
     currentMatchIndex = -1;
     return;
   }
-  
+
   searchMatches = [];
   let match;
   const regex = new RegExp(escapeRegExp(searchTerm), "gi");
-  
+
   while ((match = regex.exec(text)) !== null) {
     searchMatches.push({
       start: match.index,
       end: match.index + searchTerm.length
     });
   }
-  
+
   updateSearchResultsCounter();
-  
+
   if (searchMatches.length > 0) {
     currentMatchIndex = 0;
     navigateToMatch(currentMatchIndex);
@@ -495,14 +503,14 @@ function performSearch() {
 
 function goToPreviousMatch() {
   if (searchMatches.length === 0) return;
-  
+
   currentMatchIndex = (currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
   navigateToMatch(currentMatchIndex);
 }
 
 function goToNextMatch() {
   if (searchMatches.length === 0) return;
-  
+
   currentMatchIndex = (currentMatchIndex + 1) % searchMatches.length;
   navigateToMatch(currentMatchIndex);
 }
@@ -510,12 +518,12 @@ function goToNextMatch() {
 function navigateToMatch(index) {
   const editor = document.getElementById("editor");
   const match = searchMatches[index];
-  
+
   if (!match) return;
-  
+
   editor.focus();
   editor.setSelectionRange(match.start, match.end);
-  
+
   const temp = document.createElement('textarea');
   temp.style.position = 'absolute';
   temp.style.left = '-9999px';
@@ -530,61 +538,61 @@ function navigateToMatch(index) {
   temp.style.padding = window.getComputedStyle(editor).padding;
   temp.style.border = window.getComputedStyle(editor).border;
   temp.style.boxSizing = window.getComputedStyle(editor).boxSizing;
-  
+
   temp.value = editor.value.substring(0, match.start);
   document.body.appendChild(temp);
-  
+
   const matchPosition = temp.scrollHeight;
-  
+
   document.body.removeChild(temp);
-  
+
   try {
     const scrollPosition = matchPosition - (editor.clientHeight / 2);
-    
+
     editor.scrollTop = Math.max(0, scrollPosition);
-    
+
     const origBackground = editor.style.background;
     const origTransition = editor.style.transition;
-    
+
     editor.style.transition = 'background-color 0.3s ease';
-    editor.style.backgroundColor = '#ffff9980'; 
+    editor.style.backgroundColor = '#ffff9980';
     setTimeout(() => {
       editor.style.backgroundColor = origBackground;
       editor.style.transition = origTransition;
     }, 500);
   } catch (e) {
     console.error("Errore nel calcolo della posizione di scorrimento:", e);
-    
+
     const textBeforeMatch = editor.value.substring(0, match.start);
     const lineBreaks = textBeforeMatch.split("\n").length - 1;
-    
+
     const computedLineHeight = parseInt(window.getComputedStyle(editor).lineHeight) || 20;
     const scrollPosition = lineBreaks * computedLineHeight;
     editor.scrollTop = scrollPosition - editor.clientHeight / 2;
   }
-  
+
   updateSearchResultsCounter();
 }
 
 function calculateLineHeights() {
   const editor = document.getElementById('editor');
   if (!editor) return;
-  
+
   const style = window.getComputedStyle(editor);
   const lineHeight = parseFloat(style.lineHeight);
-  
+
   if (!isNaN(lineHeight)) {
     editor.dataset.lineHeight = lineHeight;
     return lineHeight;
   }
-  
+
   const fontSize = parseFloat(style.fontSize);
   if (!isNaN(fontSize)) {
     const calculatedLineHeight = fontSize * 1.2;
     editor.dataset.lineHeight = calculatedLineHeight;
     return calculatedLineHeight;
   }
-  
+
   editor.dataset.lineHeight = 20;
   return 20;
 }
@@ -593,25 +601,25 @@ function formatAsCode() {
   const editor = document.getElementById("editor");
   const start = editor.selectionStart;
   const end = editor.selectionEnd;
-  
+
   if (start !== end) {
     const selectedText = editor.value.substring(start, end);
     editor.value = editor.value.substring(0, start) + "`" + selectedText + "`" + editor.value.substring(end);
-    
+
     editor.selectionStart = start;
-    editor.selectionEnd = end + 2; // +2 per i due backtick aggiunti
+    editor.selectionEnd = end + 2;
   } else {
     const codeBlock = "```\n\n```";
     editor.value = editor.value.substring(0, start) + codeBlock + editor.value.substring(end);
-    
-    const newCursorPos = start + 4; // 4 = "```\n".length
+
+    const newCursorPos = start + 4;
     editor.selectionStart = newCursorPos;
     editor.selectionEnd = newCursorPos;
   }
-  
+
   updatePreview();
   setDirty(true);
-  
+
   editor.focus();
 }
 
@@ -635,14 +643,14 @@ function escapeRegExp(string) {
 
 function setupExternalLinks() {
   const preview = document.getElementById("preview");
-  
+
   preview.addEventListener("click", (event) => {
     let target = event.target;
-    
+
     while (target && target !== preview) {
       if (target.tagName === "A" && target.href) {
         event.preventDefault();
-        
+
         shell.openExternal(target.href);
         return;
       }
@@ -655,27 +663,27 @@ function insertMarkdownLink() {
   const editor = document.getElementById("editor");
   const start = editor.selectionStart;
   const end = editor.selectionEnd;
-  
+
   if (start !== end) {
     const selectedText = editor.value.substring(start, end);
     const linkText = `[${selectedText}](url)`;
-    
+
     editor.value = editor.value.substring(0, start) + linkText + editor.value.substring(end);
-    
+
     const linkStart = start + selectedText.length + 3;
     const linkEnd = linkStart + 3;
     editor.setSelectionRange(linkStart, linkEnd);
-    
+
     updatePreview();
     setDirty(true);
   } else {
     const linkText = "[text](url)";
-    
+
     editor.value = editor.value.substring(0, start) + linkText + editor.value.substring(end);
     const linkStart = start + 7;
     const linkEnd = linkStart + 3;
     editor.setSelectionRange(linkStart, linkEnd);
-    
+
     updatePreview();
     setDirty(true);
   }
@@ -703,7 +711,7 @@ window.addEventListener("DOMContentLoaded", () => {
   let autosaveInterval = null;
   let autoscrollEnabled = true;
 
-  autosaveSwitch.addEventListener("change", function() {
+  autosaveSwitch.addEventListener("change", function () {
     if (!currentFilePath) {
       this.checked = false;
       showNotification('You must save the file first to enable autosave.', 'error');
@@ -771,7 +779,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const words = clean.match(/\b[a-zA-ZÀ-ÿ]{2,}\b/g);
     wordCountEl.textContent = `word-count: ${words ? words.length : 0}`;
   };
-  
+
   const setDirty = (dirty) => {
     isDirty = dirty;
     title.textContent = dirty ? "*" : "";
@@ -909,18 +917,18 @@ window.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       const start = this.selectionStart;
       const end = this.selectionEnd;
-      
+
       const textBefore = this.value.substring(0, start);
       const selectedText = this.value.substring(start, end);
       const textAfter = this.value.substring(end);
-      
+
       if (start === end) {
         this.value = textBefore + "    " + textAfter;
         this.selectionStart = this.selectionEnd = start + 4;
       } else if (selectedText.includes('\n')) {
         const indentedText = selectedText.replace(/^/gm, "    ");
         this.value = textBefore + indentedText + textAfter;
-        
+
         this.selectionStart = start;
         this.selectionEnd = start + indentedText.length;
       } else {
@@ -930,44 +938,44 @@ window.addEventListener("DOMContentLoaded", () => {
       }
       return;
     }
-    
+
     if (e.ctrlKey) {
       const start = this.selectionStart;
       const end = this.selectionEnd;
-      
+
       if (start === end) return;
-      
+
       const selectedText = this.value.substring(start, end);
       const textBefore = this.value.substring(0, start);
       const textAfter = this.value.substring(end);
       let formattedText = selectedText;
       let newCursorPos = end;
       let handled = true;
-      
+
       switch (e.key) {
-        case "1": // H1 - # Testo
+        case "1":
           formattedText = `# ${selectedText}`;
           newCursorPos = start + formattedText.length;
           break;
-        case "2": // H2 - ## Testo
+        case "2":
           formattedText = `## ${selectedText}`;
           newCursorPos = start + formattedText.length;
           break;
-        case "3": // H3 - ### Testo
+        case "3":
           formattedText = `### ${selectedText}`;
           newCursorPos = start + formattedText.length;
           break;
-        case "b": // Bold - **Testo**
+        case "b":
         case "B":
           formattedText = `**${selectedText}**`;
           newCursorPos = start + formattedText.length;
           break;
-        case "i": // Italic - *Testo*
+        case "i":
         case "I":
           formattedText = `*${selectedText}*`;
           newCursorPos = start + formattedText.length;
           break;
-        case "u": // Underline - <u>Testo</u>
+        case "u":
         case "U":
           formattedText = `<u>${selectedText}</u>`;
           newCursorPos = start + formattedText.length;
@@ -975,7 +983,7 @@ window.addEventListener("DOMContentLoaded", () => {
         default:
           handled = false;
       }
-      
+
       if (handled) {
         e.preventDefault();
         this.value = textBefore + formattedText + textAfter;
@@ -990,13 +998,13 @@ window.addEventListener("DOMContentLoaded", () => {
       const cursorPos = this.selectionStart;
       const textBefore = this.value.substring(0, cursorPos);
       const currentLine = textBefore.split('\n').pop();
-      
+
       const listMatch = currentLine.match(/^(\s*)([*-])\s(.*)$/);
       const numberedListMatch = currentLine.match(/^(\s*)(\d+)\.\s(.*)$/);
-    
+
       if (numberedListMatch) {
         const [, indent, number, content] = numberedListMatch;
-    
+
         if (content.trim() === '') {
           e.preventDefault();
           const lineStart = cursorPos - currentLine.length;
@@ -1006,7 +1014,7 @@ window.addEventListener("DOMContentLoaded", () => {
           setDirty(true);
           return;
         }
-    
+
         e.preventDefault();
         const nextNumber = parseInt(number, 10) + 1;
         const newLine = `\n${indent}${nextNumber}. `;
@@ -1016,27 +1024,27 @@ window.addEventListener("DOMContentLoaded", () => {
         setDirty(true);
         return;
       }
-    
+
       if (listMatch) {
         const [, indent, marker, content] = listMatch;
-        
+
         if (content.trim() === '') {
           e.preventDefault();
           const lineStart = cursorPos - currentLine.length;
-          this.value = this.value.substring(0, lineStart) + 
-                      indent + 
-                      this.value.substring(cursorPos);
+          this.value = this.value.substring(0, lineStart) +
+            indent +
+            this.value.substring(cursorPos);
           this.selectionStart = this.selectionEnd = lineStart + indent.length;
           updatePreview();
           setDirty(true);
           return;
         }
-        
+
         e.preventDefault();
         const newListItem = `\n${indent}${marker} `;
-        this.value = this.value.substring(0, cursorPos) + 
-                    newListItem + 
-                    this.value.substring(cursorPos);
+        this.value = this.value.substring(0, cursorPos) +
+          newListItem +
+          this.value.substring(cursorPos);
         this.selectionStart = this.selectionEnd = cursorPos + newListItem.length;
         updatePreview();
         setDirty(true);
@@ -1046,7 +1054,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   autoscrollEnabled = autoscrollSwitch ? autoscrollSwitch.checked : true;
   if (autoscrollSwitch) {
-    autoscrollSwitch.addEventListener("change", function() {
+    autoscrollSwitch.addEventListener("change", function () {
       autoscrollEnabled = this.checked;
     });
   }
@@ -1090,12 +1098,12 @@ window.addEventListener("DOMContentLoaded", () => {
       setTimeout(() => { isSyncingScroll = false; }, 50);
     }
   });
-  
+
   const debouncedUpdate = debounce(() => {
     updatePreview();
     updateWordCount();
   }, 300);
- 
+
   editor.addEventListener("input", () => {
     debouncedUpdate();
     setDirty(true);
@@ -1108,7 +1116,7 @@ window.addEventListener("DOMContentLoaded", () => {
   function createFileTree(folderPath, parentElement) {
     try {
       const items = fs.readdirSync(folderPath);
-      
+
       items
         .filter(item => {
           const itemPath = path.join(folderPath, item);
@@ -1119,37 +1127,37 @@ window.addEventListener("DOMContentLoaded", () => {
           const itemPath = path.join(folderPath, item);
           const folderElement = document.createElement('div');
           folderElement.className = 'tree-folder collapsed';
-          
+
           const folderHeader = document.createElement('div');
           folderHeader.className = 'tree-folder-header';
-          
+
           const folderIcon = document.createElement('span');
           folderIcon.className = 'tree-folder-icon';
           folderIcon.textContent = '📁 ';
-          
+
           const folderName = document.createElement('span');
           folderName.textContent = item;
-          
+
           folderHeader.appendChild(folderIcon);
           folderHeader.appendChild(folderName);
-          
+
           const folderContent = document.createElement('div');
           folderContent.className = 'tree-folder-content';
-          
+
           folderElement.appendChild(folderHeader);
           folderElement.appendChild(folderContent);
           parentElement.appendChild(folderElement);
-          
+
           folderHeader.addEventListener('click', () => {
             folderElement.classList.toggle('collapsed');
-            
+
             if (!folderElement.dataset.loaded && !folderElement.classList.contains('collapsed')) {
               createFileTree(itemPath, folderContent);
               folderElement.dataset.loaded = 'true';
             }
           });
         });
-      
+
       items
         .filter(item => {
           const itemPath = path.join(folderPath, item);
@@ -1162,7 +1170,7 @@ window.addEventListener("DOMContentLoaded", () => {
           fileElement.className = 'tree-item tree-file';
           fileElement.textContent = `📄 ${item}`;
           fileElement.dataset.path = itemPath;
-          
+
           fileElement.addEventListener('click', () => {
             if (isDirty) {
               const answer = dialog.showMessageBoxSync({
@@ -1172,20 +1180,20 @@ window.addEventListener("DOMContentLoaded", () => {
                 title: 'File non salvato',
                 message: 'Ci sono modifiche non salvate. Vuoi salvare prima di aprire un nuovo file?'
               });
-              
-              if (answer === 0) { 
+
+              if (answer === 0) {
                 saveCurrentFile();
               } else if (answer === 2) {
                 return;
               }
             }
-            
+
             document.querySelectorAll('.tree-item').forEach(item => {
               item.classList.remove('active');
             });
-            
+
             fileElement.classList.add('active');
-            
+
             const content = fs.readFileSync(itemPath, 'utf8');
             editor.value = content;
             updatePreview();
@@ -1193,7 +1201,7 @@ window.addEventListener("DOMContentLoaded", () => {
             currentFilePath = itemPath;
             setDirty(false);
           });
-          
+
           parentElement.appendChild(fileElement);
         });
     } catch (error) {
@@ -1203,9 +1211,9 @@ window.addEventListener("DOMContentLoaded", () => {
 
   function exportToPdf() {
     const content = preview.innerHTML;
-    
+
     ipcRenderer.send("print-to-pdf", content, path.basename(currentFilePath || ""));
-    
+
     const notification = document.createElement('div');
     notification.className = 'copy-notification';
     notification.textContent = 'Preparazione PDF in corso...';
@@ -1214,7 +1222,7 @@ window.addEventListener("DOMContentLoaded", () => {
     notification.style.left = '50%';
     notification.style.transform = 'translate(-50%, -50%)';
     document.body.appendChild(notification);
-    
+
     ipcRenderer.once('pdf-saved', (event, filePath) => {
       document.body.removeChild(notification);
     });
@@ -1224,11 +1232,11 @@ window.addEventListener("DOMContentLoaded", () => {
   function openFolder(folderPath) {
     currentFolderPath = folderPath;
     folderPathEl.textContent = folderPath;
-    
+
     fileTree.innerHTML = '';
-    
+
     explorerPanel.classList.remove("hidden");
-    
+
     createFileTree(folderPath, fileTree);
   }
 
@@ -1246,7 +1254,7 @@ window.addEventListener("DOMContentLoaded", () => {
         fs.writeFileSync(file, content, "utf8");
         currentFilePath = file;
         setDirty(false);
-        
+
         if (currentFolderPath && file.startsWith(currentFolderPath)) {
           openFolder(currentFolderPath);
         }
@@ -1263,32 +1271,32 @@ window.addEventListener("DOMContentLoaded", () => {
         title: 'File non salvato',
         message: 'Ci sono modifiche non salvate. Vuoi salvare prima di creare un nuovo file?'
       });
-      
+
       if (answer === 0) {
         saveCurrentFile();
       } else if (answer === 2) {
         return;
       }
     }
-    
+
     const filename = dialog.showSaveDialogSync({
       defaultPath: path.join(currentFolderPath, 'nuovo-file.md'),
       filters: [{ name: "Markdown", extensions: ["md"] }],
       title: 'Crea nuovo file'
     });
-    
+
     if (!filename) return;
-    
+
     fs.writeFileSync(filename, '', 'utf8');
-    
+
     editor.value = '';
     updatePreview();
     updateWordCount();
     currentFilePath = filename;
     setDirty(false);
-    
+
     openFolder(currentFolderPath);
-    
+
     setTimeout(() => {
       document.querySelectorAll('.tree-item').forEach(item => {
         item.classList.remove('active');
@@ -1299,7 +1307,7 @@ window.addEventListener("DOMContentLoaded", () => {
       });
     }, 100);
   }
-  
+
 
   newFileBtn.addEventListener("click", () => {
     if (!currentFolderPath) {
@@ -1310,70 +1318,70 @@ window.addEventListener("DOMContentLoaded", () => {
       });
       return;
     }
-    
+
     createNewFile();
   });
 
   editor.addEventListener('paste', async (e) => {
     const clipboardItems = e.clipboardData.items;
-    
+
     for (let i = 0; i < clipboardItems.length; i++) {
       const item = clipboardItems[i];
-      
+
       if (item.type.indexOf('image') !== -1) {
         e.preventDefault();
-        
+
         if (!currentFilePath) {
           dialog.showMessageBoxSync({
             type: 'info',
             title: 'File non salvato',
             message: 'Per incollare un\'immagine, devi prima salvare il file.'
           });
-          
+
           const file = dialog.showSaveDialogSync({
             filters: [{ name: "Markdown", extensions: ["md"] }]
           });
-          
-          if (!file) return; 
-          
+
+          if (!file) return;
+
           fs.writeFileSync(file, editor.value, "utf8");
           currentFilePath = file;
           setDirty(false);
         }
-        
+
         const blob = item.getAsFile();
         const reader = new FileReader();
-        
+
         reader.onload = () => {
           const buffer = Buffer.from(reader.result);
-          
+
           const timestamp = new Date().getTime();
           const imageExt = blob.type.split('/')[1];
           const imageName = `image_${timestamp}.${imageExt}`;
-          
+
           const folderPath = path.dirname(currentFilePath);
           const imagesDir = path.join(folderPath, "images");
           if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir);
           const imagePath = path.join(imagesDir, imageName);
-          
+
           fs.writeFileSync(imagePath, buffer);
-          
+
           const relativeImagePath = path.relative(folderPath, imagePath).replace(/\\/g, "/");
           const markdownImage = `![immagine](${relativeImagePath})`;
 
           const start = editor.selectionStart;
           const end = editor.selectionEnd;
-          
+
           editor.value = editor.value.slice(0, start) + markdownImage + editor.value.slice(end);
-          
+
           const newCursorPos = start + markdownImage.length;
           editor.setSelectionRange(newCursorPos, newCursorPos);
-      
+
           updatePreview();
           updateWordCount();
           setDirty(true);
         };
-        
+
         reader.readAsArrayBuffer(blob);
       }
     }
@@ -1381,24 +1389,24 @@ window.addEventListener("DOMContentLoaded", () => {
 
   editor.addEventListener('contextmenu', (e) => {
     e.preventDefault();
-    
+
     const { Menu, MenuItem } = require('@electron/remote');
     const menu = new Menu();
-    
+
     const selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd).trim();
-    
+
     menu.append(new MenuItem({
       label: 'Cut',
       accelerator: 'CmdOrCtrl+X',
       click: () => document.execCommand('cut')
     }));
-    
+
     menu.append(new MenuItem({
       label: 'Copy',
       accelerator: 'CmdOrCtrl+C',
       click: () => document.execCommand('copy')
     }));
-    
+
     menu.append(new MenuItem({
       label: 'Paste',
       accelerator: 'CmdOrCtrl+V',
@@ -1410,7 +1418,7 @@ window.addEventListener("DOMContentLoaded", () => {
       accelerator: 'CmdOrCtrl+K',
       click: () => formatMarkdown()
     }));
-    
+
     if (selectedText) {
       menu.append(new MenuItem({ type: 'separator' }));
 
@@ -1431,7 +1439,7 @@ window.addEventListener("DOMContentLoaded", () => {
     updateWordCount();
     currentFilePath = filePath;
     setDirty(false);
-    
+
     document.querySelectorAll('.tree-item').forEach(item => {
       item.classList.remove('active');
       if (item.dataset.path === filePath) {
@@ -1458,13 +1466,13 @@ window.addEventListener("DOMContentLoaded", () => {
 
   ipcRenderer.on("toggle-explorer", () => {
     const explorerPanel = document.getElementById("explorer-panel");
-    explorerPanel.classList.toggle("hidden");  
+    explorerPanel.classList.toggle("hidden");
   });
 
   ipcRenderer.on("toggle-preview", () => {
     const preview = document.getElementById('preview');
     const editor = document.getElementById('editor');
-    
+
     if (preview.style.display === 'none') {
       preview.style.display = 'block';
       editor.style.width = '50%';
@@ -1472,14 +1480,14 @@ window.addEventListener("DOMContentLoaded", () => {
       preview.style.display = 'none';
       editor.style.width = '100%';
     }
-    
-    setTimeout(calculateLineHeights, 100);  
+
+    setTimeout(calculateLineHeights, 100);
   });
 
   ipcRenderer.on("toggle-editor", () => {
     const preview = document.getElementById('preview');
     const editor = document.getElementById('editor');
-    
+
     if (editor.style.display === 'none') {
       editor.style.display = 'block';
       preview.style.width = '50%';
@@ -1487,8 +1495,8 @@ window.addEventListener("DOMContentLoaded", () => {
       editor.style.display = 'none';
       preview.style.width = '100%';
     }
-    
-    setTimeout(calculateLineHeights, 100);  
+
+    setTimeout(calculateLineHeights, 100);
   });
 
   ipcRenderer.on("toggle-theme", () => {
@@ -1497,7 +1505,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   const themeSwitch = document.getElementById("toggle-theme-switch");
 
-  themeSwitch.addEventListener("change", function() {
+  themeSwitch.addEventListener("change", function () {
     if (this.checked) {
       document.body.classList.add("dark");
       localStorage.setItem("mark-theme", "dark");
@@ -1543,12 +1551,12 @@ window.addEventListener("DOMContentLoaded", () => {
     const textBefore = editor.value.substring(0, cursorPos);
     const textAfter = editor.value.substring(cursorPos);
     const imageTag = `![${fileName}](${relativeImagePath})`;
-    
+
     editor.value = textBefore + imageTag + textAfter;
-    
+
     const newCursorPos = cursorPos + imageTag.length;
     editor.setSelectionRange(newCursorPos, newCursorPos);
-    
+
     updatePreview();
     updateWordCount();
     setDirty(true);
@@ -1569,7 +1577,7 @@ window.addEventListener("DOMContentLoaded", () => {
     if (e.key === "Enter") {
       e.preventDefault();
       performSearch();
-      
+
       if (e.shiftKey) {
         goToPreviousMatch();
       } else {
@@ -1581,20 +1589,20 @@ window.addEventListener("DOMContentLoaded", () => {
   const searchButton = document.getElementById("search-button");
   if (searchButton) {
     searchButton.replaceWith(searchButton.cloneNode(true));
-    
+
     const newSearchButton = document.getElementById("search-button");
-    
+
     newSearchButton.addEventListener("click", () => {
       performSearch();
       goToNextMatch();
     });
   }
 
-  
+
   searchPrevBtn.addEventListener("click", goToPreviousMatch);
-  
+
   searchNextBtn.addEventListener("click", goToNextMatch);
-  
+
   searchCloseBtn.addEventListener("click", () => {
     toggleSearchPanel(false);
   });
@@ -1624,7 +1632,7 @@ window.addEventListener("DOMContentLoaded", () => {
     if (e.key === "Escape" && !document.getElementById("search-container").classList.contains("hidden")) {
       toggleSearchPanel(false);
     }
-    
+
     if (e.key === "Enter" && !document.getElementById("search-container").classList.contains("hidden")) {
       if (e.shiftKey) {
         goToPreviousMatch();
@@ -1633,7 +1641,7 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     }
   });
-  
+
   ipcRenderer.on("open-search", () => {
     toggleSearchPanel(true);
   });
@@ -1641,45 +1649,45 @@ window.addEventListener("DOMContentLoaded", () => {
   function formatMarkdown() {
     const editor = document.getElementById("editor");
     const originalText = editor.value;
-  
+
     const blocks = originalText.split(/(```[\s\S]*?```)/g);
-  
+
     const formatted = blocks.map(block => {
       if (block.startsWith('```')) {
         return `\n\n${block.trim()}\n\n`;
       }
-  
+
       const patterns = [];
       let text = block.replace(/(\*\*.*?\*\*|\*.*?\*|!\[.*?\]\(.*?\)|\[.*?\]\(.*?\))/g, (match) => {
         patterns.push(match);
         return `§§${patterns.length - 1}§§`;
       });
-  
+
       text = text.replace(/([.,!?;:])(?=[^\s])/g, '$1 ');
       text = text.replace(/\s+([.,!?;:)"])/g, '$1');
       text = text.replace(/\n{3,}/g, '\n\n');
       text = text.replace(/\n?\s*\*{3,}\s*\n?/g, '\n\n***\n\n');
-  
+
       text = text.replace(/([^\n])\n(#{1,6} .+)/g, '$1\n\n$2');
       text = text.replace(/(#{1,6} .+)\n([^\n])/g, '$1\n\n$2');
-  
+
       text = text.replace(/§§(\d+)§§/g, (match, index) => {
         const pattern = patterns[parseInt(index)];
-        
-        if (pattern.startsWith('![') || (pattern.startsWith('[') && pattern.includes('](')) ) {
+
+        if (pattern.startsWith('![') || (pattern.startsWith('[') && pattern.includes(']('))) {
           return `\n\n${pattern}\n\n`;
         }
-        
+
         return pattern;
       });
-  
+
       text = text.replace(/\n{3,}/g, '\n\n');
-  
+
       return text.trim();
     });
-  
+
     const finalText = formatted.join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
-  
+
     editor.value = finalText;
     editor.focus();
     editor.setSelectionRange(finalText.length, finalText.length);
@@ -1705,7 +1713,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const btnViewSplit = document.getElementById("btn-view-split");
   const btnQuote = document.getElementById("btn-quote");
   const btnTable = document.getElementById("btn-table");
-  
+
 
   function preserveScroll(fn) {
     const scroll = editor.scrollTop;
@@ -1843,7 +1851,7 @@ window.addEventListener("DOMContentLoaded", () => {
       editor.setRangeText(tableMd, start, end, 'end');
       editor.focus();
       editor.setSelectionRange(start + tableMd.length, start + tableMd.length);
-      editor.dispatchEvent(new Event('input', {bubbles:true}));
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
       updatePreview();
       setDirty(true);
     });

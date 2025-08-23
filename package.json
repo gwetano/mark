@@ -1,6 +1,6 @@
 {
     "name": "Mark",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "description": "Editor Markdown",
     "main": "main.js",
     "scripts": {
@@ -15,7 +15,8 @@
         "electron-builder": "^24.13.3"
     },
     "dependencies": {
-        "@electron/remote": "^2.1.2"
+        "@electron/remote": "^2.1.2",
+        "electron-updater": "^6.6.2"
     },
     "build": {
         "appId": "com.Giovanni.Mark",
@@ -49,6 +50,13 @@
                 "AppImage",
                 "deb"
             ]
-        }
+        },
+        "publish": [
+            {
+                "provider": "github",
+                "owner": "gwetano",
+                "repo": "mark"
+            }
+        ]
     }
 }
