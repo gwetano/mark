@@ -710,6 +710,17 @@ window.addEventListener("DOMContentLoaded", () => {
   const autoscrollSwitch = document.getElementById("toggle-autoscroll");
   let autosaveInterval = null;
   let autoscrollEnabled = true;
+  const savedAutoscroll = localStorage.getItem('autoscrollEnabled');
+  if (savedAutoscroll !== null) {
+    autoscrollEnabled = savedAutoscroll === 'true';
+    if (autoscrollSwitch) autoscrollSwitch.checked = autoscrollEnabled;
+  }
+  if (autoscrollSwitch) {
+    autoscrollSwitch.addEventListener("change", function () {
+      autoscrollEnabled = this.checked;
+      localStorage.setItem('autoscrollEnabled', autoscrollEnabled);
+    });
+  }
 
   autosaveSwitch.addEventListener("change", function () {
     if (!currentFilePath) {
