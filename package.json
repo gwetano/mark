@@ -16,6 +16,7 @@
     },
     "dependencies": {
         "@electron/remote": "^2.1.2",
+        "build": "^0.1.4",
         "electron-updater": "^6.6.2"
     },
     "build": {
@@ -37,7 +38,8 @@
             "icon": "build/mark.ico",
             "target": [
                 "nsis"
-            ]
+            ],
+            "signAndEditExecutable": false
         },
         "mac": {
             "icon": "build/mark.icns",
