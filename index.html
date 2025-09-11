@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mark</title>
   <link rel="stylesheet" href="style.css" />
   <script src="./api/marked.min.js"></script>
@@ -13,8 +14,7 @@
   mermaid.initialize({ startOnLoad: false });
 </script>
 <script defer src="./api/katex.min.js"></script>
-<script defer src="./api/auto-render.min.js"
-        onload="renderMathInElement(document.body, {
+<script defer src="./api/auto-render.min.js" onload="renderMathInElement(document.body, {
           delimiters: [
               {left: '$$', right: '$$', display: true},
               {left: '$', right: '$', display: false}
@@ -23,7 +23,7 @@
           output: 'html',
           trust: true
         });">
-</script>
+        </script>
 <script>
   window.addEventListener('DOMContentLoaded', () => {
     function adjustKatexFormulas() {
@@ -33,84 +33,94 @@
         display.style.overflowX = 'auto';
       });
     }
-    
+
     adjustKatexFormulas();
     window.addEventListener('resize', adjustKatexFormulas);
   });
 </script>
+
 <body>
   <div id="main">
     <div id="navbar">
-        <div class="navbar-left">
-          <img id="logo" src="./images/logo_white.png" alt="Logo" />
-          <span id="title">*</span>
-        </div>
-        
-        <div id="toolbar">
-          <div id="dropdown-title" class="dropdown">
-            <button id="btn-title" title="Title">#</button>
-            <div id="dropdown-content" class="dropdown-content">
-              <button class="dropdown-item" data-level="1">Title 1</button>
-              <button class="dropdown-item" data-level="2">Title 2</button>
-              <button class="dropdown-item" data-level="3">Title 3</button>
-            </div>
-          </div>
-          <button id="btn-bold" title="Bold"><b>B</b></button>
-          <button id="btn-italic" title="Italic"><i>I</i></button>
-          <button id="btn-underline" title="Underline"><u>U</u></button>
-          <button id="btn-hr" title="Line">-</button>
-          <button id="btn-code" title="Code">{ }</button>
+      <div class="navbar-left">
+        <img id="logo" src="./images/logo_white.png" alt="Logo" />
+        <span id="title">*</span>
+      </div>
 
-          <div id="dropdown-extra" class="dropdown">
-            <button id="btn-extra" title="Extra">+</button>
-            <div class="dropdown-content">
-              <button id="btn-link" class="extra-item" title="Link">Link</button>
-              <button id="btn-image" class="extra-item" title="Image">Image</button>
-              <button id="btn-table" class="extra-item" title="Table">Table</button>
-              <button id="btn-ul" class="extra-item" title="Pointer List">• List</button>
-              <button id="btn-ol" class="extra-item" title="Numeric List">1. List</button>
-              <button id="btn-quote" class="extra-item" title="Quote">Quote</button>
-            </div>
+      <div id="toolbar">
+        <div id="dropdown-title" class="dropdown">
+          <button id="btn-title" title="Title">#</button>
+          <div id="dropdown-content" class="dropdown-content">
+            <button class="dropdown-item" data-level="1">Title 1</button>
+            <button class="dropdown-item" data-level="2">Title 2</button>
+            <button class="dropdown-item" data-level="3">Title 3</button>
           </div>
         </div>
+        <button id="btn-bold" title="Bold"><b>B</b></button>
+        <button id="btn-italic" title="Italic"><i>I</i></button>
+        <button id="btn-underline" title="Underline"><u>U</u></button>
+        <button id="btn-hr" title="Line">-</button>
+        <button id="btn-code" title="Code">{ }</button>
 
-        <div class="navbar-right">
-          <button id="btn-view-editor" title="Solo Editor"><</button>
-          <button id="btn-view-split" title="Split View">>|<</button>
-          <button id="btn-view-preview" title="Solo Render">></button>
-          <div id="dropdown-options" class="dropdown">
-            <button id="btn-options" title="Options">Settings</button>
-            <div class="dropdown-content">
-              <div class="dropdown-section">
-                <label class="autosave-switch">
-                  <span>Autosave</span>
-                  <span class="switch">
-                    <input type="checkbox" id="toggle-autosave" />
-                    <span class="slider"></span>
-                  </span>
-                </label>
-              </div>
-              <div class="dropdown-section">
-                <label class="autoscroll-switch">
-                  <span>Autoscroll</span>
-                  <span class="switch">
-                    <input type="checkbox" id="toggle-autoscroll" checked />
-                    <span class="slider"></span>
-                  </span>
-                </label>
-              </div>
-              <div class="dropdown-section">
-                <label class="theme-switch">
-                  <span>Dark Mode</span>
-                  <span class="switch">
-                    <input type="checkbox" id="toggle-theme-switch" />
-                    <span class="slider"></span>
-                  </span>
-                </label>
-              </div>
-            </div>
+        <div id="dropdown-extra" class="dropdown">
+          <button id="btn-extra" title="Extra">+</button>
+          <div class="dropdown-content">
+            <button id="btn-link" class="extra-item" title="Link">Link</button>
+            <button id="btn-image" class="extra-item" title="Image">Image</button>
+            <button id="btn-table" class="extra-item" title="Table">Table</button>
+            <button id="btn-ul" class="extra-item" title="Pointer List">• List</button>
+            <button id="btn-ol" class="extra-item" title="Numeric List">1. List</button>
+            <button id="btn-quote" class="extra-item" title="Quote">Quote</button>
           </div>
         </div>
+      </div>
+
+      <div class="navbar-right">
+        <button id="btn-view-editor" title="Solo Editor"><</button>
+            <button id="btn-view-split" title="Split View">>|<</button>
+                <button id="btn-view-preview" title="Solo Render">></button>
+                <div id="dropdown-options" class="dropdown">
+                  <button id="btn-options" title="Options">Settings</button>
+                  <div class="dropdown-content">
+                    <div class="dropdown-section">
+                      <label class="autosave-switch">
+                        <span>Autosave</span>
+                        <span class="switch">
+                          <input type="checkbox" id="toggle-autosave" />
+                          <span class="slider"></span>
+                        </span>
+                      </label>
+                    </div>
+                    <div class="dropdown-section">
+                      <label class="autoscroll-switch">
+                        <span>Autoscroll</span>
+                        <span class="switch">
+                          <input type="checkbox" id="toggle-autoscroll" checked />
+                          <span class="slider"></span>
+                        </span>
+                      </label>
+                    </div>
+                    <div class="dropdown-section">
+                      <label class="theme-switch">
+                        <span>Dark Mode</span>
+                        <span class="switch">
+                          <input type="checkbox" id="toggle-theme-switch" />
+                          <span class="slider"></span>
+                        </span>
+                      </label>
+                    </div>
+                    <div class="dropdown-section">
+                      <label class="autocomplete-switch">
+                        <span>Autocomplete (letters)</span>
+                        <span class="switch">
+                          <input type="checkbox" id="toggle-autocomplete" checked />
+                          <span class="slider"></span>
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+      </div>
     </div>
     <div id="search-container" class="hidden">
       <input type="text" id="search-input" placeholder="Search..." />
@@ -130,14 +140,17 @@
             <button id="new-file" title="New file">+</button>
             <button id="open-folder" title="Open folder">📁</button>
             <button id="refresh-explorer" title="Refresh">🔄</button>
-            <button id="collapse-all" title="Collapse"><</button>
+            <button id="collapse-all" title="Collapse"></button>
           </div>
         </div>
         <div id="folder-path"></div>
         <div id="file-tree"></div>
       </div>
       <div id="container">
-        <textarea id="editor" placeholder="Write markdown here..." spellcheck="false"></textarea>
+        <div id="editor-container">
+          <textarea id="editor" placeholder="Write markdown here..." spellcheck="false"></textarea>
+          <div id="editor-overlay" aria-hidden="true"></div>
+        </div>
         <div id="preview" class="markdown-body"></div>
       </div>
     </div>
@@ -147,4 +160,5 @@
   </div>
   <script src="renderer.js"></script>
 </body>
+
 </html>

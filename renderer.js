@@ -690,6 +690,119 @@ function insertMarkdownLink() {
   editor.focus();
 }
 
+let autocompleteEnabled = true;
+let autocompleteDelay = 1000;
+
+let autocompleteTimer = null;
+let currentSuggestion = null;
+let vocabulary = new Set();
+
+function normalizeToken(token) {
+  if (!token) return '';
+  const cleaned = String(token).match(/[\p{L}\p{M}0-9]+/u);
+  if (!cleaned) return '';
+  return cleaned[0].toLowerCase();
+}
+
+function appendWordToVocabulary(tokenOriginal) {
+  const norm = normalizeToken(tokenOriginal);
+  if (!norm) return;
+  if (norm.length < 2) return;
+  vocabulary.add(norm);
+}
+
+function suggestForPrefix(prefix) {
+  if (!prefix || prefix.length === 0) return null;
+  const low = prefix.toLowerCase();
+  let bestCandidate = null;
+  let shortestLength = Infinity;
+
+  for (const word of vocabulary) {
+    if (word.startsWith(low) && word.length > low.length && word.length < shortestLength) {
+      bestCandidate = word;
+      shortestLength = word.length;
+    }
+  }
+
+  if (!bestCandidate) return null;
+  return {
+    remainder: bestCandidate.slice(low.length),
+    complete: bestCandidate
+  };
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, ch =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])
+  );
+}
+
+function getEditorEl() {
+  return document.getElementById('editor');
+}
+
+function clearSuggestion() {
+  currentSuggestion = null;
+  const ed = getEditorEl();
+  if (ed) renderGhost(ed, null);
+}
+
+function immediateMismatchGuard() {
+  if (!autocompleteEnabled) { clearSuggestion(); return false; }
+
+  const ed = getEditorEl();
+  if (!ed) { return false; }
+
+  const pos = ed.selectionStart;
+  const text = ed.value;
+  const left = text.slice(0, pos).match(/[\p{L}\p{M}0-9]+$/u);
+  const word = left ? left[0] : '';
+
+  if (!word) { clearSuggestion(); return false; }
+
+  const suggestion = suggestForPrefix(word);
+  if (!suggestion || !suggestion.remainder) {
+    clearSuggestion();
+    return false;
+  }
+  
+  currentSuggestion = suggestion;
+  renderGhost(ed, suggestion);
+  return true;
+}
+
+
+function renderGhost(editorEl, suggestion) {
+  const overlay = document.getElementById('editor-overlay');
+  if (!overlay) return;
+
+  if (!autocompleteEnabled || !suggestion || !suggestion.remainder) {
+    overlay.innerHTML = '';
+    return;
+  }
+
+  const start = editorEl.selectionStart;
+  const text = editorEl.value;
+
+  const before = escapeHtml(text.slice(0, start));
+  const sugg = `<span class="ghost-suggestion">${escapeHtml(suggestion.remainder)}</span>`;
+
+  // Assicurati che tutto il testo precedente sia visibile ma trasparente
+  const content = before.replace(/\n/g, '<br>');
+  overlay.innerHTML = `<span style="color: transparent">${content}</span>${sugg}`;
+
+  // Sincronizza lo scroll e lo stile
+  overlay.scrollTop = editorEl.scrollTop;
+  const editorStyle = window.getComputedStyle(editorEl);
+  overlay.style.padding = editorStyle.padding;
+  overlay.style.fontFamily = editorStyle.fontFamily;
+  overlay.style.fontSize = editorStyle.fontSize;
+  overlay.style.lineHeight = editorStyle.lineHeight;
+  overlay.style.width = editorStyle.width;
+  overlay.style.height = editorStyle.height;
+}
+
+
 window.addEventListener("DOMContentLoaded", () => {
   const editor = document.getElementById("editor");
   const preview = document.getElementById("preview");
@@ -711,6 +824,81 @@ window.addEventListener("DOMContentLoaded", () => {
   let autosaveInterval = null;
   let autoscrollEnabled = true;
   const savedAutoscroll = localStorage.getItem('autoscrollEnabled');
+  const autocompleteSwitch = document.getElementById('toggle-autocomplete');
+
+  let autocompleteDelay = 1000;
+
+  const savedAutocomplete = localStorage.getItem('autocompleteEnabled');
+  if (savedAutocomplete !== null) {
+    autocompleteEnabled = savedAutocomplete === 'true';
+    if (autocompleteSwitch) autocompleteSwitch.checked = autocompleteEnabled;
+  }
+
+  if (autocompleteSwitch) {
+    autocompleteSwitch.addEventListener('change', function () {
+      autocompleteEnabled = this.checked;
+      localStorage.setItem('autocompleteEnabled', String(autocompleteEnabled));
+      if (!autocompleteEnabled) renderGhost(editor, null);
+    });
+  }
+
+  // Gestione autocompletamento
+  editor.addEventListener('click', () => {
+    clearSuggestion();
+  });
+
+  editor.addEventListener('scroll', () => {
+    const overlay = document.getElementById('editor-overlay');
+    if (overlay) {
+      overlay.scrollTop = editor.scrollTop;
+    }
+  });
+
+  editor.addEventListener('input', () => {
+    clearTimeout(autocompleteTimer);
+    
+    // Aggiungi la parola al vocabolario se c'è uno spazio o un ritorno a capo
+    const pos = editor.selectionStart;
+    const text = editor.value;
+    const beforeCursor = text.slice(0, pos);
+    const lastWord = beforeCursor.match(/[\p{L}\p{M}0-9]+[\s\n]*$/u);
+    if (lastWord && (beforeCursor.endsWith(' ') || beforeCursor.endsWith('\n'))) {
+      appendWordToVocabulary(lastWord[0].trim());
+    }
+
+    // Gestisci l'autocompletamento
+    const checkCompletion = () => {
+      const currentWord = beforeCursor.match(/[\p{L}\p{M}0-9]+$/u);
+      if (!currentWord) {
+        clearSuggestion();
+        return;
+      }
+
+      const word = currentWord[0];
+      if (word.length < 2) return;  // Ignora parole troppo corte
+      
+      const suggestion = suggestForPrefix(word);
+      if (suggestion && suggestion.remainder) {
+        currentSuggestion = suggestion;
+        renderGhost(editor, suggestion);
+      } else {
+        clearSuggestion();
+      }
+    };
+
+    // Controlla immediatamente per parole esistenti
+    checkCompletion();
+    
+    // E programma un controllo ritardato per l'autocompletamento continuo
+    autocompleteTimer = setTimeout(checkCompletion, 100);
+  });
+
+  window.addEventListener('resize', () => {
+    if (currentSuggestion) {
+      renderGhost(editor, currentSuggestion);
+    }
+  });
+
   if (savedAutoscroll !== null) {
     autoscrollEnabled = savedAutoscroll === 'true';
     if (autoscrollSwitch) autoscrollSwitch.checked = autoscrollEnabled;
@@ -897,7 +1085,39 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  editor.addEventListener('keydown', (e) => {
+    const closingKeys = [' ', 'Enter', 'Tab'];
+    const punctClose = /[.,;:!?)]/;
+
+    let shouldCapture = false;
+    if (closingKeys.includes(e.key)) {
+      shouldCapture = true;
+    } else if (e.key.length === 1 && punctClose.test(e.key)) {
+      shouldCapture = true;
+    }
+
+    if (shouldCapture) {
+      const pos = editor.selectionStart;
+      const left = editor.value.slice(0, pos);
+      const m = left.match(/([\p{L}\p{M}0-9]+)$/u);
+      if (m && m[1]) {
+        appendWordToVocabulary(m[1]);
+      }
+    }
+  });
+
+
+
   editor.addEventListener("keydown", function (e) {
+    // Gestisci l'autocompletamento
+    if (autocompleteEnabled && e.key === 'Tab' && currentSuggestion && currentSuggestion.remainder) {
+      e.preventDefault();
+      const pos = editor.selectionStart;
+      editor.value = editor.value.slice(0, pos) + currentSuggestion.remainder + editor.value.slice(pos);
+      editor.selectionStart = editor.selectionEnd = pos + currentSuggestion.remainder.length;
+      clearSuggestion();
+      return;
+    }
 
     const pairs = {
       '(': ')',
@@ -926,9 +1146,19 @@ window.addEventListener("DOMContentLoaded", () => {
 
     if (e.key === "Tab") {
       e.preventDefault();
+      
+      if (currentSuggestion && currentSuggestion.remainder) {
+        const pos = editor.selectionStart;
+        editor.value = editor.value.slice(0, pos) + currentSuggestion.remainder + editor.value.slice(pos);
+        editor.selectionStart = editor.selectionEnd = pos + currentSuggestion.remainder.length;
+        clearSuggestion();
+        updatePreview();
+        setDirty(true);
+        return;
+      }
+
       const start = this.selectionStart;
       const end = this.selectionEnd;
-
       const textBefore = this.value.substring(0, start);
       const selectedText = this.value.substring(start, end);
       const textAfter = this.value.substring(end);
@@ -1118,7 +1348,80 @@ window.addEventListener("DOMContentLoaded", () => {
   editor.addEventListener("input", () => {
     debouncedUpdate();
     setDirty(true);
+    
+    if (autocompleteEnabled) {
+      // Aggiungi la parola al vocabolario
+      const word = currentWordAtCaret(editor);
+      if (word && word.length > 1) {
+        appendWordToVocabulary(word);
+      }
+      // Pianifica il suggerimento
+      scheduleAutocomplete();
+    }
   });
+
+  editor.addEventListener('input', () => {
+    immediateMismatchGuard();
+    scheduleAutocomplete();
+
+    const overlay = document.getElementById('editor-overlay');
+    if (overlay) overlay.scrollTop = editor.scrollTop;
+  });
+
+  editor.addEventListener('keyup', (e) => {
+    if (e.key !== 'Tab' && e.key !== 'Enter') {
+      immediateMismatchGuard();
+      scheduleAutocomplete();
+    }
+  });
+
+  editor.addEventListener('click', () => {
+    immediateMismatchGuard();
+    scheduleAutocomplete();
+  });
+
+  editor.addEventListener('scroll', () => {
+    const overlay = document.getElementById('editor-overlay');
+    if (overlay) overlay.scrollTop = editor.scrollTop;
+  });
+
+  window.addEventListener('resize', () => {
+    if (currentSuggestion) renderGhost(editor, currentSuggestion);
+  });
+
+
+  function currentWordAtCaret(ed) {
+    const pos = ed.selectionStart;
+    const text = ed.value;
+    const left = text.slice(0, pos).match(/[\p{L}\p{M}0-9]+$/u);
+    const right = text.slice(pos).match(/^[\p{L}\p{M}0-9]+/u);
+    const start = left ? pos - left[0].length : pos;
+    const end = right ? pos + right[0].length : pos;
+    const word = text.slice(start, pos);
+    return { word, start, end };
+  }
+
+  function scheduleAutocomplete() {
+    if (!autocompleteEnabled) return;
+    clearTimeout(autocompleteTimer);
+    autocompleteTimer = setTimeout(() => {
+      const { word, start } = currentWordAtCaret(editor);
+      if (!word || word.length === 0) {
+        currentSuggestion = null;
+        renderGhost(editor, null);
+        return;
+      }
+      const suggestion = suggestForPrefix(word);
+      if (suggestion) {
+        currentSuggestion = suggestion;
+        renderGhost(editor, suggestion);
+      } else {
+        currentSuggestion = null;
+        renderGhost(editor, null);
+      }
+    }, autocompleteDelay);
+  }
+
 
   function isMarkdownFile(filePath) {
     return filePath.toLowerCase().endsWith('.md');
@@ -1211,6 +1514,14 @@ window.addEventListener("DOMContentLoaded", () => {
             updateWordCount();
             currentFilePath = itemPath;
             setDirty(false);
+
+            // Popola il vocabolario con le parole del file
+            const words = content.match(/[\p{L}\p{M}0-9]+/gu) || [];
+            for (const word of words) {
+              if (word.length >= 2) {
+                appendWordToVocabulary(word);
+              }
+            }
           });
 
           parentElement.appendChild(fileElement);
@@ -1450,6 +1761,14 @@ window.addEventListener("DOMContentLoaded", () => {
     updateWordCount();
     currentFilePath = filePath;
     setDirty(false);
+
+    // Popola il vocabolario con le parole del file
+    const words = content.match(/[\p{L}\p{M}0-9]+/gu) || [];
+    for (const word of words) {
+      if (word.length >= 2) {
+        appendWordToVocabulary(word);
+      }
+    }
 
     document.querySelectorAll('.tree-item').forEach(item => {
       item.classList.remove('active');
