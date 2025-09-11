@@ -1,14 +1,9 @@
-# 🖋️ Mark
+# MARK
 
 **Mark** is a simple, powerful, and 100% local Markdown editor.  
 
 *I didn’t vibe with any of the existing editors — too bloated, not enough control.*
-
-I needed something that could open folders, read. md files, and save. Nothing more. To get a working product as fast as possible, **most of the features in this project were generated with ChatGPT.**  
-My job was mostly about keeping it consistent, understanding how stuff worked, and fixing the code.
-
-⚡ It’s vibe-coded.    
-⚙️ Built with JavaScript 
+I needed something that could open folders, read. md files, and save. Nothing more.
 
 ***
 
