@@ -2250,20 +2250,21 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   btnViewEditor.addEventListener("click", () => {
-    editor.style.display = "block";
-    editor.style.width = "100%";
-    preview.style.display = "none";
-    preview.style.width = "100%";
+    const container = document.getElementById('container');
+    container.style.cssText = "display: flex;";
+    editor.parentElement.style.cssText = "display: block; flex: 1;";
+    preview.style.cssText = "display: none; flex: 0;";
   });
   btnViewSplit.addEventListener("click", () => {
-    editor.style.display = "block";
-    editor.style.width = "50%";
-    preview.style.display = "block";
-    preview.style.width = "50%";
+    const container = document.getElementById('container');
+    container.style.cssText = "display: flex;";
+    editor.parentElement.style.cssText = "display: block; flex: 1;";
+    preview.style.cssText = "display: block; flex: 1;";
   });
   btnViewPreview.addEventListener("click", () => {
-    editor.style.display = "none";
-    preview.style.display = "block";
-    preview.style.width = "100%";
+    const container = document.getElementById('container');
+    container.style.cssText = "display: flex;";
+    editor.parentElement.style.cssText = "display: none; flex: 0;";
+    preview.style.cssText = "display: block; flex: 1;";
   });
 });
