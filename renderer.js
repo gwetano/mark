@@ -163,7 +163,6 @@ function showAISearchDialog(selectedText) {
     </div>
   `;
 
-  // CSS per la dialog
   const style = document.createElement('style');
   style.textContent = `
     .ai-dialog-overlay {
@@ -571,8 +570,85 @@ window.addEventListener("DOMContentLoaded", () => {
   const searchCloseBtn = document.getElementById("search-close");
   const autosaveSwitch = document.getElementById("toggle-autosave");
   const autoscrollSwitch = document.getElementById("toggle-autoscroll");
+  let autosaveInterval = null;
 
-  // (RIMOSSA) qualunque gestione autocomplete/toggle
+  const AUTOSAVE_KEY = 'mark.autosaveEnabled';
+  const AUTOSAVE_MS = 2000;
+
+  if (autosaveSwitch) {
+    const savedAutosave = localStorage.getItem(AUTOSAVE_KEY);
+    if (savedAutosave !== null) {
+      autosaveSwitch.checked = savedAutosave === 'true';
+    }
+  }
+
+  function startAutosave() {
+    if (autosaveInterval) return;
+    autosaveInterval = setInterval(() => {
+      try {
+        if (
+          autosaveSwitch && autosaveSwitch.checked &&
+          typeof currentFilePath !== 'undefined' && currentFilePath &&
+          typeof isDirty !== 'undefined' && isDirty === true &&
+          typeof saveCurrentFile === 'function'
+        ) {
+          document.dispatchEvent(new Event('autosave'));
+          saveCurrentFile();
+        }
+      } catch (err) {
+        console.error('[autosave] error:', err);
+      }
+    }, AUTOSAVE_MS);
+  }
+
+  function stopAutosave() {
+    if (autosaveInterval) {
+      clearInterval(autosaveInterval);
+      autosaveInterval = null;
+    }
+  }
+
+  if (autosaveSwitch) {
+    autosaveSwitch.addEventListener("change", function () {
+      const enabled = this.checked;
+      localStorage.setItem(AUTOSAVE_KEY, String(enabled));
+
+      if (enabled) {
+        if (!currentFilePath) {
+          this.checked = false;
+          localStorage.setItem(AUTOSAVE_KEY, 'false');
+          if (typeof showNotification === 'function') {
+            showNotification('You must save the file first to enable autosave.', 'error');
+          }
+          return;
+        }
+        startAutosave();
+        if (typeof showNotification === 'function') {
+          showNotification('Autosave attivato.', 'success');
+        }
+      } else {
+        stopAutosave();
+        if (typeof showNotification === 'function') {
+          showNotification('Autosave disattivato.', 'info');
+        }
+      }
+    });
+
+    if (autosaveSwitch.checked && currentFilePath) {
+      startAutosave();
+    }
+  }
+
+  window.addEventListener('blur', () => {
+    if (
+      autosaveSwitch && autosaveSwitch.checked &&
+      typeof currentFilePath !== 'undefined' && currentFilePath &&
+      typeof isDirty !== 'undefined' && isDirty === true &&
+      typeof saveCurrentFile === 'function'
+    ) {
+      saveCurrentFile();
+    }
+  });
 
   explorerPanel.classList.add("hidden");
   openFolderBtn.addEventListener("click", async () => {
@@ -702,7 +778,6 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  // Pair completion, Tab indentation, headings/format shortcuts
   editor.addEventListener('keydown', (e) => {
     const pairs = { '(': ')', '[': ']', '{': '}', '"': '"', '`': '`' };
 
@@ -821,7 +896,6 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Sync scroll (editor <-> preview)
   let autoscrollEnabled = true;
   const savedAutoscroll = localStorage.getItem('autoscrollEnabled');
   if (savedAutoscroll !== null) {
@@ -877,7 +951,6 @@ window.addEventListener("DOMContentLoaded", () => {
     setDirty(true);
   });
 
-  // Paste immagine in Markdown
   editor.addEventListener('paste', async (e) => {
     const clipboardItems = e.clipboardData.items;
     for (let i = 0; i < clipboardItems.length; i++) {
@@ -934,7 +1007,6 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Context menu + AI tool
   editor.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     const { Menu, MenuItem } = require('@electron/remote');
@@ -954,15 +1026,12 @@ window.addEventListener("DOMContentLoaded", () => {
     menu.popup();
   });
 
-  // IPC bindings
   ipcRenderer.on("load-md", (event, filePath, content) => {
     editor.value = content;
     updatePreview();
     updateWordCount();
     currentFilePath = filePath;
     setDirty(false);
-
-    // (RIMOSSA) qualsiasi popolamento vocabolario/autocomplete
 
     document.querySelectorAll('.tree-item').forEach(item => {
       item.classList.remove('active');
@@ -1067,7 +1136,6 @@ window.addEventListener("DOMContentLoaded", () => {
     }));
   });
 
-  // Ricerca
   searchInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -1246,7 +1314,6 @@ window.addEventListener("DOMContentLoaded", () => {
           });
         });
 
-      // Markdown files
       items
         .filter(item => {
           const itemPath = path.join(folderPath, item);
@@ -1295,7 +1362,6 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Toolbar buttons
   const btnBold = document.getElementById("btn-bold");
   const btnItalic = document.getElementById("btn-italic");
   const btnCode = document.getElementById("btn-code");
@@ -1534,7 +1600,6 @@ window.addEventListener("DOMContentLoaded", () => {
     preview.style.cssText = "display: block; flex: 1;";
   });
 
-  // Inizializza
   updatePreview();
   updateWordCount();
 });
