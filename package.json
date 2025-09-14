@@ -41,6 +41,12 @@
             ],
             "signAndEditExecutable": false
         },
+        "nsis": {
+            "oneClick": true,
+            "installerIcon": "build/mark.ico",
+            "uninstallerIcon": "build/mark.ico",
+            "installerHeaderIcon": "build/mark.ico"
+        },
         "mac": {
             "icon": "build/mark.icns",
             "target": [

@@ -109,15 +109,6 @@
                         </span>
                       </label>
                     </div>
-                    <div class="dropdown-section">
-                      <label class="autocomplete-switch">
-                        <span>Autocomplete (letters)</span>
-                        <span class="switch">
-                          <input type="checkbox" id="toggle-autocomplete" checked />
-                          <span class="slider"></span>
-                        </span>
-                      </label>
-                    </div>
                   </div>
                 </div>
       </div>
@@ -140,7 +131,7 @@
             <button id="new-file" title="New file">+</button>
             <button id="open-folder" title="Open folder">📁</button>
             <button id="refresh-explorer" title="Refresh">🔄</button>
-            <button id="collapse-all" title="Collapse"></button>
+            <button id="collapse-all" title="Collapse">-</button>
           </div>
         </div>
         <div id="folder-path"></div>
@@ -156,6 +147,10 @@
     </div>
     <div id="footer">
       <span id="word-count">word-count: 0</span>
+      <div class="connection-status">
+        <div class="status-indicator"></div>
+        <span id="connection-text">Online</span>
+      </div>
     </div>
   </div>
   <script src="renderer.js"></script>
