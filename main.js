@@ -170,7 +170,7 @@ function createWindow() {
             win.webContents.send("toggle-preview");
           }
         },
-                {
+        {
           label: "Preview",
           accelerator: "CmdOrCtrl+P",
           click: () => {

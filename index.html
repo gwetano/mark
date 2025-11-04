@@ -8,6 +8,10 @@
   <link rel="stylesheet" href="style.css" />
   <script src="./api/marked.min.js"></script>
   <link rel="stylesheet" href="./api/katex.min.css">
+
+  <!-- Evidenziazione codice -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 </head>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 <script>
@@ -77,42 +81,43 @@
 
       <div class="navbar-right">
         <button id="btn-view-editor" title="Solo Editor"><</button>
-            <button id="btn-view-split" title="Split View">>|<</button>
-                <button id="btn-view-preview" title="Solo Render">></button>
-                <div id="dropdown-options" class="dropdown">
-                  <button id="btn-options" title="Options">Settings</button>
-                  <div class="dropdown-content">
-                    <div class="dropdown-section">
-                      <label class="autosave-switch">
-                        <span>Autosave</span>
-                        <span class="switch">
-                          <input type="checkbox" id="toggle-autosave" />
-                          <span class="slider"></span>
-                        </span>
-                      </label>
-                    </div>
-                    <div class="dropdown-section">
-                      <label class="autoscroll-switch">
-                        <span>Autoscroll</span>
-                        <span class="switch">
-                          <input type="checkbox" id="toggle-autoscroll" checked />
-                          <span class="slider"></span>
-                        </span>
-                      </label>
-                    </div>
-                    <div class="dropdown-section">
-                      <label class="theme-switch">
-                        <span>Dark Mode</span>
-                        <span class="switch">
-                          <input type="checkbox" id="toggle-theme-switch" />
-                          <span class="slider"></span>
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
+        <button id="btn-view-split" title="Split View">>|<</button>
+        <button id="btn-view-preview" title="Solo Render">></button>
+        <div id="dropdown-options" class="dropdown">
+          <button id="btn-options" title="Options">Settings</button>
+          <div class="dropdown-content">
+            <div class="dropdown-section">
+              <label class="autosave-switch">
+                <span>Autosave</span>
+                <span class="switch">
+                  <input type="checkbox" id="toggle-autosave" />
+                  <span class="slider"></span>
+                </span>
+              </label>
+            </div>
+            <div class="dropdown-section">
+              <label class="autoscroll-switch">
+                <span>Autoscroll</span>
+                <span class="switch">
+                  <input type="checkbox" id="toggle-autoscroll" checked />
+                  <span class="slider"></span>
+                </span>
+              </label>
+            </div>
+            <div class="dropdown-section">
+              <label class="theme-switch">
+                <span>Dark Mode</span>
+                <span class="switch">
+                  <input type="checkbox" id="toggle-theme-switch" />
+                  <span class="slider"></span>
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
+
     <div id="search-container" class="hidden">
       <input type="text" id="search-input" placeholder="Search..." />
       <div id="search-buttons">
@@ -123,6 +128,7 @@
       </div>
       <span id="search-results">0/0</span>
     </div>
+
     <div id="app-container">
       <div id="explorer-panel">
         <div id="explorer-header">
@@ -155,5 +161,4 @@
   </div>
   <script src="renderer.js"></script>
 </body>
-
 </html>

@@ -26,9 +26,7 @@
   font-style: normal;
 }
 
-* {
-  font-family: var(--font-family);
-}
+* { font-family: var(--font-family); }
 
 :root {
   --editor-bg: #ededed;
@@ -45,9 +43,7 @@
   --explorer-width: 250px;
 }
 
-code, pre code {
-  font-family: var(--code-font-family);
-}
+code, pre code { font-family: var(--code-font-family); }
 
 body {
   margin: 0;
@@ -1010,4 +1006,30 @@ body.dark #preview tr:hover {
   padding: 20px;
   overflow-y: auto;
   font-size: 16px;
+}
+
+.code-include {
+  margin: 1rem 0;
+}
+.code-include pre {
+  max-width: 100%;
+  overflow: auto;
+  background: var(--code-bg);
+  border-radius: 6px;
+  padding: 12px;
+}
+.code-figcaption {
+  font-size: 0.875rem;
+  color: #666;
+  margin-top: 6px;
+}
+body.dark .code-figcaption { color: #bfbfbf; }
+
+.include-error {
+  background: #fff4e5;
+  border: 1px solid #ffd7a1;
+  color: #8a5a00;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 0.9rem;
 }
