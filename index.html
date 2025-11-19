@@ -143,19 +143,28 @@
         <div id="folder-path"></div>
         <div id="file-tree"></div>
       </div>
-      <div id="container">
+  <div id="container">
         <div id="editor-container">
           <textarea id="editor" placeholder="Write markdown here..." spellcheck="false"></textarea>
           <div id="editor-overlay" aria-hidden="true"></div>
         </div>
-        <div id="preview" class="markdown-body"></div>
+  <div id="preview" class="markdown-body" lang="it"></div>
       </div>
     </div>
     <div id="footer">
       <span id="word-count">word-count: 0</span>
-      <div class="connection-status">
-        <div class="status-indicator"></div>
-        <span id="connection-text">Online</span>
+      <div id="footer-right" class="footer-right">
+        <div id="lang-selector" class="lang-selector" aria-haspopup="true">
+          <button id="lang-button" class="lang-button" aria-expanded="false" title="Preview language">IT</button>
+          <div id="lang-dropdown" class="lang-dropdown" role="menu" aria-hidden="true">
+            <button class="lang-option" data-lang="it" role="menuitem">Italiano (IT)</button>
+            <button class="lang-option" data-lang="en" role="menuitem">English (EN)</button>
+          </div>
+        </div>
+        <div class="connection-status">
+          <div class="status-indicator"></div>
+          <span id="connection-text">Online</span>
+        </div>
       </div>
     </div>
   </div>

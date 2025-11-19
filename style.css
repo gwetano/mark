@@ -113,6 +113,7 @@ body.dark #logo {
 #editor {
   flex: 1;
   padding: 20px;
+  padding-bottom: 200px; /* spazio extra in fondo per evitare che l'ultima riga sia incollata al fondo */
   background-color: var(--editor-bg);
   color: var(--fg);
   border: none;
@@ -126,10 +127,36 @@ body.dark #logo {
 #preview {
   flex: 1;
   padding: 20px;
+  padding-bottom: 200px; 
   background-color: var(--preview-bg);
   overflow-y: auto;
   overflow-x: hidden;
   height: 100%;
+}
+
+
+/* Giustifica il testo nella preview e abilita la sillabazione automatica */
+#preview, .markdown-body, #preview .markdown-body {
+  text-align: justify;
+  -webkit-hyphens: auto;
+  -ms-hyphens: auto;
+  hyphens: auto;
+}
+
+/* Applica anche ai paragrafi, alle liste, alle citazioni e alle celle di tabella */
+#preview p, #preview li, #preview blockquote, #preview td, #preview th {
+  text-align: justify;
+  -webkit-hyphens: auto;
+  -ms-hyphens: auto;
+  hyphens: auto;
+  word-break: normal; /* lascia che la sillabazione gestisca il wrap */
+  overflow-wrap: normal;
+}
+
+/* Assicura che i link lunghi possano andare a capo senza rompere il layout */
+#preview a {
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 #explorer-panel {
@@ -304,7 +331,64 @@ code {
   padding: 0 20px;
   box-sizing: border-box;
   z-index: 1000;
-  border-top: 1px solid var(--explorer-border);
+  font-size: 15px;
+}
+
+.lang-selector {
+  margin-left: 0;
+  position: relative;
+  display: inline-block;
+}
+
+.lang-button {
+  background: none;
+  border: none;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--fg);
+  background-color: var(--editor-bg);
+  font-size: 13px;
+}
+
+.lang-dropdown {
+  position: absolute;
+  right: 0;
+  bottom: 120%;
+  display: none;
+  background: var(--editor-bg);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+  z-index: 1001;
+  min-width: 150px;
+  padding: 6px;
+}
+
+.lang-dropdown .lang-option {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  color: var(--fg);
+}
+
+.lang-dropdown .lang-option:hover {
+  background: var(--explorer-hover);
+}
+
+.lang-selector.open .lang-dropdown,
+.lang-dropdown[aria-hidden="false"] {
+  display: block;
+}
+
+.footer-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .connection-status {
@@ -325,6 +409,7 @@ code {
   background-color: #f44336;
 }
 
+
 body.dark {
   --editor-bg: #1f1f1f;
   --preview-bg: #080808;
@@ -334,7 +419,7 @@ body.dark {
   --explorer-fg: #cccccc;
   --explorer-hover: #2a2d2e;
   --explorer-active: #094771;
-  --explorer-border: #1e1e1e;
+  --explorer-border: #cccccc;
 }
 
 .mermaid {
@@ -360,7 +445,7 @@ body.dark {
 }
 
 .clickable-code:hover {
-  background-color: rgba(0, 0, 0, 0.1);
+  background-color: rgba(58, 58, 58, 0.158);
 }
 
 .clickable-code:hover::after {
@@ -941,6 +1026,7 @@ body.dark #preview tr:hover {
   flex: 1;
   max-width: 100%;
   transition: width 0.3s ease;
+  padding-bottom: 200px; /* assicurarsi che anche questa regola non rimuova lo spazio */
 }
 
 #preview {
@@ -1004,25 +1090,17 @@ body.dark #preview tr:hover {
   background-color: var(--editor-bg);
   color: var(--fg);
   padding: 20px;
+  padding-bottom: 200px; /* spazio aggiuntivo per mantenere sempre area vuota sotto il testo */
   overflow-y: auto;
   font-size: 16px;
 }
 
-.code-include {
-  margin: 1rem 0;
-}
-.code-include pre {
-  max-width: 100%;
-  overflow: auto;
-  background: var(--code-bg);
-  border-radius: 6px;
-  padding: 12px;
-}
 .code-figcaption {
   font-size: 0.875rem;
   color: #666;
   margin-top: 6px;
 }
+
 body.dark .code-figcaption { color: #bfbfbf; }
 
 .include-error {
@@ -1032,4 +1110,30 @@ body.dark .code-figcaption { color: #bfbfbf; }
   padding: 8px 10px;
   border-radius: 6px;
   font-size: 0.9rem;
+}
+
+/* Forza la preview ad una larghezza fissa e impedisce che la colonna si allarghi
+   per parole troppo lunghe: le parole verranno spezzate/avvolte. */
+#preview {
+  /* Imposta una larghezza fissa: puoi cambiare 640px a piacere */
+  flex: 0 0 640px;
+  width: 640px;
+  max-width: 640px;
+  box-sizing: border-box;
+  overflow-wrap: anywhere; /* permette il wrap anche per stringhe senza spazi */
+  word-break: break-word; /* supporto per breaking di parole molto lunghe */
+}
+
+/* Assicura che i contenuti interni non forzino l'ampiezza */
+#preview, #preview .markdown-body, #preview p, #preview li, #preview td, #preview th, #preview pre, #preview code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+}
+
+/* Pre-code: forziamo il wrapping anche all'interno di blocchi di codice */
+#preview pre, #preview pre code {
+  white-space: pre-wrap; /* permette wrap nel pre */
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }

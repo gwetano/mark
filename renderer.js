@@ -154,7 +154,7 @@ const handleDirective = (alt, fileSpec) => {
     const ext = path.extname(abs).slice(1);
     const lang = extToLang(ext);
     const caption = alt ? `\n<figcaption class="code-figcaption">${escapeHtml(alt)} — <code>${escapeHtml(filePath)}${range ? ` [L${from}-L${to}]` : ''}</code></figcaption>` : '';
-    return `<figure class="code-include"><pre><code class="language-${lang}">${escapeHtml(content)}</code></pre>${caption}</figure>`;
+    return `<pre><code class="language-${lang}">${escapeHtml(content)}</code></pre>${caption}`;
   };
 
 
@@ -1026,3 +1026,60 @@ window.addEventListener("DOMContentLoaded", () => {
   // Espone updatePreview per eventi esterni se necessario
   window.__forcePreview = updatePreview;
 });
+
+// ===== Language selector (footer) =====
+(function(){
+  function initLangSelector() {
+    const preview = document.getElementById('preview');
+    const btn = document.getElementById('lang-button');
+    const dropdown = document.getElementById('lang-dropdown');
+    if (!preview || !btn || !dropdown) return;
+
+    const saved = localStorage.getItem('previewLang') || preview.getAttribute('lang') || 'it';
+    setLang(saved);
+
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = dropdown.style.display === 'block' || btn.getAttribute('aria-expanded') === 'true';
+      if (isOpen) {
+        dropdown.style.display = 'none';
+        btn.setAttribute('aria-expanded', 'false');
+      } else {
+        dropdown.style.display = 'block';
+        btn.setAttribute('aria-expanded', 'true');
+      }
+    });
+
+    dropdown.addEventListener('click', (e) => {
+      const option = e.target.closest('.lang-option');
+      if (!option) return;
+      const lang = option.dataset.lang;
+      setLang(lang);
+      dropdown.style.display = 'none';
+      btn.setAttribute('aria-expanded', 'false');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!dropdown.contains(e.target) && e.target !== btn) {
+        dropdown.style.display = 'none';
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    function setLang(lang) {
+      try {
+        preview.setAttribute('lang', lang);
+        btn.textContent = lang.toUpperCase();
+        localStorage.setItem('previewLang', lang);
+      } catch (err) {
+        console.error('Error setting preview language:', err);
+      }
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initLangSelector);
+  } else {
+    initLangSelector();
+  }
+})();
