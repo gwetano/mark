@@ -93,16 +93,19 @@
       display: block;
       margin: 1em auto;
     }
-    
+
     img.img-small {
       max-width: 25%;
     }
+
     img.img-medium {
       max-width: 50%;
     }
+
     img.img-large {
       max-width: 75%;
     }
+
     img.img-full {
       max-width: 100%;
     }
@@ -420,9 +423,21 @@
       sourceElements.forEach(element => {
         element.classList.add('katex-src');
       });
-      setTimeout(() => {
-        ipcRenderer.send('content-ready');
-      }, 1000);
+      const imgs = Array.from(document.querySelectorAll('img'));
+      const imagePromises = imgs.map(img => {
+        if (img.complete) return Promise.resolve();
+        return new Promise(resolve => {
+          img.onload = resolve;
+          img.onerror = resolve; // Proceed even if image fails
+        });
+      });
+
+      Promise.all(imagePromises).then(() => {
+        // Small buffer to ensure layout is settled
+        setTimeout(() => {
+          ipcRenderer.send('content-ready');
+        }, 500);
+      });
     });
   </script>
 </body>

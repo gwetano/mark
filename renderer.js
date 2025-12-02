@@ -126,7 +126,7 @@ function preprocessCodeIncludes(raw) {
   const baseDir = currentFilePath ? path.dirname(currentFilePath)
     : (currentFolderPath || process.cwd());
 
-const handleDirective = (alt, fileSpec) => {
+  const handleDirective = (alt, fileSpec) => {
     // Evita di trasformare vere immagini
     if (looksLikeImage(fileSpec)) return null;
 
@@ -761,6 +761,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const imgs = tempDiv.querySelectorAll('img');
 
     imgs.forEach(img => {
+      img.removeAttribute('loading');
       const src = img.getAttribute('src');
       if (!src) return;
 
@@ -773,7 +774,7 @@ window.addEventListener("DOMContentLoaded", () => {
       try {
         if (/^file:\/\//i.test(src)) {
           const u = new URL(src);
-          filePath = u.pathname;
+          filePath = decodeURIComponent(u.pathname);
           // Su Windows togliamo lo slash iniziale extra
           if (process.platform === 'win32' && filePath.startsWith('/')) {
             filePath = filePath.slice(1);
@@ -781,7 +782,7 @@ window.addEventListener("DOMContentLoaded", () => {
         } else if (currentFilePath) {
           // Caso: path relativo rispetto al file .md
           const folder = path.dirname(currentFilePath);
-          filePath = path.resolve(folder, src);
+          filePath = path.resolve(folder, decodeURIComponent(src));
         }
 
         // Se il file non esiste, log e continua
@@ -1110,7 +1111,7 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 // ===== Language selector (footer) =====
-(function(){
+(function () {
   function initLangSelector() {
     const preview = document.getElementById('preview');
     const btn = document.getElementById('lang-button');
