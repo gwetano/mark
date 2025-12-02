@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,13 +13,14 @@
       font-weight: 400;
       font-style: normal;
     }
+
     @font-face {
       font-family: "Inter";
       src: url("./fonts/inter/Inter-Medium.ttf") format("truetype");
       font-weight: 500;
       font-style: normal;
     }
-    
+
     @font-face {
       font-family: "Inter";
       src: url("./fonts/inter/Inter-SemiBold.ttf") format("truetype");
@@ -32,9 +34,11 @@
       font-weight: normal;
       font-style: normal;
     }
+
     * {
-        font-family: "Inter", sans-serif;
+      font-family: "Inter", sans-serif;
     }
+
     body {
       margin: 0;
       background-color: white;
@@ -44,6 +48,7 @@
       height: 100vh;
       overflow: hidden;
     }
+
     .markdown-body {
       width: 100%;
       max-width: 800px;
@@ -52,6 +57,7 @@
       overflow-wrap: break-word;
       word-break: break-word;
     }
+
     pre {
       background-color: #f6f8fa;
       padding: 16px;
@@ -63,6 +69,7 @@
       text-align: left;
       break-inside: avoid;
     }
+
     code {
       font-size: 85%;
       font-family: "JetBrains Mono", monospace;
@@ -74,10 +81,12 @@
       word-break: break-word;
       text-align: left;
     }
+
     pre code {
       background-color: transparent;
       padding: 0;
     }
+
     img {
       max-width: 70%;
       height: auto;
@@ -86,24 +95,27 @@
     }
     
     img.img-small {
-      max-width: 40%;
+      max-width: 25%;
     }
     img.img-medium {
-      max-width: 60%;
+      max-width: 50%;
     }
     img.img-large {
-      max-width: 80%;
+      max-width: 75%;
     }
     img.img-full {
-      max-width: 95%;
+      max-width: 100%;
     }
 
-    ul, ol, li {
+    ul,
+    ol,
+    li {
       text-align: left;
       word-wrap: break-word;
       overflow-wrap: break-word;
       word-break: break-word;
     }
+
     blockquote {
       margin-left: 0;
       padding-left: 1em;
@@ -111,6 +123,7 @@
       color: #3b3b3b;
       break-inside: avoid;
     }
+
     table {
       border-collapse: collapse;
       width: 100%;
@@ -119,50 +132,67 @@
       border: 1px solid #d0d7de;
       font-size: 16px;
     }
-    th, td {
+
+    th,
+    td {
       border: 1px solid #d0d7de;
       padding: 8px 12px;
       text-align: left;
     }
+
     th {
       background: #f6f8fa;
       font-weight: 600;
       color: #24292f;
     }
+
     tr:nth-child(even) {
       background: #f6f8fa;
     }
+
     tr:hover {
       background: #eaeef2;
     }
+
     @media print {
       body {
         height: auto;
         overflow: visible;
       }
+
       .markdown-body {
         height: auto;
       }
+
       .page-break {
         page-break-before: always;
         break-before: page;
       }
+
       li {
         break-inside: avoid;
       }
-      figure, img {
+
+      figure,
+      img {
         break-inside: avoid;
         page-break-inside: avoid;
       }
+
       .table-of-contents {
         page-break-after: always;
       }
+
       table {
         page-break-inside: avoid;
         break-inside: avoid;
       }
     }
-    .katex { font-size: 1.1em; }
+
+    .katex {
+      font-size: 1.1em;
+    }
+
     .katex-display {
       white-space: normal !important;
       overflow-x: visible !important;
@@ -182,7 +212,9 @@
       word-break: break-word;
     }
 
-    .katex-src { display: none; }
+    .katex-src {
+      display: none;
+    }
 
     .table-of-contents {
       margin-bottom: 2em;
@@ -238,7 +270,9 @@
       font-size: 0.9em;
     }
 
-    .toc-level-4, .toc-level-5, .toc-level-6 {
+    .toc-level-4,
+    .toc-level-5,
+    .toc-level-6 {
       font-size: 0.85em;
     }
 
@@ -249,76 +283,97 @@
     }
   </style>
 </head>
+
 <body>
   <div id="content" class="markdown-body"></div>
-  
+
   <script>
     const { ipcRenderer } = require('electron');
-    
-    function processMdImage(html) {
-      const imgRegex = /<img src="([^"]+)" alt="([^"]+)"([^>]*)\/?>/gi;
 
-      return html.replace(imgRegex, (match, src, alt, rest) => {
-        let sizeClass = '';
+    function processMdImage(html) {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = html;
+
+      const imgs = tempDiv.querySelectorAll('img');
+
+      imgs.forEach(img => {
+        let alt = img.getAttribute('alt') || '';
         const originalAlt = alt.replace(/\u00A0/g, ' ').trim();
 
-        if (originalAlt.includes('[small]')) {
+        let sizeClass = '';
+        let cleanedAlt = originalAlt;
+
+        if (/\[small\]/i.test(originalAlt)) {
           sizeClass = 'img-small';
-          alt = originalAlt.replace('[small]', '').trim();
-        } else if (originalAlt.includes('[medium]')) {
+          cleanedAlt = originalAlt.replace(/\[small\]/ig, '').trim();
+        } else if (/\[medium\]/i.test(originalAlt)) {
           sizeClass = 'img-medium';
-          alt = originalAlt.replace('[medium]', '').trim();
-        } else if (originalAlt.includes('[large]')) {
+          cleanedAlt = originalAlt.replace(/\[medium\]/ig, '').trim();
+        } else if (/\[large\]/i.test(originalAlt)) {
           sizeClass = 'img-large';
-          alt = originalAlt.replace('[large]', '').trim();
-        } else if (originalAlt.includes('[full]')) {
+          cleanedAlt = originalAlt.replace(/\[large\]/ig, '').trim();
+        } else if (/\[full\]/i.test(originalAlt)) {
           sizeClass = 'img-full';
-          alt = originalAlt.replace('[full]', '').trim();
-        } else {
-          return match;
+          cleanedAlt = originalAlt.replace(/\[full\]/ig, '').trim();
         }
 
-        rest = rest.replace(/\s*class="[^"]*"/gi, '');
+        if (sizeClass) {
+          const style = img.getAttribute('style') || '';
+          const cleanedStyle = style.replace(/max-width\s*:\s*[^;]+;?/gi, '');
+          if (cleanedStyle.trim().length > 0) {
+            img.setAttribute('style', cleanedStyle);
+          } else {
+            img.removeAttribute('style');
+          }
 
-        return `<img src="${src}" alt="${alt}" class="${sizeClass}"${rest}>`;
+          img.classList.add(sizeClass);
+
+          if (cleanedAlt) {
+            img.setAttribute('alt', cleanedAlt);
+          } else {
+            img.removeAttribute('alt');
+          }
+        }
       });
+
+      return tempDiv.innerHTML;
     }
 
     function generateTableOfContentsForPDF(content) {
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = content;
-      
+
       const firstNode = tempDiv.firstChild;
       let hasTOCMarker = false;
-      
-      if (firstNode && firstNode.nodeType === Node.COMMENT_NODE && 
-          firstNode.textContent.trim().match(/^\s*TOC\s*$/i)) {
+
+      if (firstNode && firstNode.nodeType === Node.COMMENT_NODE &&
+        firstNode.textContent.trim().match(/^\s*TOC\s*$/i)) {
         hasTOCMarker = true;
         firstNode.remove();
       }
-      
+
       if (!hasTOCMarker) {
         return content;
       }
-      
+
       const headings = tempDiv.querySelectorAll('h1, h2, h3, h4, h5, h6');
-      
+
       if (headings.length === 0) {
         return tempDiv.innerHTML;
       }
-      
+
       let tocHTML = '<div class="table-of-contents"><h2>Table of Contents</h2><ul class="toc-list">';
-      
+
       let currentLevel = 0;
       let openLists = 0;
-      
+
       headings.forEach((heading, index) => {
         const level = parseInt(heading.tagName.substring(1));
         const title = heading.textContent;
         const anchor = `heading-${index}`;
-        
+
         heading.id = anchor;
-        
+
         if (level > currentLevel) {
           while (currentLevel < level) {
             if (currentLevel > 0) {
@@ -336,39 +391,40 @@
             currentLevel--;
           }
         }
-        
+
         const indent = level - 1;
         tocHTML += `<li class="toc-item toc-level-${level}">
           <a href="#${anchor}" class="toc-link">${title}</a>
         </li>`;
       });
-      
+
       while (openLists > 0) {
         tocHTML += '</ul>';
         openLists--;
       }
-      
+
       tocHTML += '</ul><hr class="toc-separator"></div>';
-      
+
       tempDiv.innerHTML = tocHTML + tempDiv.innerHTML;
-      
+
       return tempDiv.innerHTML;
     }
-    
+
     ipcRenderer.on('print-content', (event, content) => {
       let processedContent = generateTableOfContentsForPDF(content);
-      
+
       processedContent = processMdImage(processedContent);
       document.getElementById('content').innerHTML = processedContent;
-      
+
       const sourceElements = document.querySelectorAll('span.katex-mathml');
       sourceElements.forEach(element => {
         element.classList.add('katex-src');
-      });   
+      });
       setTimeout(() => {
         ipcRenderer.send('content-ready');
       }, 1000);
     });
   </script>
 </body>
+
 </html>

@@ -327,7 +327,6 @@ window.addEventListener("DOMContentLoaded", () => {
     if (!editor || !preview) return;
 
     const rawOriginal = editor.value;
-    // Sostituisci i directive include prima del parsing Markdown
     const raw = preprocessCodeIncludes(rawOriginal);
 
     const scrollPercent = (preview.scrollHeight > preview.clientHeight)
@@ -347,13 +346,39 @@ window.addEventListener("DOMContentLoaded", () => {
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = html;
 
-    // Immagini: risolvi path locali e lazy
     const imgs = tempDiv.querySelectorAll('img');
     imgs.forEach(img => {
       const src = img.getAttribute('src');
       img.setAttribute('loading', 'lazy');
-      img.style.maxWidth = '100%';
       img.style.height = 'auto';
+
+      let alt = img.getAttribute('alt') || '';
+      const originalAlt = alt.replace(/\u00A0/g, ' ').trim();
+
+      let widthPercent = null;
+      let cleanedAlt = originalAlt;
+
+      if (/\[small\]/i.test(originalAlt)) {
+        widthPercent = 25;
+        cleanedAlt = originalAlt.replace(/\[small\]/ig, '').trim();
+      } else if (/\[medium\]/i.test(originalAlt)) {
+        widthPercent = 50;
+        cleanedAlt = originalAlt.replace(/\[medium\]/ig, '').trim();
+      } else if (/\[large\]/i.test(originalAlt)) {
+        widthPercent = 75;
+        cleanedAlt = originalAlt.replace(/\[large\]/ig, '').trim();
+      } else if (/\[full\]/i.test(originalAlt)) {
+        widthPercent = 100;
+        cleanedAlt = originalAlt.replace(/\[full\]/ig, '').trim();
+      }
+
+      if (widthPercent !== null) {
+        img.style.maxWidth = widthPercent + '%';
+        img.setAttribute('alt', cleanedAlt);
+      } else {
+        img.style.maxWidth = '70%';
+      }
+
       if (src && !src.match(/^(?:[a-z]+:)?\/\//i) && currentFilePath) {
         const folder = path.dirname(currentFilePath);
         const absolutePath = path.resolve(folder, src);
@@ -362,12 +387,10 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    // Mermaid
     let outHtml = tempDiv.innerHTML;
     outHtml = outHtml.replace(/<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/g, (_, code) => `<div class="mermaid">${code}</div>`);
     preview.innerHTML = outHtml;
 
-    // Evidenziazione (per sicurezza su blocchi aggiunti via figure)
     if (window.hljs) {
       preview.querySelectorAll('pre code').forEach(block => {
         if (!block.classList.contains('hljs')) {
@@ -376,11 +399,9 @@ window.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // Re-sincronizza scroll
     const maxScroll = (preview.scrollHeight - preview.clientHeight);
     if (maxScroll > 0) preview.scrollTop = scrollPercent * maxScroll;
 
-    // Click-to-copy sui blocchi
     preview.querySelectorAll('pre code').forEach(codeBlock => {
       codeBlock.classList.add('clickable-code');
       codeBlock.title = 'Click to copy the code';
@@ -733,12 +754,73 @@ window.addEventListener("DOMContentLoaded", () => {
   // ===== PDF export =====
   function exportToPdf() {
     if (!preview) return;
-    const content = preview.innerHTML;
+
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = preview.innerHTML;
+
+    const imgs = tempDiv.querySelectorAll('img');
+
+    imgs.forEach(img => {
+      const src = img.getAttribute('src');
+      if (!src) return;
+
+      if (/^data:/i.test(src) || /^https?:\/\//i.test(src)) {
+        return;
+      }
+
+      let filePath = src;
+
+      try {
+        if (/^file:\/\//i.test(src)) {
+          const u = new URL(src);
+          filePath = u.pathname;
+          // Su Windows togliamo lo slash iniziale extra
+          if (process.platform === 'win32' && filePath.startsWith('/')) {
+            filePath = filePath.slice(1);
+          }
+        } else if (currentFilePath) {
+          // Caso: path relativo rispetto al file .md
+          const folder = path.dirname(currentFilePath);
+          filePath = path.resolve(folder, src);
+        }
+
+        // Se il file non esiste, log e continua
+        if (!fs.existsSync(filePath)) {
+          console.warn('[PDF export] Immagine non trovata:', filePath);
+          return;
+        }
+
+        const buffer = fs.readFileSync(filePath);
+        const base64 = buffer.toString('base64');
+
+        const ext = (path.extname(filePath) || '').toLowerCase();
+        let mime = 'image/png';
+        if (ext === '.jpg' || ext === '.jpeg') mime = 'image/jpeg';
+        else if (ext === '.gif') mime = 'image/gif';
+        else if (ext === '.svg') mime = 'image/svg+xml';
+        else if (ext === '.webp') mime = 'image/webp';
+
+        const dataUrl = `data:${mime};base64,${base64}`;
+        img.setAttribute('src', dataUrl);
+      } catch (err) {
+        console.error('[PDF export] Errore nel leggere/convertire immagine:', src, err);
+      }
+    });
+
+    // A questo punto tutte le immagini locali sono embeddate come data URL
+    const content = tempDiv.innerHTML;
+
     ipcRenderer.send("print-to-pdf", content, path.basename(currentFilePath || ""));
+
     const notification = document.createElement('div');
     notification.className = 'copy-notification';
     notification.textContent = 'PDF loading...';
-    Object.assign(notification.style, { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' });
+    Object.assign(notification.style, {
+      position: 'absolute',
+      top: '50%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)'
+    });
     document.body.appendChild(notification);
     ipcRenderer.once('pdf-saved', () => notification.remove());
   }
