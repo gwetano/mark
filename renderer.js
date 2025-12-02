@@ -154,22 +154,15 @@ const handleDirective = (alt, fileSpec) => {
     const ext = path.extname(abs).slice(1);
     const lang = extToLang(ext);
     const caption = alt ? `\n<figcaption class="code-figcaption">${escapeHtml(alt)} — <code>${escapeHtml(filePath)}${range ? ` [L${from}-L${to}]` : ''}</code></figcaption>` : '';
-    return `<pre><code class="language-${lang}">${escapeHtml(content)}</code></pre>${caption}`;
+    // Wrap il contenuto in triple backtick markdown per evitare che marked interpreti il codice come markdown
+    return `\`\`\`${lang}\n${content}\n\`\`\`${caption}`;
   };
 
 
 
-  // Pattern 1: !(Alt)[path]
   raw = raw.replace(/!\(([^)]+)\)\[([^\]]+)\]/g, (_, alt, fileSpec) => {
     const rep = handleDirective(alt.trim(), fileSpec.trim());
     return rep ?? `!(${alt})[${fileSpec}]`;
-  });
-
-  // Pattern 2: ![Alt](path) — solo se NON è immagine
-  raw = raw.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, fileSpec) => {
-    if (looksLikeImage(fileSpec)) return `![${alt}](${fileSpec})`;
-    const rep = handleDirective((alt || '').trim(), fileSpec.trim());
-    return rep ?? `![${alt}](${fileSpec})`;
   });
 
   return raw;
