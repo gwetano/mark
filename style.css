@@ -26,7 +26,9 @@
   font-style: normal;
 }
 
-* { font-family: var(--font-family); }
+* {
+  font-family: var(--font-family);
+}
 
 :root {
   --editor-bg: #ededed;
@@ -43,7 +45,10 @@
   --explorer-width: 250px;
 }
 
-code, pre code { font-family: var(--code-font-family); }
+code,
+pre code {
+  font-family: var(--code-font-family);
+}
 
 body {
   margin: 0;
@@ -60,9 +65,11 @@ body {
   flex-direction: row;
   margin-top: 70px;
   width: 100%;
-  height: calc(100% - 70px - 40px); /* sottraiamo anche l'altezza del footer */
+  height: calc(100% - 70px - 40px);
+  /* sottraiamo anche l'altezza del footer */
   overflow: hidden;
-  margin-bottom: 40px; /* aggiungiamo margine per il footer */
+  margin-bottom: 40px;
+  /* aggiungiamo margine per il footer */
 }
 
 #main {
@@ -96,7 +103,7 @@ body {
   height: 100%;
   max-height: 70px;
   padding: 10px;
-  object-fit:contain;
+  object-fit: contain;
 }
 
 body.dark #logo {
@@ -113,7 +120,8 @@ body.dark #logo {
 #editor {
   flex: 1;
   padding: 20px;
-  padding-bottom: 200px; /* spazio extra in fondo per evitare che l'ultima riga sia incollata al fondo */
+  padding-bottom: 200px;
+  /* spazio extra in fondo per evitare che l'ultima riga sia incollata al fondo */
   background-color: var(--editor-bg);
   color: var(--fg);
   border: none;
@@ -127,7 +135,7 @@ body.dark #logo {
 #preview {
   flex: 1;
   padding: 20px;
-  padding-bottom: 200px; 
+  padding-bottom: 200px;
   background-color: var(--preview-bg);
   overflow-y: auto;
   overflow-x: hidden;
@@ -136,7 +144,9 @@ body.dark #logo {
 
 
 /* Giustifica il testo nella preview e abilita la sillabazione automatica */
-#preview, .markdown-body, #preview .markdown-body {
+#preview,
+.markdown-body,
+#preview .markdown-body {
   text-align: justify;
   -webkit-hyphens: auto;
   -ms-hyphens: auto;
@@ -144,12 +154,17 @@ body.dark #logo {
 }
 
 /* Applica anche ai paragrafi, alle liste, alle citazioni e alle celle di tabella */
-#preview p, #preview li, #preview blockquote, #preview td, #preview th {
+#preview p,
+#preview li,
+#preview blockquote,
+#preview td,
+#preview th {
   text-align: justify;
   -webkit-hyphens: auto;
   -ms-hyphens: auto;
   hyphens: auto;
-  word-break: normal; /* lascia che la sillabazione gestisca il wrap */
+  word-break: normal;
+  /* lascia che la sillabazione gestisca il wrap */
   overflow-wrap: normal;
 }
 
@@ -262,21 +277,21 @@ body.dark #logo {
 
 pre {
   max-width: 100%;
-  margin-right: 10px;        
-  margin-left: 10px;          
-  box-sizing: border-box;    
+  margin-right: 10px;
+  margin-left: 10px;
+  box-sizing: border-box;
 }
 
 pre code {
   display: block;
   padding: 10px;
   white-space: pre-wrap;
-  word-wrap: break-word;      
-  overflow-wrap: break-word; 
-  word-break: break-word;     
-  width: 100%;                
-  box-sizing: border-box;    
-  border-radius: 4px;         
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 4px;
 }
 
 code {
@@ -303,11 +318,12 @@ code {
   height: auto;
 }
 
-#toggle-explorer{
+#toggle-explorer {
   display: none;
 }
 
-#toggle-theme:hover, #toggle-preview:hover {
+#toggle-theme:hover,
+#toggle-preview:hover {
   background-color: var(--explorer-hover);
 }
 
@@ -358,7 +374,7 @@ code {
   display: none;
   background: var(--editor-bg);
   border-radius: 6px;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
   z-index: 1001;
   min-width: 150px;
   padding: 6px;
@@ -470,10 +486,21 @@ body.dark {
 }
 
 @keyframes fadeInOut {
-  0% { opacity: 0; }
-  20% { opacity: 1; }
-  80% { opacity: 1; }
-  100% { opacity: 0; }
+  0% {
+    opacity: 0;
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  80% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
 }
 
 body.dark .clickable-code:active,
@@ -551,8 +578,9 @@ body.dark .clickable-code:active,
   overflow: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
-  padding-bottom: 5px; 
+  padding-bottom: 5px;
 }
+
 .katex {
   max-width: 100%;
   white-space: normal;
@@ -594,7 +622,8 @@ body.dark .clickable-code:active,
   background: var(--explorer-hover);
 }
 
-#btn-extra, #btn-options {
+#btn-extra,
+#btn-options {
   font-size: 18px;
   font-weight: bold;
 }
@@ -622,7 +651,9 @@ body.dark .clickable-code:active,
   margin: 0;
 }
 
-#btn-view-editor, #btn-view-split, #btn-view-preview {
+#btn-view-editor,
+#btn-view-split,
+#btn-view-preview {
   background: none;
   border: none;
   color: var(--fg);
@@ -634,7 +665,9 @@ body.dark .clickable-code:active,
   margin: 0 2px;
 }
 
-#btn-view-editor:hover, #btn-view-split:hover, #btn-view-preview:hover {
+#btn-view-editor:hover,
+#btn-view-split:hover,
+#btn-view-preview:hover {
   background: var(--explorer-hover);
 }
 
@@ -656,7 +689,7 @@ body.dark .clickable-code:active,
   border-radius: 50%;
   background: #fff;
   border: 2px solid #007bff;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -672,7 +705,7 @@ body.dark .clickable-code:active,
   border-radius: 50%;
   background: #fff;
   border: 2px solid #007bff;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -706,7 +739,7 @@ body.dark .clickable-code:active,
   min-width: 180px;
   max-width: 300px;
   background: var(--editor-bg);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   border-radius: 8px;
   z-index: 1000;
   padding: 8px 8px;
@@ -725,7 +758,7 @@ body.dark .clickable-code:active,
   max-width: 260px;
   max-height: 320px;
   overflow-y: auto;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
   border-radius: 8px;
   z-index: 1000;
   padding: 8px 8px;
@@ -737,7 +770,7 @@ body.dark .clickable-code:active,
   top: 110%;
   min-width: 180px;
   max-width: 220px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   border-radius: 8px;
   z-index: 1000;
   padding: 8px 8px;
@@ -749,13 +782,13 @@ body.dark .clickable-code:active,
   top: 110%;
   min-width: 140px;
   max-width: 180px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   border-radius: 8px;
   z-index: 1000;
   padding: 8px 8px;
 }
 
-.dropdown.open > .dropdown-content {
+.dropdown.open>.dropdown-content {
   display: block;
 }
 
@@ -785,6 +818,7 @@ body.dark .clickable-code:active,
   transition: background 0.3s;
   vertical-align: middle;
 }
+
 .autosave-switch .slider:before {
   content: "";
   position: absolute;
@@ -795,12 +829,14 @@ body.dark .clickable-code:active,
   background: #fff;
   border-radius: 50%;
   transition: transform 0.3s;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
 }
-.autosave-switch input[type="checkbox"]:checked + .slider {
+
+.autosave-switch input[type="checkbox"]:checked+.slider {
   background: #007bff;
 }
-.autosave-switch input[type="checkbox"]:checked + .slider:before {
+
+.autosave-switch input[type="checkbox"]:checked+.slider:before {
   transform: translateX(18px);
 }
 
@@ -821,9 +857,11 @@ body.dark .clickable-code:active,
   font-weight: 500;
   gap: 10px;
 }
+
 .theme-switch .switch {
   margin-left: 0;
 }
+
 .theme-switch .slider {
   position: relative;
   display: inline-block;
@@ -834,6 +872,7 @@ body.dark .clickable-code:active,
   transition: background 0.3s;
   vertical-align: middle;
 }
+
 .theme-switch .slider:before {
   content: "";
   position: absolute;
@@ -844,13 +883,14 @@ body.dark .clickable-code:active,
   background: #fff;
   border-radius: 50%;
   transition: transform 0.3s;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
 }
 
-.theme-switch input[type="checkbox"]:checked + .slider {
+.theme-switch input[type="checkbox"]:checked+.slider {
   background: #007bff;
 }
-.theme-switch input[type="checkbox"]:checked + .slider:before {
+
+.theme-switch input[type="checkbox"]:checked+.slider:before {
   transform: translateX(18px);
 }
 
@@ -880,6 +920,7 @@ body.dark .clickable-code:active,
   transition: background 0.3s;
   vertical-align: middle;
 }
+
 .autoscroll-switch .slider:before {
   content: "";
   position: absolute;
@@ -890,12 +931,14 @@ body.dark .clickable-code:active,
   background: #fff;
   border-radius: 50%;
   transition: transform 0.3s;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
 }
-.autoscroll-switch input[type="checkbox"]:checked + .slider {
+
+.autoscroll-switch input[type="checkbox"]:checked+.slider {
   background: #007bff;
 }
-.autoscroll-switch input[type="checkbox"]:checked + .slider:before {
+
+.autoscroll-switch input[type="checkbox"]:checked+.slider:before {
   transform: translateX(18px);
 }
 
@@ -907,11 +950,14 @@ body.dark .clickable-code:active,
   border-bottom: 1px solid var(--explorer-border);
   gap: 14px;
 }
+
 #dropdown-options .dropdown-section:last-child {
   border-bottom: none;
 }
 
-.markdown-body blockquote, #preview blockquote, .markdown-body blockquote {
+.markdown-body blockquote,
+#preview blockquote,
+.markdown-body blockquote {
   border-left: 4px solid #d0d7de;
   color: #656d76;
   background: #f6f8fa;
@@ -964,7 +1010,9 @@ body.dark #preview tr:hover {
 }
 
 /* Stile tabelle stile GitHub */
-.markdown-body table, #preview table, .markdown-body table {
+.markdown-body table,
+#preview table,
+.markdown-body table {
   border-collapse: collapse;
   width: 100%;
   margin: 16px 0;
@@ -973,34 +1021,43 @@ body.dark #preview tr:hover {
   font-size: 16px;
 }
 
-.markdown-body th, .markdown-body td, #preview th, #preview td {
+.markdown-body th,
+.markdown-body td,
+#preview th,
+#preview td {
   border: 1px solid #d0d7de;
   padding: 8px 12px;
   text-align: left;
 }
 
-.markdown-body th, #preview th {
+.markdown-body th,
+#preview th {
   background: #f6f8fa;
   font-weight: 600;
   color: #24292f;
 }
 
-.markdown-body tr:nth-child(even), #preview tr:nth-child(even) {
+.markdown-body tr:nth-child(even),
+#preview tr:nth-child(even) {
   background: #f6f8fa;
 }
 
-.markdown-body tr:hover, #preview tr:hover {
+.markdown-body tr:hover,
+#preview tr:hover {
   background: #eaeef2;
 }
 
 @media print {
-  .markdown-body table, #preview table {
+
+  .markdown-body table,
+  #preview table {
     page-break-inside: avoid;
     break-inside: avoid;
   }
 }
 
 @media (max-width: 900px) {
+
   .dropdown .dropdown-content,
   #dropdown-options .dropdown-content,
   #dropdown-extra .dropdown-content,
@@ -1026,7 +1083,8 @@ body.dark #preview tr:hover {
   flex: 1;
   max-width: 100%;
   transition: width 0.3s ease;
-  padding-bottom: 200px; /* assicurarsi che anche questa regola non rimuova lo spazio */
+  padding-bottom: 200px;
+  /* assicurarsi che anche questa regola non rimuova lo spazio */
 }
 
 #preview {
@@ -1090,7 +1148,8 @@ body.dark #preview tr:hover {
   background-color: var(--editor-bg);
   color: var(--fg);
   padding: 20px;
-  padding-bottom: 200px; /* spazio aggiuntivo per mantenere sempre area vuota sotto il testo */
+  padding-bottom: 200px;
+  /* spazio aggiuntivo per mantenere sempre area vuota sotto il testo */
   overflow-y: auto;
   font-size: 16px;
 }
@@ -1101,7 +1160,9 @@ body.dark #preview tr:hover {
   margin-top: 6px;
 }
 
-body.dark .code-figcaption { color: #bfbfbf; }
+body.dark .code-figcaption {
+  color: #bfbfbf;
+}
 
 .include-error {
   background: #fff4e5;
@@ -1120,20 +1181,31 @@ body.dark .code-figcaption { color: #bfbfbf; }
   width: 640px;
   max-width: 640px;
   box-sizing: border-box;
-  overflow-wrap: anywhere; /* permette il wrap anche per stringhe senza spazi */
-  word-break: break-word; /* supporto per breaking di parole molto lunghe */
+  overflow-wrap: anywhere;
+  /* permette il wrap anche per stringhe senza spazi */
+  word-break: break-word;
+  /* supporto per breaking di parole molto lunghe */
 }
 
 /* Assicura che i contenuti interni non forzino l'ampiezza */
-#preview, #preview .markdown-body, #preview p, #preview li, #preview td, #preview th, #preview pre, #preview code {
+#preview,
+#preview .markdown-body,
+#preview p,
+#preview li,
+#preview td,
+#preview th,
+#preview pre,
+#preview code {
   overflow-wrap: anywhere;
   word-break: break-word;
   max-width: 100%;
 }
 
 /* Pre-code: forziamo il wrapping anche all'interno di blocchi di codice */
-#preview pre, #preview pre code {
-  white-space: pre-wrap; /* permette wrap nel pre */
+#preview pre,
+#preview pre code {
+  white-space: pre-wrap;
+  /* permette wrap nel pre */
   overflow-wrap: anywhere;
   word-break: break-word;
 }
