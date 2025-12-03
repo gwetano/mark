@@ -296,6 +296,7 @@ pre code {
 
 code {
   background-color: var(--code-bg);
+  color: var(--fg);
   padding: 2px 6px;
   border-radius: 4px;
   white-space: pre-wrap;
