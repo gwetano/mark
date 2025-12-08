@@ -1075,6 +1075,7 @@ body.dark #preview tr:hover {
   flex: 1;
   min-width: 0;
   height: 100%;
+  background-color: var(--editor-bg);
 }
 
 #editor {
@@ -1086,6 +1087,11 @@ body.dark #preview tr:hover {
   transition: width 0.3s ease;
   padding-bottom: 200px;
   /* assicurarsi che anche questa regola non rimuova lo spazio */
+  background-color: transparent;
+  color: transparent;
+  caret-color: var(--fg);
+  z-index: 10;
+  position: relative;
 }
 
 #preview {
@@ -1108,10 +1114,11 @@ body.dark #preview tr:hover {
   overflow-wrap: break-word;
   word-break: break-word;
   padding: 20px;
+  padding-bottom: 200px;
   font-size: 16px;
   font-family: var(--font-family);
   background: transparent;
-  z-index: 2;
+  z-index: 5;
   color: var(--fg);
   overflow: hidden;
   box-sizing: border-box;
@@ -1146,13 +1153,16 @@ body.dark #preview tr:hover {
   resize: none;
   border: none;
   outline: none;
-  background-color: var(--editor-bg);
-  color: var(--fg);
+  background-color: transparent;
+  color: transparent;
+  caret-color: var(--fg);
   padding: 20px;
   padding-bottom: 200px;
   /* spazio aggiuntivo per mantenere sempre area vuota sotto il testo */
   overflow-y: auto;
   font-size: 16px;
+  z-index: 10;
+  position: relative;
 }
 
 .code-figcaption {
