@@ -499,9 +499,11 @@ window.addEventListener("DOMContentLoaded", () => {
     const rawOriginal = editor.value;
     const raw = preprocessCodeIncludes(rawOriginal);
 
-    const scrollPercent = (preview.scrollHeight > preview.clientHeight)
-      ? preview.scrollTop / (preview.scrollHeight - preview.clientHeight)
-      : 0;
+    // Capture current scroll state
+    const currentScrollTop = preview.scrollTop;
+    const maxScrollTop = preview.scrollHeight - preview.clientHeight;
+    // Consider "at bottom" if within 20px of the bottom
+    const isAtBottom = (maxScrollTop - currentScrollTop) <= 20;
 
     let html = marked.parse(raw, {
       highlight: (code, lang) => {
@@ -569,8 +571,12 @@ window.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    const maxScroll = (preview.scrollHeight - preview.clientHeight);
-    if (maxScroll > 0) preview.scrollTop = scrollPercent * maxScroll;
+    // Restore scroll position
+    if (isAtBottom) {
+      preview.scrollTop = preview.scrollHeight - preview.clientHeight;
+    } else {
+      preview.scrollTop = currentScrollTop;
+    }
 
     preview.querySelectorAll('pre code').forEach(codeBlock => {
       codeBlock.classList.add('clickable-code');
