@@ -636,6 +636,20 @@ window.addEventListener("DOMContentLoaded", () => {
   // ===== Input Editor =====
   editor && editor.addEventListener('keydown', (e) => {
     const pairs = { '(': ')', '[': ']', '{': '}', '"': '"', '`': '`' };
+    const closingChars = [')', ']', '}', '"', '`'];
+
+    // 1. Overtyping: se premo chiusura e sono davanti a quella chiusura, avanzo
+    if (closingChars.includes(e.key)) {
+      const start = editor.selectionStart;
+      // Controllo che non ci sia selezione attiva
+      if (start === editor.selectionEnd && editor.value.charAt(start) === e.key) {
+        e.preventDefault();
+        editor.selectionStart = editor.selectionEnd = start + 1;
+        return;
+      }
+    }
+
+    // 2. Auto-close apertura
     if (Object.keys(pairs).includes(e.key)) {
       e.preventDefault();
       const start = editor.selectionStart, end = editor.selectionEnd;
@@ -645,9 +659,17 @@ window.addEventListener("DOMContentLoaded", () => {
       editor.selectionStart = editor.selectionEnd = start + 1;
       updatePreview(); setDirty(true); updateEditorOverlay(); return;
     }
+
     if (e.key === "Tab") {
-      e.preventDefault();
+      // 3. Tab per uscire da parentesi/virgolette chiuse
       const start = editor.selectionStart, end = editor.selectionEnd;
+      if (start === end && closingChars.includes(editor.value.charAt(start))) {
+        e.preventDefault();
+        editor.selectionStart = editor.selectionEnd = start + 1;
+        return;
+      }
+
+      e.preventDefault();
       const before = editor.value.substring(0, start);
       const selected = editor.value.substring(start, end);
       const after = editor.value.substring(end);
