@@ -7,17 +7,16 @@ I needed something that could open folders, read. md files, and save. Nothing mo
 
 ***
 
-## ✨ Features
+## Features
 
-- 📝 Live Markdown editor with real-time preview
-- 📁 Open full folders with ease
-- 📄 Sidebar file tree, VS Code-style
-- 💾 Quick save with Cmd/Ctrl + S
-- 📤 Word count at a glance
-- 🧠 Math formula support (KaTeX)
-- 💡 Minimal UI, zero distractions
-- 🔒 Fully local – no uploads, no cloud
-- 🖼️ Custom image sizing for PDF export via caption tags
+- Live Markdown editor with real-time preview
+- Open full folders with ease
+- Quick save with Cmd/Ctrl + S
+- Word count at a glance
+- Math formula support (KaTeX)
+- Minimal UI, zero distractions
+- Fully local – no uploads, no cloud
+- Custom image sizing for PDF export via caption tags
 
 ***
 
@@ -54,7 +53,7 @@ bash mac-install.sh
 
 ***
 
-## 📝 Usage
+## Usage
 
 ### Editor e Preview
 
@@ -62,6 +61,7 @@ Mark lets you edit Markdown and instantly preview the result. You can switch bet
 
 - Split view (editor + preview)
 - Editor-only mode for focused writing
+- Preview-only mode
 
 ### File Explorer
 
@@ -121,7 +121,7 @@ This will generate a first page in the PDF with an index of all headings and sub
 
 ***
 
-## 🤷‍♂️ New to Markdown? No worries!
+## New to Markdown? No worries!
 
 You can still get the most out of Mark even if you don’t know Markdown syntax. Here are some handy shortcuts that let you format your text instantly:
 
@@ -138,64 +138,15 @@ Stay focused on writing — Mark will take care of the formatting.
 
 ***
 
-## 🛠️ Things to Improve
+## Things to Improve
 
 Wanna help out? Here’s what still needs love:
 
-* 🔍 **Text search**  
-The current search is super basic. It needs smarter matching, maybe even fuzzy search or highlights.
-
-* 🎨 **Custom styling**  
+* **Custom styling**  
 The UI is intentionally minimal, but if you’ve got specific style needs, feel free to tweak it. Themes, fonts, or whatever makes it yours.
 
-* 📃 **Synchronized scrolling**    
+* **Synchronized scrolling**    
 Editor and preview should scroll together, especially in split view. This needs to be improved.
-
-***
-
-## 🧠 AI Tool (Groq)
-
-Mark includes an integrated AI assistant that can help you:
-
-* Explain selected text  
-* Translate content  
-* Correct grammar mistakes  
-
-### How to Enable It
-
-To use the AI features, you'll need a **Groq API key**. Here's how to get one:
-
-1. Visit [https://console.groq.com/keys](https://console.groq.com/keys)
-2. Sign up or log in  
-3. Click **"Generate API Key"**  
-4. Copy the key
-
-### 🔐 Secure API Key Handling
-
-To keep your Groq API key private and secure:
-
-1. Create a file called `.env.local` in the root of your project:
-
-```
-GROQ_API_KEY=your_actual_groq_key_here
-```
-
-2. Make sure `.env.local` is listed in `.gitignore` to prevent committing it:
-
-```
-.env.local
-```
-
-3. The app will automatically load your key at startup.
-
-**Important:** Never commit your API key to version control.
-
-### 💬 How It Works
-
-* Select any text in the editor
-* Right-click and choose AI Tool
-* Type your query (e. g. “Explain this concept”)
-* The AI will return a helpful answer in seconds
 
 ***
 
