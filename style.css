@@ -121,7 +121,7 @@ body.dark #logo {
   flex: 1;
   padding: 20px;
   padding-bottom: 200px;
-  /* spazio extra in fondo per evitare che l'ultima riga sia incollata al fondo */
+  
   background-color: var(--editor-bg);
   color: var(--fg);
   border: none;
@@ -1101,27 +1101,20 @@ body.dark #preview tr:hover {
   box-sizing: border-box;
   transition: width 0.3s ease;
 }
-
+#editor,
 #editor-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  pointer-events: none;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  word-break: break-word;
+  font-family: var(--font-family);
+  font-size: 16px;
+  line-height: 1.6;
+
   padding: 20px;
   padding-bottom: 200px;
-  font-size: 16px;
-  font-family: var(--font-family);
-  background: transparent;
-  z-index: 5;
-  color: var(--fg);
-  overflow: hidden;
+
   box-sizing: border-box;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  tab-size: 4;
 }
 
 #container {
@@ -1131,6 +1124,33 @@ body.dark #preview tr:hover {
   height: 100%;
   overflow: hidden;
 }
+
+#editor-container {
+  position: relative;
+}
+
+#editor-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  color: var(--fg);
+  pointer-events: none;
+  overflow: hidden;
+
+  font-family: var(--font-family);
+  font-size: 16px;
+  line-height: 1.6;
+
+  padding: 20px;
+  padding-bottom: 200px;
+  box-sizing: border-box;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 
 #editor-container {
   flex: 1;
@@ -1158,7 +1178,7 @@ body.dark #preview tr:hover {
   caret-color: var(--fg);
   padding: 20px;
   padding-bottom: 200px;
-  /* spazio aggiuntivo per mantenere sempre area vuota sotto il testo */
+
   overflow-y: auto;
   font-size: 16px;
   z-index: 10;
