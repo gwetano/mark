@@ -117,7 +117,8 @@ body.dark #logo {
   height: 100%;
 }
 
-#editor {
+#editor,
+#editor-overlay {
   flex: 1;
   padding: 20px;
   padding-bottom: 200px;
@@ -1078,7 +1079,8 @@ body.dark #preview tr:hover {
   background-color: var(--editor-bg);
 }
 
-#editor {
+#editor,
+#editor-overlay {
   width: 100%;
   height: 100%;
   box-sizing: border-box;
@@ -1129,28 +1131,6 @@ body.dark #preview tr:hover {
   position: relative;
 }
 
-#editor-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-
-  color: var(--fg);
-  pointer-events: none;
-  overflow: hidden;
-
-  font-family: var(--font-family);
-  font-size: 16px;
-  line-height: 1.6;
-
-  padding: 20px;
-  padding-bottom: 200px;
-  box-sizing: border-box;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
 
 #editor-container {
   flex: 1;
@@ -1167,14 +1147,15 @@ body.dark #preview tr:hover {
   padding: 20px;
 }
 
-#editor {
+#editor ,
+#editor-overlay {
   width: 100%;
   height: 100%;
   resize: none;
   border: none;
   outline: none;
   background-color: transparent;
-  color: transparent;
+  color: var(--fg);
   caret-color: var(--fg);
   padding: 20px;
   padding-bottom: 200px;
