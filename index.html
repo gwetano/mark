@@ -9,7 +9,6 @@
   <script src="./api/marked.min.js"></script>
   <link rel="stylesheet" href="./api/katex.min.css">
 
-  <!-- Evidenziazione codice -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 </head>
@@ -83,38 +82,7 @@
         <button id="btn-view-editor" title="Solo Editor"><</button>
         <button id="btn-view-split" title="Split View">>|<</button>
         <button id="btn-view-preview" title="Solo Render">></button>
-        <div id="dropdown-options" class="dropdown">
-          <button id="btn-options" title="Options">Settings</button>
-          <div class="dropdown-content">
-            <div class="dropdown-section">
-              <label class="autosave-switch">
-                <span>Autosave</span>
-                <span class="switch">
-                  <input type="checkbox" id="toggle-autosave" />
-                  <span class="slider"></span>
-                </span>
-              </label>
-            </div>
-            <div class="dropdown-section">
-              <label class="autoscroll-switch">
-                <span>Autoscroll</span>
-                <span class="switch">
-                  <input type="checkbox" id="toggle-autoscroll" checked />
-                  <span class="slider"></span>
-                </span>
-              </label>
-            </div>
-            <div class="dropdown-section">
-              <label class="theme-switch">
-                <span>Dark Mode</span>
-                <span class="switch">
-                  <input type="checkbox" id="toggle-theme-switch" />
-                  <span class="slider"></span>
-                </span>
-              </label>
-            </div>
-          </div>
-        </div>
+        <button id="btn-options" title="Settings">Settings</button>
       </div>
     </div>
 
@@ -169,5 +137,56 @@
     </div>
   </div>
   <script src="renderer.js"></script>
+  <div id="settings-modal" class="modal hidden">
+    <div class="modal-overlay" id="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Settings</h2>
+        <button id="btn-close-settings" title="Chiudi">✕</button>
+      </div>
+      
+      <div class="modal-body">
+        <div class="modal-section">
+          <label class="autosave-switch">
+            <span>Autosave</span>
+            <span class="switch">
+              <input type="checkbox" id="toggle-autosave" />
+              <span class="slider"></span>
+            </span>
+          </label>
+        </div>
+        
+        <div class="modal-section">
+          <label class="autoscroll-switch">
+            <span>Autoscroll</span>
+            <span class="switch">
+              <input type="checkbox" id="toggle-autoscroll" checked />
+              <span class="slider"></span>
+            </span>
+          </label>
+        </div>
+        
+        <div class="modal-section">
+          <label class="theme-switch">
+            <span>Dark Mode</span>
+            <span class="switch">
+              <input type="checkbox" id="toggle-theme-switch" />
+              <span class="slider"></span>
+            </span>
+          </label>
+        </div>
+
+        <div class="modal-section input-row">
+          <label for="input-tab-size">Tab Size:</label>
+          <input type="number" id="input-tab-size" min="2" max="8" value="4" class="squared-input" />
+        </div>
+
+        <div class="modal-section input-row">
+          <label for="input-font-size">Font Size (px):</label>
+          <input type="number" id="input-font-size" min="12" max="24" value="16" class="squared-input" />
+        </div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

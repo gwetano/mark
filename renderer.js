@@ -1,16 +1,15 @@
-// ====== PRE-BOOT: tema + evita FOUC/shift ===================================
-(() => {
-  try {
-    const savedTheme = localStorage.getItem('mark-theme');
-    if (savedTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  } catch (_) { /* ignore */ }
-  document.documentElement.style.visibility = 'hidden';
-})();
+// --- CARICAMENTO INIZIALE DEL TEMA DA LOCALSTORAGE ---
+  // Recupera il tema salvato (sostituisci 'mark-theme' con la chiave esatta che usa la tua app se è diversa)
+  const savedTheme = localStorage.getItem('mark-theme') || 'light'; 
+  const toggleThemeSwitch = document.getElementById('toggle-theme-switch');
 
+  if (savedTheme === 'dark') {
+    if (toggleThemeSwitch) toggleThemeSwitch.checked = true;
+    document.body.classList.add('dark'); // <--- QUESTO APPLICA EFFETTIVAMENTE I COLORI SCURI
+  } else {
+    if (toggleThemeSwitch) toggleThemeSwitch.checked = false;
+    document.body.classList.remove('dark');
+  }
 // ====== IMPORTS ==============================================================
 const { ipcRenderer, remote, shell } = require("electron");
 const fs = require("fs");
@@ -26,6 +25,7 @@ let userIsScrollingEditor = false;
 let userIsScrollingPreview = false;
 let scrollTimeoutEditor = null;
 let scrollTimeoutPreview = null;
+let currentTabSize = 4;
 
 // ====== AUTO-UPDATE NOTIFICATIONS ===========================================
 ipcRenderer.on('update-available', () => {
@@ -366,7 +366,43 @@ function setupExternalLinks() {
     }
   });
 }
-function insertMarkdownLink() { /* ... identico a prima ... */ }
+
+function insertMarkdownLink() {
+  const editor = document.getElementById("editor");
+  const dropdownExtra = document.getElementById("dropdown-extra");
+  if (!editor) return;
+
+  const start = editor.selectionStart;
+  const end = editor.selectionEnd;
+  const text = editor.value;
+  const selectedText = text.substring(start, end);
+
+  const linkText = selectedText || "testo";
+  const insertedString = `[${linkText}](url)`;
+
+  editor.value = text.substring(0, start) + insertedString + text.substring(end);
+
+  if (!selectedText) {
+    editor.selectionStart = start + 1;
+    editor.selectionEnd = start + 1 + linkText.length;
+  } else {
+    editor.selectionStart = start + linkText.length + 3; // Salta il blocco '[', ']' e '('
+    editor.selectionEnd = start + linkText.length + 6;   // Lunghezza esatta della stringa 'url'
+  }
+
+  editor.focus();
+
+  if (typeof updateEditorOverlay === 'function') {
+    updateEditorOverlay();
+  }
+  editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+  if (dropdownExtra) {
+    dropdownExtra.classList.remove('open');
+    const btnExtra = document.getElementById("btn-extra");
+    if (btnExtra) btnExtra.classList.remove("active");
+  }
+}
 
 // ====== ONLINE/OFFLINE ======================================================
 window.addEventListener('online', updateOnlineStatus);
@@ -661,7 +697,6 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     if (e.key === "Tab") {
-      // 3. Tab per uscire da parentesi/virgolette chiuse
       const start = editor.selectionStart, end = editor.selectionEnd;
       if (start === end && closingChars.includes(editor.value.charAt(start))) {
         e.preventDefault();
@@ -673,16 +708,19 @@ window.addEventListener("DOMContentLoaded", () => {
       const before = editor.value.substring(0, start);
       const selected = editor.value.substring(start, end);
       const after = editor.value.substring(end);
+      const tabSpaces = " ".repeat(currentTabSize);
+
       if (start === end) {
-        editor.value = before + "    " + after;
-        editor.selectionStart = editor.selectionEnd = start + 4;
+        editor.value = before + tabSpaces + after;
+        editor.selectionStart = editor.selectionEnd = start + currentTabSize;
       } else if (selected.includes('\n')) {
-        const indented = selected.replace(/^/gm, "    ");
+        const regex = new RegExp('^', 'gm');
+        const indented = selected.replace(regex, tabSpaces);
         editor.value = before + indented + after;
         editor.selectionStart = start; editor.selectionEnd = start + indented.length;
       } else {
-        editor.value = before + "    " + selected + after;
-        editor.selectionStart = start + 4; editor.selectionEnd = end + 4;
+        editor.value = before + tabSpaces + selected + after;
+        editor.selectionStart = start + currentTabSize; editor.selectionEnd = end + currentTabSize;
       }
       updateEditorOverlay();
       return;
@@ -1294,13 +1332,6 @@ window.addEventListener("DOMContentLoaded", () => {
     document.getElementById("dropdown-options")?.classList.remove("open");
     btnExtra.classList.toggle("active");
   });
-  btnOptions && btnOptions.addEventListener("click", (e) => {
-    e.stopPropagation();
-    dropdownOptions.classList.toggle("open");
-    document.getElementById("dropdown-title")?.classList.remove("open");
-    document.getElementById("dropdown-extra")?.classList.remove("open");
-    btnOptions.classList.toggle("active");
-  });
   btnTitle && btnTitle.addEventListener("click", (e) => {
     e.stopPropagation();
     dropdownTitle.classList.toggle("open");
@@ -1309,6 +1340,80 @@ window.addEventListener("DOMContentLoaded", () => {
     btnTitle.classList.toggle("active");
   });
 
+  // ===== POP-UP MODAL IMPOSTAZIONI =====
+  const settingsModal = document.getElementById('settings-modal');
+  const btnCloseSettings = document.getElementById('btn-close-settings');
+  const modalOverlay = document.getElementById('modal-overlay');
+  const inputTabSize = document.getElementById('input-tab-size');
+  const inputFontSize = document.getElementById('input-font-size');
+
+  // Sostituiamo il vecchio click del dropdown agganciando l'apertura del Modal centrale
+  if (btnOptions) {
+    btnOptions.replaceWith(btnOptions.cloneNode(true)); // Rimuove eventuali vecchi listener di disturbo
+    const newBtnOptions = document.getElementById("btn-options");
+    newBtnOptions.addEventListener("click", (e) => {
+      e.stopPropagation();
+      settingsModal.classList.remove('hidden');
+      dropdownTitle?.classList.remove("open");
+      dropdownExtra?.classList.remove("open");
+    });
+  }
+
+  // Gestione chiusura del Modal
+  btnCloseSettings && btnCloseSettings.addEventListener('click', () => settingsModal.classList.add('hidden'));
+  modalOverlay && modalOverlay.addEventListener('click', () => settingsModal.classList.add('hidden'));
+
+  // --- Funzione per applicare la dimensione del Font all'editor ---
+  function applyEditorFontSize(size) {
+    if (editor && overlay) {
+      editor.style.fontSize = size + 'px';
+      overlay.style.fontSize = size + 'px';
+    }
+  }
+
+  // --- CARICAMENTO INITIALE DELLE NUOVE IMPOSTAZIONI DA LOCALSTORAGE ---
+  const savedTabSize = localStorage.getItem('mark.tabSize') || '4';
+  currentTabSize = parseInt(savedTabSize, 10);
+  if (inputTabSize) inputTabSize.value = currentTabSize;
+
+  const savedFontSize = localStorage.getItem('mark.fontSize') || '16';
+  if (inputFontSize) inputFontSize.value = savedFontSize;
+  applyEditorFontSize(savedFontSize);
+
+  // --- ASCOLTATORI DI EVENTI PER IL SALVATAGGIO IN REAL-TIME ---
+  if (inputTabSize) {
+    inputTabSize.addEventListener('input', function() {
+      let val = parseInt(this.value, 10);
+      if (isNaN(val) || val < 2) val = 2;
+      if (val > 8) val = 8;
+      currentTabSize = val;
+      localStorage.setItem('mark.tabSize', String(val));
+    });
+  }
+
+  if (inputFontSize) {
+    inputFontSize.value = savedFontSize;
+    inputFontSize.addEventListener('input', function() {
+      let val = parseInt(this.value, 10);
+      if (isNaN(val) || val < 12) val = 12;
+      if (val > 24) val = 24;
+      localStorage.setItem('mark.fontSize', String(val));
+      applyEditorFontSize(val);
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const settingsModal = document.getElementById('settings-modal');
+      
+      // Se il modal delle impostazioni è aperto, lo chiude
+      if (settingsModal && !settingsModal.classList.contains('hidden')) {
+        settingsModal.classList.add('hidden');
+        e.preventDefault(); // Evita che il tasto ESC provochi altri comportamenti nell'editor
+      }
+    }
+  }, true); 
+  
   // Handle Title Dropdown Items
   document.querySelectorAll('#dropdown-title .dropdown-item').forEach(item => {
     item.addEventListener('click', (e) => {
