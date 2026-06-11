@@ -911,8 +911,12 @@ window.addEventListener("DOMContentLoaded", () => {
   // ===== IPC handlers (file/load/view/theme) =====
   ipcRenderer.on("load-md", (event, filePath, content) => {
     if (!editor) return;
-    editor.value = content; updatePreview(); wordCountEl && updateWordCount(); updateEditorOverlay();
-    currentFilePath = filePath; setDirty(false);
+    currentFilePath = filePath;
+    editor.value = content; 
+    updatePreview(); 
+    wordCountEl && updateWordCount(); 
+    updateEditorOverlay();
+    setDirty(false);
     document.querySelectorAll('.tree-item').forEach(item => {
       item.classList.remove('active'); if (item.dataset.path === filePath) item.classList.add('active');
     });
@@ -1197,7 +1201,7 @@ window.addEventListener("DOMContentLoaded", () => {
             if (isDirty) {
               const answer = dialog.showMessageBoxSync({
                 type: 'question', buttons: ['Salva', 'Non salvare', 'Annulla'], defaultId: 0,
-                title: 'File non salvato', message: 'Ci sono modifiche non salvate. Vuoi salvare prima di aprire un nuovo file?'
+                title: 'File not saved', message: 'Ci sono modifiche non salvate. Vuoi salvare prima di aprire un nuovo file?'
               });
               if (answer === 0) saveCurrentFile();
               else if (answer === 2) return;
@@ -1205,7 +1209,13 @@ window.addEventListener("DOMContentLoaded", () => {
             document.querySelectorAll('.tree-item').forEach(item => item.classList.remove('active'));
             fileElement.classList.add('active');
             const content = fs.readFileSync(itemPath, 'utf8');
-            editor.value = content; updatePreview(); updateWordCount(); currentFilePath = itemPath; setDirty(false); updateEditorOverlay();
+
+            currentFilePath = itemPath;
+            editor.value = content; 
+            updatePreview(); 
+            updateWordCount(); 
+            setDirty(false); 
+            updateEditorOverlay();
           });
           parentElement.appendChild(fileElement);
         });

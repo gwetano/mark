@@ -26,7 +26,7 @@
   font-style: normal;
 }
 
-* {
+body, button, input, textarea, select {
   font-family: var(--font-family);
 }
 
@@ -63,13 +63,11 @@ body {
 #app-container {
   display: flex;
   flex-direction: row;
-  margin-top: 70px;
+  margin-top: 55px;
   width: 100%;
-  height: calc(100% - 70px - 40px);
-  /* sottraiamo anche l'altezza del footer */
+  height: calc(100% - 55px - 35px);
   overflow: hidden;
-  margin-bottom: 40px;
-  /* aggiungiamo margine per il footer */
+  margin-bottom: 35px;
 }
 
 #main {
@@ -88,7 +86,7 @@ body {
   align-items: center;
   padding: 0 20px;
   width: 100%;
-  height: 70px;
+  height: 55px;
   background-color: var(--editor-bg);
   z-index: 100;
 }
@@ -101,8 +99,8 @@ body {
 
 #logo {
   height: 100%;
-  max-height: 70px;
-  padding: 10px;
+  max-height: 55px;
+  padding: 8px;
   object-fit: contain;
 }
 
@@ -330,7 +328,7 @@ code {
 }
 
 #title {
-  font-size: 22px;
+  font-size: 19px;
   margin: 0 20px;
   text-align: center;
 }
@@ -340,7 +338,7 @@ code {
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 40px;
+  height: 35px;
   background-color: var(--code-bg);
   color: var(--fg);
   display: flex;
@@ -349,7 +347,7 @@ code {
   padding: 0 20px;
   box-sizing: border-box;
   z-index: 1000;
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .lang-selector {
@@ -361,12 +359,12 @@ code {
 .lang-button {
   background: none;
   border: none;
-  padding: 6px 8px;
+  padding: 4px 8px;
   border-radius: 6px;
   cursor: pointer;
   color: var(--fg);
   background-color: var(--editor-bg);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .lang-dropdown {
@@ -413,7 +411,7 @@ code {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .status-indicator {
@@ -512,7 +510,7 @@ body.dark .clickable-code:active,
 
 #search-container {
   position: fixed;
-  top: 76px;
+  top: 60px;
   right: 20px;
   background-color: var(--editor-bg);
   border: 1px solid var(--explorer-border);
@@ -613,8 +611,8 @@ body.dark .clickable-code:active,
   background: none;
   border: none;
   color: var(--fg);
-  font-size: 16px;
-  padding: 8px;
+  font-size: 14px;
+  padding: 6px 8px;
   border-radius: 4px;
   cursor: pointer;
   transition: background 0.2s;
@@ -626,7 +624,7 @@ body.dark .clickable-code:active,
 
 #btn-extra,
 #btn-options {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: bold;
 }
 
@@ -653,13 +651,14 @@ body.dark .clickable-code:active,
   margin: 0;
 }
 
+#btn-options,
 #btn-view-editor,
 #btn-view-split,
 #btn-view-preview {
   background: none;
   border: none;
   color: var(--fg);
-  font-size: 16px;
+  font-size: 14px;
   padding: 8px;
   border-radius: 4px;
   cursor: pointer;
@@ -1164,6 +1163,26 @@ body.dark #preview tr:hover {
   font-size: 16px;
   z-index: 10;
   position: relative;
+}
+
+button:focus-visible,
+input:focus-visible,
+.lang-option:focus-visible,
+.dropdown-item:focus-visible,
+.extra-item:focus-visible {
+  outline: 2px solid #007bff !important;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+button:focus,
+input:focus {
+  outline: none;
+}
+
+#editor:focus-visible,
+#editor-overlay:focus-visible {
+  outline: none !important;
 }
 
 .code-figcaption {
