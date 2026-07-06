@@ -1397,3 +1397,116 @@ body.dark .code-figcaption {
   display: block !important;
   margin: 1.5rem auto !important; 
 }
+
+/* Pulsante navbar */
+.icon-btn {
+  background: none;
+  border: none;
+  color: var(--fg);
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 10px;
+}
+
+.icon-btn:hover {
+  background-color: var(--explorer-hover);
+}
+
+/* Explorer generale */
+#explorer-panel {
+  width: var(--explorer-width, 250px);
+  min-width: 150px;
+  max-width: 300px;
+  flex-shrink: 0; /* Fondamentale per evitare lo schiacciamento */
+  background-color: var(--explorer-bg);
+  color: var(--explorer-fg);
+  border-right: 1px solid var(--explorer-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-size: 13px;
+}
+
+#explorer-resizer {
+  width: 4px;
+  flex-shrink: 0; /* Fondamentale per evitare lo schiacciamento */
+  background-color: var(--editor-bg);
+  cursor: ew-resize;
+  transition: background-color 0.2s ease;
+  z-index: 50;
+}
+
+#explorer-header {
+  padding: 8px 15px;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+
+#explorer-resizer:hover,
+#explorer-resizer.is-resizing {
+  background-color: #007acc; /* Highlight azzurro VS Code */
+}
+
+#explorer-resizer.hidden {
+  display: none;
+}
+
+/* Stili file tree */
+.tree-item {
+  padding: 4px 10px 4px 24px;
+  border-radius: 0; /* Rimosso arrotondamento, design squadrato */
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis; /* Nome esteso intero gestito su hover */
+}
+
+.tree-folder-header {
+  display: flex;
+  align-items: center;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.tree-folder-header:hover, .tree-item:hover {
+  background-color: var(--explorer-hover);
+}
+
+/* Frecce direzionali CSS (senza emoji) */
+.tree-folder-icon {
+  width: 14px;
+  height: 14px;
+  margin-right: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s;
+}
+
+.tree-folder-icon::before {
+  content: '';
+  display: block;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 4px 0 4px 6px;
+  border-color: transparent transparent transparent var(--explorer-fg);
+}
+
+.tree-folder:not(.collapsed) > .tree-folder-header .tree-folder-icon {
+  transform: rotate(90deg);
+}
+
+.tree-file {
+  padding-left: 28px;
+}

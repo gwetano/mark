@@ -438,6 +438,133 @@ window.addEventListener("DOMContentLoaded", () => {
   const autosaveSwitch = document.getElementById("toggle-autosave");
   const autoscrollSwitch = document.getElementById("toggle-autoscroll");
   const themeSwitch = document.getElementById("toggle-theme-switch");
+  const btnToggleExplorer = document.getElementById('btn-toggle-explorer');
+  const explorerResizer = document.getElementById('explorer-resizer');
+
+  if (btnToggleExplorer) {
+    btnToggleExplorer.addEventListener('click', () => {
+      if (explorerPanel) explorerPanel.classList.toggle('hidden');
+      if (explorerResizer) explorerResizer.classList.toggle('hidden', explorerPanel.classList.contains('hidden'));
+    });
+  }
+
+  // --- LOGICA RIDIMENSIONAMENTO (RESIZER) ---
+  if (explorerResizer && explorerPanel) {
+    let isResizing = false;
+
+    explorerResizer.addEventListener('mousedown', (e) => {
+      isResizing = true;
+      document.body.style.cursor = 'ew-resize';
+      explorerResizer.classList.add('is-resizing');
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isResizing) return;
+      let newWidth = e.clientX;
+      // Limiti minimi e massimi per l'explorer
+      if (newWidth < 150) newWidth = 150;
+      if (newWidth > window.innerWidth * 0.7) newWidth = window.innerWidth * 0.7; 
+
+      explorerPanel.style.width = newWidth + 'px';
+      document.documentElement.style.setProperty('--explorer-width', newWidth + 'px');
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isResizing) {
+        isResizing = false;
+        document.body.style.cursor = 'default';
+        explorerResizer.classList.remove('is-resizing');
+      }
+    });
+  }
+
+  // Assicurati che collapseAllBtn o IPC nascondano anche il resizer
+  collapseAllBtn && collapseAllBtn.addEventListener("click", () => {
+    if (explorerPanel) explorerPanel.classList.add("hidden");
+    if (explorerResizer) explorerResizer.classList.add("hidden");
+  });
+
+  newFileBtn && newFileBtn.addEventListener("click", () => {
+    if (!currentFolderPath) {
+      if (typeof createNewFile === 'function') createNewFile();
+      return;
+    }
+
+    // Creazione del campo input inline
+    const inputContainer = document.createElement('div');
+    inputContainer.className = 'tree-item tree-file';
+    inputContainer.style.paddingLeft = '28px';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'nomefile.md';
+    input.style.width = '90%';
+    input.style.background = 'var(--editor-bg)';
+    input.style.color = 'var(--fg)';
+    input.style.border = '1px solid #007acc';
+    input.style.outline = 'none';
+    input.style.padding = '2px 5px';
+    input.style.fontFamily = 'inherit';
+    input.style.fontSize = '12px';
+
+    inputContainer.appendChild(input);
+
+    // Posiziona l'input in cima alla lista
+    if (fileTree.firstChild) {
+      fileTree.insertBefore(inputContainer, fileTree.firstChild);
+    } else {
+      fileTree.appendChild(inputContainer);
+    }
+
+    input.focus();
+
+    let isHandled = false;
+
+    const handleInputSubmit = () => {
+      if (isHandled) return;
+      isHandled = true;
+
+      const filename = input.value.trim();
+      if (filename) {
+        const finalName = filename.endsWith('.md') ? filename : filename + '.md';
+        const fullPath = path.join(currentFolderPath, finalName);
+
+        if (!fs.existsSync(fullPath)) {
+          fs.writeFileSync(fullPath, '', 'utf8');
+
+          // Apre automaticamente il nuovo file nell'editor
+          if (isDirty && typeof saveCurrentFile === 'function') {
+            saveCurrentFile();
+          }
+          currentFilePath = fullPath;
+          if (editor) editor.value = '';
+          updatePreview();
+          if (typeof updateWordCount === 'function') updateWordCount();
+          if (typeof updateEditorOverlay === 'function') updateEditorOverlay();
+          setDirty(false);
+        } else {
+          dialog.showErrorBox('Errore', 'Un file con questo nome esiste già.');
+        }
+      }
+
+      // Ricarica la vista della cartella
+      openFolder(currentFolderPath);
+    };
+
+    // Conferma col tasto Invio, annulla con Esc
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleInputSubmit();
+      if (e.key === 'Escape') {
+        isHandled = true;
+        openFolder(currentFolderPath);
+      }
+    });
+
+    // Se l'utente clicca fuori dall'input, il file viene creato
+    input.addEventListener('blur', handleInputSubmit);
+  });
+
   let autosaveInterval = null;
 
   const container = document.getElementById('container');
@@ -917,10 +1044,18 @@ window.addEventListener("DOMContentLoaded", () => {
     wordCountEl && updateWordCount(); 
     updateEditorOverlay();
     setDirty(false);
+
+    // Ricava la cartella del file e la apre nell'explorer se non è già aperta
+    const containingFolder = path.dirname(filePath);
+    if (currentFolderPath !== containingFolder) {
+      openFolder(containingFolder);
+    }
+
     document.querySelectorAll('.tree-item').forEach(item => {
       item.classList.remove('active'); if (item.dataset.path === filePath) item.classList.add('active');
     });
   });
+
   ipcRenderer.on("export-pdf", () => exportToPdf());
   ipcRenderer.on("new-file", () => createNewFile());
   ipcRenderer.on("open-folder", (event, folderPath) => openFolder(folderPath));
@@ -1110,11 +1245,23 @@ window.addEventListener("DOMContentLoaded", () => {
   // ===== File tree / IO =====
   function openFolder(folderPath) {
     currentFolderPath = folderPath;
-    folderPathEl && (folderPathEl.textContent = folderPath);
+
+    // Rende il percorso relativo partendo da /home
+    let displayPath = folderPath;
+    if (folderPath.startsWith('/home')) {
+      displayPath = path.relative('/home', folderPath);
+    }
+    folderPathEl && (folderPathEl.textContent = displayPath);
+
     if (fileTree) fileTree.innerHTML = '';
     explorerPanel && explorerPanel.classList.remove("hidden");
+
+    const explorerResizer = document.getElementById('explorer-resizer');
+    if (explorerResizer) explorerResizer.classList.remove('hidden');
+
     createFileTree(folderPath, fileTree);
   }
+
   function saveCurrentFile() {
     if (!editor) return;
     const content = editor.value;
@@ -1170,8 +1317,8 @@ window.addEventListener("DOMContentLoaded", () => {
           const folderElement = document.createElement('div');
           folderElement.className = 'tree-folder collapsed';
           const folderHeader = document.createElement('div'); folderHeader.className = 'tree-folder-header';
-          const folderIcon = document.createElement('span'); folderIcon.className = 'tree-folder-icon'; folderIcon.textContent = '📁 ';
-          const folderName = document.createElement('span'); folderName.textContent = item;
+          const folderIcon = document.createElement('span'); folderIcon.className = 'tree-folder-icon';
+          const folderName = document.createElement('span'); folderName.textContent = item; folderName.title = item;
           folderHeader.appendChild(folderIcon); folderHeader.appendChild(folderName);
           const folderContent = document.createElement('div'); folderContent.className = 'tree-folder-content';
           folderElement.appendChild(folderHeader); folderElement.appendChild(folderContent);
@@ -1195,7 +1342,8 @@ window.addEventListener("DOMContentLoaded", () => {
           const itemPath = path.join(folderPath, item);
           const fileElement = document.createElement('div');
           fileElement.className = 'tree-item tree-file';
-          fileElement.textContent = `📄 ${item}`;
+          fileElement.textContent = item;
+          fileElement.title = item;
           fileElement.dataset.path = itemPath;
           fileElement.addEventListener('click', () => {
             if (isDirty) {
