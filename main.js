@@ -7,6 +7,22 @@ const { autoUpdater } = require("electron-updater");
 let win;
 let printWin = null;
 let openFilePath = null; 
+let openFolderPath = null; 
+
+const args = process.defaultApp ? process.argv.slice(2) : process.argv.slice(1);
+const targetArg = args.find(arg => !arg.startsWith('--'));
+
+if (targetArg) {
+  const absolutePath = path.resolve(process.cwd(), targetArg);
+  if (fs.existsSync(absolutePath)) {
+    const stat = fs.statSync(absolutePath);
+    if (stat.isDirectory()) {
+      openFolderPath = absolutePath;
+    } else if (stat.isFile() && absolutePath.endsWith('.md')) {
+      openFilePath = absolutePath;
+    }
+  }
+}
 
 function initializeRemote() {
   if (!remoteMain.isInitialized()) {
@@ -258,20 +274,17 @@ ipcMain.on("print-to-pdf", async (event, content, title) => {
   }
 });
 
-if (process.platform !== 'darwin') {
-  const passedFile = process.argv.find(arg => arg.endsWith(".md"));
-  if (passedFile) openFilePath = passedFile;
-}
-
 app.whenReady().then(() => {
   createWindow();
 
-  if (openFilePath && fs.existsSync(openFilePath)) {
-    const content = fs.readFileSync(openFilePath, 'utf8');
-    win.webContents.once('did-finish-load', () => {
+  win.webContents.once('did-finish-load', () => {
+    if (openFilePath && fs.existsSync(openFilePath)) {
+      const content = fs.readFileSync(openFilePath, 'utf8');
       win.webContents.send('load-md', openFilePath, content);
-    });
-  }
+    } else if (openFolderPath && fs.existsSync(openFolderPath)) {
+      win.webContents.send('open-folder', openFolderPath);
+    }
+  });
 
   autoUpdater.checkForUpdatesAndNotify();
 
@@ -283,7 +296,6 @@ app.whenReady().then(() => {
     win.webContents.send('update-downloaded');
   });
 });
-
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -299,10 +311,30 @@ app.on('activate', () => {
 
 app.on("open-file", (event, filePath) => {
   event.preventDefault();
-  openFilePath = filePath;
+
+  const handlePath = () => {
+    if (fs.existsSync(filePath)) {
+      const stat = fs.statSync(filePath);
+      if (stat.isDirectory()) {
+        win.webContents.send('open-folder', filePath);
+      } else if (stat.isFile() && filePath.endsWith('.md')) {
+        const content = fs.readFileSync(filePath, 'utf8');
+        win.webContents.send('load-md', filePath, content);
+      }
+    }
+  };
 
   if (app.isReady() && win) {
-    const content = fs.readFileSync(openFilePath, 'utf8');
-    win.webContents.send('load-md', openFilePath, content);
+    handlePath();
+  } else {
+    // Salva il percorso se l'app non è ancora inizializzata
+    if (fs.existsSync(filePath)) {
+      const stat = fs.statSync(filePath);
+      if (stat.isDirectory()) {
+        openFolderPath = filePath;
+      } else {
+        openFilePath = filePath;
+      }
+    }
   }
 });

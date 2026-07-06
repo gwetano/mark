@@ -43,6 +43,12 @@ for i in "${!steps[@]}"; do
       ;;
     "Installazione completata")
       echo "Mark è stato installato correttamente!"
+      echo "Configurazione comando 'mark' globale per il terminale..."
+      sudo tee /usr/local/bin/mark > /dev/null << 'EOF'
+#!/bin/bash
+open -a "/Applications/Mark.app" "$@"
+EOF
+      sudo chmod +x /usr/local/bin/mark
       ;;
   esac
   sleep 0.5
