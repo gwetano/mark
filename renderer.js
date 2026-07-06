@@ -440,15 +440,15 @@ window.addEventListener("DOMContentLoaded", () => {
   const themeSwitch = document.getElementById("toggle-theme-switch");
   let autosaveInterval = null;
 
-  // Layout iniziale
   const container = document.getElementById('container');
   if (container && editor && preview) {
-    container.style.cssText = "display:flex;";
-    editor.parentElement && (editor.parentElement.style.cssText = "display:block;flex:1;min-width:0;");
-    preview.style.cssText = "display:block;flex:1;min-width:0;overflow:auto;";
+    container.className = "split-view";
+    
+    container.removeAttribute("style");
+    if(editor.parentElement) editor.parentElement.removeAttribute("style");
+    preview.removeAttribute("style");
   }
 
-  // Tema
   try {
     const savedTheme = localStorage.getItem("mark-theme") || "light";
     if (themeSwitch) themeSwitch.checked = savedTheme === "dark";
@@ -1461,22 +1461,15 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   btnViewEditor && btnViewEditor.addEventListener("click", () => {
-    if (!container || !editor || !preview) return;
-    container.style.cssText = "display:flex;";
-    editor.parentElement && (editor.parentElement.style.cssText = "display:block;flex:1;");
-    preview.style.cssText = "display:none;flex:0;";
+    if (container) container.className = "solo-editor";
   });
+
   btnViewSplit && btnViewSplit.addEventListener("click", () => {
-    if (!container || !editor || !preview) return;
-    container.style.cssText = "display:flex;";
-    editor.parentElement && (editor.parentElement.style.cssText = "display:block;flex:1;");
-    preview.style.cssText = "display:block;flex:1;";
+    if (container) container.className = "split-view";
   });
+
   btnViewPreview && btnViewPreview.addEventListener("click", () => {
-    if (!container || !editor || !preview) return;
-    container.style.cssText = "display:flex;";
-    editor.parentElement && (editor.parentElement.style.cssText = "display:none;flex:0;");
-    preview.style.cssText = "display:block;flex:1;";
+    if (container) container.className = "solo-preview";
   });
   // ===== PRIMO RENDER + link esterni =====
   setupExternalLinks();
