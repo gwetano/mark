@@ -660,7 +660,14 @@ window.addEventListener("DOMContentLoaded", () => {
     if (!editor || !preview) return;
 
     const rawOriginal = editor.value;
-    const raw = preprocessCodeIncludes(rawOriginal);
+    let raw = preprocessCodeIncludes(rawOriginal);
+
+    let checkboxCount = 0;
+    raw = raw.replace(/^(>[ \t]*)*(\s*[-*+]\s+)\[([xX\-\s])\]/gm, (match, bq, prefix, check) => {
+      const isChecked = check.toLowerCase() === 'x';
+      const index = checkboxCount++;
+      return `${bq || ''}${prefix}<input type="checkbox" class="task-list-item-checkbox" data-index="${index}" ${isChecked ? 'checked' : ''}>`;
+    });
 
     // Capture current scroll state
     const currentScrollTop = preview.scrollTop;
@@ -1692,3 +1699,60 @@ window.addEventListener("DOMContentLoaded", () => {
     initLangSelector();
   }
 })();
+
+// ====== TASK LIST TOGGLE & THEME HANDLING ======
+window.addEventListener('DOMContentLoaded', () => {
+  // Theme handling for highlight.js
+  function updateHighlightTheme() {
+    const link = document.getElementById('highlight-theme');
+    if (link) {
+      if (document.body.classList.contains('dark')) {
+        link.href = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css';
+      } else {
+        link.href = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css';
+      }
+    }
+  }
+
+  // Monitor theme changes using MutationObserver on body class
+  const observer = new MutationObserver(updateHighlightTheme);
+  observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  
+  // Set initial theme
+  updateHighlightTheme();
+
+  // Handle checkbox toggles in preview
+  const previewEl = document.getElementById('preview');
+  if (previewEl) {
+    previewEl.addEventListener('change', (e) => {
+      if (e.target && e.target.classList.contains('task-list-item-checkbox')) {
+        const index = parseInt(e.target.dataset.index, 10);
+        const isChecked = e.target.checked;
+        
+        const editor = document.getElementById('editor');
+        if (!editor) return;
+        
+        let text = editor.value;
+        let currentIdx = 0;
+        
+        text = text.replace(/^(>[ \t]*)*(\s*[-*+]\s+)\[([xX\-\s])\]/gm, (match, bq, prefix, check) => {
+          if (currentIdx === index) {
+            currentIdx++;
+            return `${bq || ''}${prefix}[${isChecked ? 'x' : '-'}]`;
+          }
+          currentIdx++;
+          return match;
+        });
+        
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+        
+        editor.value = text;
+        editor.setSelectionRange(start, end);
+        
+        // Trigger input event so preview updates and autosave works
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+  }
+});

@@ -101,7 +101,7 @@
     </div>
 
     <div id="app-container">
-      <div id="explorer-panel">
+      <div id="explorer-panel" class="hidden">
         <div id="explorer-header">
           <span>Explorer</span>
           <div class="explorer-actions">
@@ -114,7 +114,7 @@
         <div id="folder-path"></div>
         <div id="file-tree"></div>
       </div>
-      <div id="explorer-resizer"></div>
+      <div id="explorer-resizer" class="hidden"></div>
     <div id="container">
         <div id="editor-container">
           <textarea id="editor" placeholder="Write markdown here..." spellcheck="false"></textarea>
@@ -150,7 +150,17 @@
       </div>
       
       <div class="modal-body">
-
+        <div class="modal-section input-row">
+          <span>Mode:</span>
+          <div class="dropdown">
+            <button id="btn-mode-select" title="Seleziona Mode" style="min-width: 130px; text-align: left; padding: 6px 10px; background: var(--preview-bg); color: var(--fg); border: 1px solid var(--explorer-border); border-radius: 4px;">Editor</button>
+            <div class="dropdown-content" style="min-width: 130px;">
+              <button class="dropdown-item" id="mode-option-editor">Editor</button>
+              <button class="dropdown-item" id="mode-option-visual">Live Preview</button>
+            </div>
+          </div>
+        </div>
+        
         <div class="modal-section">
           <label class="autosave-switch">
             <span>Autosave</span>

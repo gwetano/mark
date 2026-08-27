@@ -79,6 +79,32 @@ function createWindow() {
           }
         },
         {
+          label: "Importa da PDF/Word/HTML",
+          accelerator: "CmdOrCtrl+I",
+          click: async () => {
+            const result = await dialog.showOpenDialog(win, {
+              filters: [{ name: "Documenti supportati", extensions: ["pdf", "docx", "pptx", "html", "xlsx"] }],
+              properties: ["openFile"]
+            });
+
+            if (!result.canceled && result.filePaths.length > 0) {
+              const filePath = result.filePaths[0];
+              try {
+                // Caricamento asincrono per non bloccare l'app
+                const Markitdown = require("markitdown-js").default;
+                const md = new Markitdown();
+                const output = await md.convert(filePath);
+                
+                // Passiamo il testo convertito al tuo editor simulando un nuovo file
+                const targetPath = filePath.replace(/\.[^/.]+$/, "") + ".md";
+                win.webContents.send("load-md", targetPath, output.textContent || output);
+              } catch (err) {
+                dialog.showErrorBox("Errore di conversione", "Impossibile convertire il file: " + err.message);
+              }
+            }
+          }
+        },
+        {
           label: "Open folder",
           accelerator: "CmdOrCtrl+Shift+O",
           click: async () => {

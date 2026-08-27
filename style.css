@@ -1510,3 +1510,67 @@ body.dark .code-figcaption {
 .tree-file {
   padding-left: 28px;
 }
+/* ====== PDF EXPORT CODE STYLES ====== */
+#preview pre {
+  background-color: #f6f8fa;
+  padding: 16px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  text-align: left;
+  break-inside: avoid;
+}
+
+#preview code {
+  font-size: 85%;
+  font-family: "JetBrains Mono", monospace;
+  background-color: rgba(27, 31, 35, 0.05);
+  padding: 0.2em 0.4em;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  text-align: left;
+}
+
+#preview pre code {
+  background-color: transparent !important;
+  padding: 0;
+}
+
+body.dark #preview pre {
+  background-color: #0d1117;
+}
+
+body.dark #preview code {
+  background-color: rgba(240, 246, 252, 0.15);
+}
+
+body.dark #preview pre code {
+  background-color: transparent !important;
+}
+
+/* ====== TASK LIST STYLES ====== */
+.task-list-item-checkbox {
+  margin-right: 0.5em;
+  cursor: pointer;
+}
+
+
+/* Hide scrollbars for editor and preview */
+#editor, 
+#editor-overlay, 
+#preview,
+#editor-container {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+#editor::-webkit-scrollbar,
+#editor-overlay::-webkit-scrollbar,
+#preview::-webkit-scrollbar,
+#editor-container::-webkit-scrollbar {
+  display: none;
+}
