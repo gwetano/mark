@@ -46,7 +46,6 @@
   <div id="main">
     <div id="navbar">
       <div class="navbar-left">
-        <img id="logo" src="./images/logo_white.png" alt="Logo" />
         <button id="btn-toggle-explorer" class="icon-btn" title="Mostra/Nascondi Explorer">
           <
         </button>
@@ -85,7 +84,6 @@
         <button id="btn-view-editor" title="Solo Editor"><</button>
         <button id="btn-view-split" title="Split View">>|<</button>
         <button id="btn-view-preview" title="Solo Render">></button>
-        <button id="btn-options" title="Settings">Settings</button>
       </div>
     </div>
 
@@ -124,8 +122,11 @@
       </div>
     </div>
     <div id="footer">
-      <span id="word-count">word-count: 0</span>
+      <div id="footer-left" class="footer-left">
+        <button id="btn-options" title="Settings" class="icon-btn">Settings</button>
+      </div>
       <div id="footer-right" class="footer-right">
+        <span id="word-count">word-count: 0</span>
         <div id="lang-selector" class="lang-selector" aria-haspopup="true">
           <button id="lang-button" class="lang-button" aria-expanded="false" title="Preview language">IT</button>
           <div id="lang-dropdown" class="lang-dropdown" role="menu" aria-hidden="true">
@@ -193,5 +194,6 @@
       </div>
     </div>
   </div>
+  <div id="reading-mode-popup">Press ESC to exit Reading Mode</div>
 </body>
 </html>

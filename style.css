@@ -84,24 +84,36 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 20px;
+  padding: 0 15px;
+  padding-left: 80px; /* Space for Mac traffic lights */
   width: 100%;
   height: 55px;
-  background-color: var(--editor-bg);
+  background-color: var(--explorer-bg); /* Same color as explorer and footbar */
   z-index: 100;
+  box-sizing: border-box;
+  -webkit-app-region: drag; /* Make it draggable */
+  flex-wrap: nowrap;
+}
+
+/* Ensure buttons are clickable */
+#navbar button, #navbar input, #navbar .dropdown {
+  -webkit-app-region: no-drag;
 }
 
 .navbar-left {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 #logo {
   height: 100%;
-  max-height: 55px;
+  max-height: 35px; /* slightly smaller to fit well */
   padding: 8px;
   object-fit: contain;
+  -webkit-app-region: drag;
 }
 
 body.dark #logo {
@@ -328,9 +340,14 @@ code {
 }
 
 #title {
-  font-size: 19px;
-  margin: 0 20px;
+  font-size: 16px; /* Slightly smaller for a modern look */
+  margin: 0 10px;
   text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 0 1 auto;
+  font-weight: 500;
 }
 
 #footer {
@@ -339,7 +356,7 @@ code {
   left: 0;
   width: 100%;
   height: 35px;
-  background-color: var(--code-bg);
+  background-color: var(--explorer-bg);
   color: var(--fg);
   display: flex;
   justify-content: space-between;
@@ -399,6 +416,22 @@ code {
 .lang-selector.open .lang-dropdown,
 .lang-dropdown[aria-hidden="false"] {
   display: block;
+}
+
+.footer-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#btn-options {
+  background: none;
+  border: none;
+  color: var(--fg);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
 }
 
 .footer-right {
@@ -483,6 +516,26 @@ body.dark {
   animation: fadeInOut 1.5s ease;
   pointer-events: none;
   z-index: 1000;
+}
+
+#reading-mode-popup {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 14px;
+  z-index: 10000;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  opacity: 0;
+}
+
+#reading-mode-popup.visible {
+  opacity: 1;
 }
 
 @keyframes fadeInOut {
@@ -601,30 +654,31 @@ body.dark .clickable-code:active,
 
 #toolbar {
   display: flex;
-  gap: 8px;
+  gap: 4px; /* Reduced gap to fit more on one line */
   align-items: center;
   justify-content: center;
   flex: 1 1 auto;
+  min-width: 0;
 }
 
 #toolbar button {
   background: none;
   border: none;
   color: var(--fg);
-  font-size: 14px;
-  padding: 6px 8px;
+  font-size: 13px; /* Slightly smaller */
+  padding: 4px 6px; /* Slightly smaller */
   border-radius: 4px;
   cursor: pointer;
   transition: background 0.2s;
+  white-space: nowrap;
 }
 
 #toolbar button:hover {
   background: var(--explorer-hover);
 }
 
-#btn-extra,
-#btn-options {
-  font-size: 16px;
+#btn-extra {
+  font-size: 14px;
   font-weight: bold;
 }
 
@@ -632,38 +686,24 @@ body.dark .clickable-code:active,
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  min-width: 140px;
-  margin-right: 20px;
-  padding-right: 16px;
+  flex: 0 0 auto;
+  min-width: 0;
+  padding-right: 0px;
 }
 
-#btn-options {
-  background: none;
-  color: var(--fg);
-  font-size: 16px;
-  font-weight: normal;
-  border: none;
-  border-radius: 4px;
-  padding: 8px;
-  cursor: pointer;
-  transition: background 0.2s, color 0.2s;
-  box-shadow: none;
-  margin: 0;
-}
-
-#btn-options,
 #btn-view-editor,
 #btn-view-split,
 #btn-view-preview {
   background: none;
   border: none;
   color: var(--fg);
-  font-size: 14px;
-  padding: 8px;
+  font-size: 13px;
+  padding: 6px;
   border-radius: 4px;
   cursor: pointer;
   transition: background 0.2s;
   margin: 0 2px;
+  white-space: nowrap;
 }
 
 #btn-view-editor:hover,

@@ -440,6 +440,78 @@ window.addEventListener("DOMContentLoaded", () => {
   const themeSwitch = document.getElementById("toggle-theme-switch");
   const btnToggleExplorer = document.getElementById('btn-toggle-explorer');
   const explorerResizer = document.getElementById('explorer-resizer');
+  
+  // READING MODE
+  const readingModePopup = document.getElementById("reading-mode-popup");
+  const navbar = document.getElementById("navbar");
+  const footer = document.getElementById("footer");
+  const appContainer = document.getElementById("app-container");
+  const viewContainer = document.getElementById("container"); // To toggle split/solo views
+  
+  let previousViewClass = "split-view";
+  let isReadingMode = false;
+
+  function setReadingMode(active) {
+    isReadingMode = active;
+    if (active) {
+      if (viewContainer) previousViewClass = viewContainer.className || "split-view";
+      if (navbar) navbar.style.display = 'none';
+      if (footer) footer.style.display = 'none';
+      if (explorerPanel) explorerPanel.classList.add('hidden');
+      if (explorerResizer) explorerResizer.classList.add('hidden');
+      if (viewContainer) viewContainer.className = "solo-preview";
+      if (appContainer) {
+        appContainer.style.marginTop = '0';
+        appContainer.style.marginBottom = '0';
+        appContainer.style.height = '100vh';
+      }
+      const settingsModal = document.getElementById('settings-modal');
+      if (settingsModal) settingsModal.classList.add('hidden');
+      if (readingModePopup) {
+        readingModePopup.classList.add('visible');
+        setTimeout(() => {
+          readingModePopup.classList.remove('visible');
+        }, 3000);
+      }
+    } else {
+      if (navbar) navbar.style.display = 'flex';
+      if (footer) footer.style.display = 'flex';
+      if (viewContainer) viewContainer.className = previousViewClass;
+      if (appContainer) {
+        appContainer.style.marginTop = '55px';
+        appContainer.style.marginBottom = '35px';
+        appContainer.style.height = 'calc(100% - 55px - 35px)';
+      }
+    }
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && isReadingMode) {
+      setReadingMode(false);
+    }
+  });
+
+  if (preview) {
+    preview.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const { Menu, MenuItem, getCurrentWindow } = require('@electron/remote');
+      const menu = new Menu();
+      
+      if (!isReadingMode) {
+        menu.append(new MenuItem({
+          label: 'Attiva Modalità di Lettura',
+          click: () => { setReadingMode(true); }
+        }));
+      } else {
+        menu.append(new MenuItem({
+          label: 'Disattiva Modalità di Lettura',
+          click: () => { setReadingMode(false); }
+        }));
+      }
+      
+      menu.popup({ window: getCurrentWindow() });
+    });
+  }
 
   if (btnToggleExplorer) {
     btnToggleExplorer.addEventListener('click', () => {

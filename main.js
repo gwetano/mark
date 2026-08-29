@@ -37,9 +37,10 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1200,
     height: 800,
-
     minWidth: 650,
     minHeight: 400,
+    titleBarStyle: 'hidden',
+    trafficLightPosition: { x: 15, y: 19 },
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
