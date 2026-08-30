@@ -195,5 +195,17 @@
     </div>
   </div>
   <div id="reading-mode-popup">Press ESC to exit Reading Mode</div>
+  <div id="history-modal" class="modal hidden">
+    <div class="modal-overlay" id="history-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5);"></div>
+    <div class="modal-content" style="position:relative; z-index:1; width:450px; background:var(--editor-bg); color:var(--fg); border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.2); overflow:hidden;">
+      <div class="modal-header" style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid var(--explorer-border);">
+        <h2 style="margin:0; font-size:18px;">Undo History</h2>
+        <button id="btn-close-history" title="Chiudi" style="background:none;border:none;color:var(--fg);cursor:pointer;font-size:16px;">✕</button>
+      </div>
+      <div class="modal-body" style="padding:0; position:relative;">
+        <div id="history-carousel"></div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

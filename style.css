@@ -476,9 +476,7 @@ body.dark {
   max-width: 100%;
 }
 
-#explorer-panel.hidden {
-  display: none;
-}
+
 
 #preview img {
   max-width: 100%;
@@ -1497,9 +1495,7 @@ body.dark .code-figcaption {
   background-color: #007acc; /* Highlight azzurro VS Code */
 }
 
-#explorer-resizer.hidden {
-  display: none;
-}
+
 
 /* Stili file tree */
 .tree-item {
@@ -1613,4 +1609,185 @@ body.dark #preview pre code {
 #preview::-webkit-scrollbar,
 #editor-container::-webkit-scrollbar {
   display: none;
+}
+
+/* MODAL STORIA MODIFICHE */
+#history-modal {
+  /* riutilizza lo stile base dei modal se esiste, altrimenti: */
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#history-modal.hidden {
+  display: none;
+}
+#history-carousel {
+  height: 250px;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  scroll-behavior: smooth;
+}
+#history-carousel::-webkit-scrollbar {
+  display: none;
+}
+.history-item {
+  scroll-snap-align: center;
+  height: 60px;
+  flex: 0 0 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  opacity: 0.3;
+  transition: all 0.2s;
+  cursor: pointer;
+  color: var(--fg);
+}
+.history-item.active {
+  opacity: 1;
+  font-size: 1.2em;
+  font-weight: bold;
+  background-color: var(--explorer-hover);
+  border-radius: 8px;
+}
+.history-undo-btn {
+  display: none;
+  background-color: #f44336;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.history-item.active .history-undo-btn {
+  display: inline-block;
+}
+.history-spacer {
+  height: 95px; /* (250 - 60) / 2 */
+  flex: 0 0 95px;
+}
+
+/* OVERRIDES PER IL SEARCH HIGHLIGHT NELL'EDITOR */
+#editor-container {
+  position: relative !important;
+}
+
+#editor {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background-color: transparent !important;
+  color: var(--fg) !important;
+  z-index: 2 !important; /* editor davanti */
+}
+
+#editor-overlay {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background-color: transparent !important;
+  color: transparent !important; /* il testo base è invisibile */
+  z-index: 1 !important; /* overlay dietro */
+  pointer-events: none !important; /* i click passano all'editor */
+}
+
+/* ANIMAZIONE EXPLORER */
+#explorer-panel {
+  transition: margin-left 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+#explorer-panel.hidden {
+  margin-left: calc(-1 * var(--explorer-width, 250px));
+  /* Nascondiamo il bordo per non lasciare la riga visibile */
+  border-right-color: transparent;
+  display: flex !important; /* sovrascrive eventuali display: none sparsi */
+}
+
+#explorer-resizer {
+  transition: width 0.3s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.3s ease;
+}
+
+#explorer-resizer.hidden {
+  width: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  display: block !important;
+}
+
+#container {
+  transition: max-width 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* ANIMAZIONI VIEW MODES OVERRIDES */
+#editor-container, #preview {
+  transition: flex 0.3s cubic-bezier(0.4, 0.0, 0.2, 1),
+              max-width 0.3s cubic-bezier(0.4, 0.0, 0.2, 1),
+              margin 0.3s cubic-bezier(0.4, 0.0, 0.2, 1),
+              opacity 0.3s ease !important;
+  display: block !important; /* Sovrascrive i vecchi display: none */
+}
+
+/* SPLIT VIEW */
+#container.split-view #editor-container,
+#container.split-view #preview {
+  flex: 1 1 50% !important;
+  max-width: 50% !important;
+  margin: 0 !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* SOLO EDITOR */
+#container.solo-editor #editor-container {
+  flex: 1 1 100% !important;
+  max-width: 800px !important;
+  margin: 0 auto !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+#container.solo-editor #preview {
+  flex: 0 0 50% !important;
+  max-width: 50% !important;
+  margin-right: -50% !important; /* Footprint 0, lo spinge fuori a destra */
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* SOLO PREVIEW */
+#container.solo-preview #preview {
+  flex: 1 1 100% !important;
+  max-width: 800px !important;
+  margin: 0 auto !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+#container.solo-preview #editor-container {
+  flex: 0 0 50% !important;
+  max-width: 50% !important;
+  margin-left: -50% !important; /* Footprint 0, lo spinge fuori a sinistra */
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Navbar invisibile ma draggabile in Reading Mode */
+#navbar.reading-mode-active {
+  opacity: 0 !important;
+  background: transparent !important;
+  /* Manteniamo l'altezza o la riduciamo un po' per lasciare cliccabile il resto */
+  height: 30px !important;
+  border-bottom: none !important;
+  z-index: 9999 !important;
+}
+#navbar.reading-mode-active * {
+  pointer-events: none !important;
 }

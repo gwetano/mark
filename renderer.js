@@ -186,172 +186,192 @@ function toggleSearchPanel(show = true) {
   }
 }
 
+
+let previewSearchMatches = [];
+let isPreviewSearchMode = false;
+
+function highlightDOMNode(node, regex) {
+  if (node.nodeType === 3) {
+    let match = regex.exec(node.data);
+    if (match) {
+      const mark = document.createElement('mark');
+      mark.className = 'search-highlight preview-highlight';
+      const matchNode = node.splitText(match.index);
+      matchNode.splitText(match[0].length);
+      const clone = matchNode.cloneNode(true);
+      mark.appendChild(clone);
+      matchNode.parentNode.replaceChild(mark, matchNode);
+      previewSearchMatches.push(mark);
+      regex.lastIndex = 0;
+      highlightDOMNode(mark.nextSibling, regex);
+    }
+  } else if (node.nodeType === 1 && node.nodeName !== 'SCRIPT' && node.nodeName !== 'STYLE' && node.nodeName !== 'MARK') {
+    let child = node.firstChild;
+    while (child) {
+      let next = child.nextSibling;
+      highlightDOMNode(child, regex);
+      child = next;
+    }
+  }
+}
+
 function updateEditorOverlay() {
   const editor = document.getElementById('editor');
   const overlay = document.getElementById('editor-overlay');
   if (!editor || !overlay) return;
-
+  if (isPreviewSearchMode) {
+    overlay.innerHTML = '';
+    return;
+  }
   const text = editor.value;
   let html = '';
-
   if (searchMatches.length === 0) {
     html = escapeHtml(text);
   } else {
     let lastIndex = 0;
     searchMatches.forEach((match, i) => {
-      // Append text before match
       html += escapeHtml(text.substring(lastIndex, match.start));
-
-      // Append match with highlight
       const matchText = text.substring(match.start, match.end);
       const activeClass = (i === currentMatchIndex) ? ' active' : '';
-      html += `<span class="search-highlight${activeClass}">${escapeHtml(matchText)}</span>`;
-
+      html += `<span class="search-highlight${activeClass}" id="search-match-${i}">${escapeHtml(matchText)}</span>`;
       lastIndex = match.end;
     });
-    // Append remaining text
     html += escapeHtml(text.substring(lastIndex));
   }
-
-  // Handle trailing newline for correct rendering
-  if (text.endsWith('\n')) {
-    html += '<br>';
-  }
-
+  if (text.endsWith('\n')) html += '<br>';
   overlay.innerHTML = html;
+}
+
+function clearSearchHighlights() {
+  searchMatches = [];
+  previewSearchMatches = [];
+  currentMatchIndex = -1;
+  updateSearchResultsCounter();
+  
+  const overlay = document.getElementById('editor-overlay');
+  if (overlay) overlay.innerHTML = escapeHtml(document.getElementById('editor')?.value || '');
+  
+  const preview = document.getElementById('preview');
+  if (preview) {
+    const marks = preview.querySelectorAll('mark.preview-highlight');
+    marks.forEach(mark => {
+      const parent = mark.parentNode;
+      parent.replaceChild(document.createTextNode(mark.textContent), mark);
+      parent.normalize();
+    });
+  }
 }
 
 function performSearch(jumpToFirst = true) {
   const input = document.getElementById("search-input");
   const editor = document.getElementById("editor");
-  if (!input || !editor) return;
-
+  const container = document.getElementById("container");
+  
+  if (!input) return;
   const query = input.value;
-  if (!query) {
-    clearSearchHighlights();
-    return;
-  }
+  clearSearchHighlights();
+  
+  if (!query) return;
 
-  const text = editor.value;
+  isPreviewSearchMode = (container && container.className === "solo-preview") || (typeof isReadingMode !== 'undefined' && isReadingMode);
+
   const regex = new RegExp(escapeRegExp(query), 'gi');
-  searchMatches = [];
-  let match;
 
-  while ((match = regex.exec(text)) !== null) {
-    searchMatches.push({ start: match.index, end: match.index + match[0].length });
-  }
-
-  if (searchMatches.length > 0) {
-    if (jumpToFirst) {
-      // Find match closest to current cursor (forward search)
-      const currentPos = editor.selectionStart;
-      let bestIndex = 0;
-      // Find first match where start >= currentPos
-      const foundIndex = searchMatches.findIndex(m => m.start >= currentPos);
-      if (foundIndex !== -1) {
-        bestIndex = foundIndex;
-      } else {
-        // Wrap around to the beginning
-        bestIndex = 0;
+  if (isPreviewSearchMode) {
+    const preview = document.getElementById('preview');
+    if (preview) {
+      highlightDOMNode(preview, regex);
+      if (previewSearchMatches.length > 0) {
+        currentMatchIndex = 0;
+        scrollToMatch(0);
       }
-      currentMatchIndex = bestIndex;
-      scrollToMatch(currentMatchIndex);
-    } else {
-      // If not jumping, maybe just update overlay?
-      // But usually we want to ensure currentMatchIndex is valid.
-      if (currentMatchIndex >= searchMatches.length) currentMatchIndex = 0;
-      updateEditorOverlay();
     }
   } else {
-    currentMatchIndex = -1;
-    updateEditorOverlay();
+    const text = editor.value;
+    searchMatches = [];
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      searchMatches.push({ start: match.index, end: match.index + match[0].length });
+    }
+    if (searchMatches.length > 0) {
+      if (jumpToFirst) {
+        const currentPos = editor.selectionStart;
+        let bestIndex = searchMatches.findIndex(m => m.start >= currentPos);
+        if (bestIndex === -1) bestIndex = 0;
+        currentMatchIndex = bestIndex;
+        scrollToMatch(currentMatchIndex);
+      } else {
+        if (currentMatchIndex >= searchMatches.length) currentMatchIndex = 0;
+        updateEditorOverlay();
+      }
+    } else {
+      currentMatchIndex = -1;
+      updateEditorOverlay();
+    }
   }
-
   updateSearchResultsCounter();
 }
 
 function scrollToMatch(index) {
-  if (index < 0 || index >= searchMatches.length) return;
-
-  const match = searchMatches[index];
-  const editor = document.getElementById("editor");
-  const overlay = document.getElementById("editor-overlay");
-
-  // Update overlay to show active highlight first
-  if (currentMatchIndex !== index) {
+  const input = document.getElementById("search-input");
+  const wasFocused = document.activeElement === input;
+  
+  if (isPreviewSearchMode) {
+    if (index < 0 || index >= previewSearchMatches.length) return;
+    previewSearchMatches.forEach(m => m.classList.remove('active'));
+    const mark = previewSearchMatches[index];
+    mark.classList.add('active');
+    mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
     currentMatchIndex = index;
+  } else {
+    if (index < 0 || index >= searchMatches.length) return;
+    currentMatchIndex = index;
+    updateEditorOverlay();
+    
+    const editor = document.getElementById("editor");
+    const match = searchMatches[index];
+    editor.setSelectionRange(match.start, match.start);
+    
+    setTimeout(() => {
+      const activeSpan = document.getElementById(`search-match-${index}`);
+      if (activeSpan) {
+         const top = activeSpan.offsetTop;
+         const height = activeSpan.offsetHeight;
+         editor.scrollTo({ top: top - (editor.clientHeight / 2) + (height / 2), behavior: 'smooth' });
+      }
+    }, 10);
   }
-  updateEditorOverlay();
-
-  // Move cursor to the match (collapsed) to keep context for next search/navigation
-  // Check if search input is focused to restore it if needed
-  const searchInput = document.getElementById("search-input");
-  const wasSearchFocused = (document.activeElement === searchInput);
-
-  editor.setSelectionRange(match.start, match.start);
-
-  if (wasSearchFocused) {
-    searchInput.focus();
-  }
-
-  // Find the active highlight element in the overlay
-  // We need to wait for the DOM to update? updateEditorOverlay is synchronous but innerHTML might take a tick?
-  // Actually synchronous.
-  const activeHighlight = overlay.querySelector('.search-highlight.active');
-
-  if (activeHighlight) {
-    // Calculate position relative to overlay
-    const top = activeHighlight.offsetTop;
-    const height = activeHighlight.offsetHeight;
-    const editorHeight = editor.clientHeight;
-
-    // Scroll editor to center the match
-    editor.scrollTop = top - (editorHeight / 2) + (height / 2);
-  }
+  
+  if (wasFocused) input.focus();
 }
 
 function goToPreviousMatch() {
-  if (searchMatches.length === 0) return;
+  const total = isPreviewSearchMode ? previewSearchMatches.length : searchMatches.length;
+  if (total === 0) return;
   currentMatchIndex--;
-  if (currentMatchIndex < 0) currentMatchIndex = searchMatches.length - 1;
+  if (currentMatchIndex < 0) currentMatchIndex = total - 1;
   scrollToMatch(currentMatchIndex);
   updateSearchResultsCounter();
 }
 
 function goToNextMatch() {
-  if (searchMatches.length === 0) return;
+  const total = isPreviewSearchMode ? previewSearchMatches.length : searchMatches.length;
+  if (total === 0) return;
   currentMatchIndex++;
-  if (currentMatchIndex >= searchMatches.length) currentMatchIndex = 0;
+  if (currentMatchIndex >= total) currentMatchIndex = 0;
   scrollToMatch(currentMatchIndex);
   updateSearchResultsCounter();
-}
-
-function navigateToMatch(index) {
-  // Not used directly but good to have
-  currentMatchIndex = index;
-  scrollToMatch(currentMatchIndex);
-  updateSearchResultsCounter();
-}
-
-function calculateLineHeights() {
-  // Placeholder if needed for other logic
 }
 
 function updateSearchResultsCounter() {
   const el = document.getElementById("search-results");
   if (!el) return;
-  if (searchMatches.length === 0) {
+  const total = isPreviewSearchMode ? previewSearchMatches.length : searchMatches.length;
+  if (total === 0) {
     el.textContent = "0/0";
   } else {
-    el.textContent = `${currentMatchIndex + 1}/${searchMatches.length}`;
+    el.textContent = `${currentMatchIndex + 1}/${total}`;
   }
-}
-
-function clearSearchHighlights() {
-  searchMatches = [];
-  currentMatchIndex = -1;
-  updateSearchResultsCounter();
-  updateEditorOverlay();
 }
 
 function escapeRegExp(string) { return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
@@ -417,6 +437,196 @@ function updateOnlineStatus() {
 
 // ====== DOM READY ===========================================================
 window.addEventListener("DOMContentLoaded", () => {
+
+  // ===== UNDO HISTORY LOGIC =====
+  let actionHistory = [];
+  let lastKnownEditorValue = "";
+  let isProgrammaticEdit = false;
+  let typingTimeout = null;
+  let typingStartValue = null;
+
+  function computeSimpleDiff(oldStr, newStr) {
+    let start = 0;
+    while (start < oldStr.length && start < newStr.length && oldStr[start] === newStr[start]) start++;
+    let oldEnd = oldStr.length - 1;
+    let newEnd = newStr.length - 1;
+    while (oldEnd >= start && newEnd >= start && oldStr[oldEnd] === newStr[newEnd]) {
+      oldEnd--;
+      newEnd--;
+    }
+    return {
+      start: start,
+      deleted: oldStr.substring(start, oldEnd + 1),
+      inserted: newStr.substring(start, newEnd + 1)
+    };
+  }
+
+  function recordAction(actionName, oldVal, newVal) {
+    if (oldVal === newVal) return;
+    const diff = computeSimpleDiff(oldVal, newVal);
+    actionHistory.push({
+      id: Date.now() + Math.random(),
+      name: actionName,
+      diff: diff,
+      timestamp: new Date().toLocaleTimeString()
+    });
+    lastKnownEditorValue = newVal;
+  }
+
+  function executeAction(actionName, fn) {
+    if (typingStartValue !== null) {
+      clearTimeout(typingTimeout);
+      recordAction("Typing", typingStartValue, editor.value);
+      typingStartValue = null;
+    }
+    const oldVal = editor.value;
+    isProgrammaticEdit = true;
+    fn();
+    isProgrammaticEdit = false;
+    if (editor.value !== oldVal) {
+      recordAction(actionName, oldVal, editor.value);
+    } else {
+      lastKnownEditorValue = editor.value;
+    }
+  }
+
+  function selectiveUndo(actionId) {
+    const actionIndex = actionHistory.findIndex(a => a.id === actionId);
+    if (actionIndex === -1) return;
+    const action = actionHistory[actionIndex];
+    const diff = action.diff;
+    let currentText = editor.value;
+
+    let selStart = editor.selectionStart;
+    let selEnd = editor.selectionEnd;
+
+    if (diff.inserted === "") {
+      let insertPos = Math.min(diff.start, currentText.length);
+      editor.value = currentText.substring(0, insertPos) + diff.deleted + currentText.substring(insertPos);
+      if (selStart > insertPos) selStart += diff.deleted.length;
+      if (selEnd > insertPos) selEnd += diff.deleted.length;
+    } else {
+      let index = currentText.indexOf(diff.inserted);
+      if (index !== -1) {
+         let bestIndex = index;
+         let minDistance = Math.abs(index - diff.start);
+         let nextIndex = currentText.indexOf(diff.inserted, index + 1);
+         while(nextIndex !== -1) {
+           let dist = Math.abs(nextIndex - diff.start);
+           if (dist < minDistance) {
+             minDistance = dist;
+             bestIndex = nextIndex;
+           }
+           nextIndex = currentText.indexOf(diff.inserted, nextIndex + 1);
+         }
+         editor.value = currentText.substring(0, bestIndex) + diff.deleted + currentText.substring(bestIndex + diff.inserted.length);
+         if (selStart > bestIndex) selStart -= diff.inserted.length;
+         if (selStart > bestIndex) selStart += diff.deleted.length; // adjust roughly
+         selEnd = selStart;
+      } else {
+         if (typeof showNotification === 'function') {
+           showNotification("Unable to undo action: the text was modified too much.", "error");
+         }
+         return;
+      }
+    }
+    actionHistory.splice(actionIndex, 1);
+    isProgrammaticEdit = true;
+    lastKnownEditorValue = editor.value;
+    editor.setSelectionRange(selStart, selEnd);
+    updatePreview(); setDirty(true); updateEditorOverlay();
+    setTimeout(() => isProgrammaticEdit = false, 100);
+    renderHistoryModal();
+  }
+
+  function renderHistoryModal() {
+    const carousel = document.getElementById("history-carousel");
+    if (!carousel) return;
+    carousel.innerHTML = '<div class="history-spacer"></div>';
+    
+    actionHistory.forEach((action, i) => {
+      const item = document.createElement("div");
+      item.className = "history-item";
+      item.dataset.id = action.id;
+      item.innerHTML = `
+        <div class="history-action-name">${action.name} <span style="font-size:12px;opacity:0.6;">${action.timestamp}</span></div>
+        <button class="history-undo-btn">&larr; Undo</button>
+      `;
+      item.querySelector('.history-undo-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectiveUndo(action.id);
+      });
+      item.addEventListener('click', () => {
+        item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+      carousel.appendChild(item);
+    });
+    carousel.innerHTML += '<div class="history-spacer"></div>';
+    
+    // Trigger scroll event to update active
+    carousel.dispatchEvent(new Event('scroll'));
+    // Scroll to bottom (latest action)
+    setTimeout(() => {
+      carousel.scrollTop = carousel.scrollHeight;
+    }, 50);
+  }
+
+  const historyModal = document.getElementById("history-modal");
+  const btnCloseHistory = document.getElementById("btn-close-history");
+  if (btnCloseHistory) {
+    btnCloseHistory.addEventListener("click", () => historyModal.classList.add("hidden"));
+  }
+  const historyCarousel = document.getElementById("history-carousel");
+  if (historyCarousel) {
+    historyCarousel.addEventListener('scroll', () => {
+      const items = historyCarousel.querySelectorAll('.history-item');
+      if (items.length === 0) return;
+      const containerCenter = historyCarousel.scrollTop + (historyCarousel.clientHeight / 2);
+      let closestItem = null;
+      let minDiff = Infinity;
+      items.forEach(item => {
+        const itemCenter = item.offsetTop + (item.offsetHeight / 2) - historyCarousel.offsetTop;
+        const diff = Math.abs(containerCenter - itemCenter);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestItem = item;
+        }
+        item.classList.remove('active');
+      });
+      if (closestItem) closestItem.classList.add('active');
+    });
+  }
+
+  // Hook per aprire modal, Ctrl+Z e frecce nel modal
+  document.addEventListener('keydown', (e) => {
+    if (!historyModal.classList.contains('hidden')) {
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        historyCarousel.scrollBy({ top: -60, behavior: 'smooth' });
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        historyCarousel.scrollBy({ top: 60, behavior: 'smooth' });
+      } else if (e.key === 'Enter') {
+        // Option to trigger the active undo button
+        const activeBtn = historyCarousel.querySelector('.history-item.active .history-undo-btn');
+        if (activeBtn) activeBtn.click();
+      }
+    }
+    
+    if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === 'z') {
+      e.preventDefault();
+      historyModal.classList.remove('hidden');
+      renderHistoryModal();
+    } else if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'z') {
+      // Linear undo
+      if (actionHistory.length > 0) {
+        e.preventDefault();
+        const latestAction = actionHistory[actionHistory.length - 1];
+        selectiveUndo(latestAction.id);
+      }
+    }
+  });
+
   updateOnlineStatus();
 
   // --- Query DOM principali
@@ -455,7 +665,7 @@ window.addEventListener("DOMContentLoaded", () => {
     isReadingMode = active;
     if (active) {
       if (viewContainer) previousViewClass = viewContainer.className || "split-view";
-      if (navbar) navbar.style.display = 'none';
+      if (navbar) navbar.classList.add('reading-mode-active');
       if (footer) footer.style.display = 'none';
       if (explorerPanel) explorerPanel.classList.add('hidden');
       if (explorerResizer) explorerResizer.classList.add('hidden');
@@ -473,8 +683,9 @@ window.addEventListener("DOMContentLoaded", () => {
           readingModePopup.classList.remove('visible');
         }, 3000);
       }
+      refreshSearchIfOpen();
     } else {
-      if (navbar) navbar.style.display = 'flex';
+      if (navbar) navbar.classList.remove('reading-mode-active');
       if (footer) footer.style.display = 'flex';
       if (viewContainer) viewContainer.className = previousViewClass;
       if (appContainer) {
@@ -482,6 +693,7 @@ window.addEventListener("DOMContentLoaded", () => {
         appContainer.style.marginBottom = '35px';
         appContainer.style.height = 'calc(100% - 55px - 35px)';
       }
+      refreshSearchIfOpen();
     }
   }
 
@@ -499,12 +711,12 @@ window.addEventListener("DOMContentLoaded", () => {
       
       if (!isReadingMode) {
         menu.append(new MenuItem({
-          label: 'Attiva Modalità di Lettura',
+          label: 'Enable Reading Mode',
           click: () => { setReadingMode(true); }
         }));
       } else {
         menu.append(new MenuItem({
-          label: 'Disattiva Modalità di Lettura',
+          label: 'Disable Reading Mode',
           click: () => { setReadingMode(false); }
         }));
       }
@@ -610,7 +822,7 @@ window.addEventListener("DOMContentLoaded", () => {
             saveCurrentFile();
           }
           currentFilePath = fullPath;
-          if (editor) editor.value = '';
+          if (editor) { editor.value = ''; lastKnownEditorValue = ''; }
           updatePreview();
           if (typeof updateWordCount === 'function') updateWordCount();
           if (typeof updateEditorOverlay === 'function') updateEditorOverlay();
@@ -873,6 +1085,17 @@ window.addEventListener("DOMContentLoaded", () => {
         }
       });
     }
+    
+    // Re-apply preview search highlights if needed
+    const sc = document.getElementById("search-container");
+    if (sc && !sc.classList.contains("hidden")) {
+      const container = document.getElementById("container");
+      const isPreviewOnly = (container && container.className === "solo-preview") || (typeof isReadingMode !== 'undefined' && isReadingMode);
+      if (isPreviewOnly) {
+         // Debounce or just call it, but be careful not to loop
+         setTimeout(() => performSearch(false), 10);
+      }
+    }
   }
 
   // ===== Input Editor =====
@@ -897,9 +1120,11 @@ window.addEventListener("DOMContentLoaded", () => {
       const start = editor.selectionStart, end = editor.selectionEnd;
       const left = editor.value.substring(0, start), right = editor.value.substring(end);
       const pair = pairs[e.key];
-      editor.value = left + e.key + pair + right;
-      editor.selectionStart = editor.selectionEnd = start + 1;
-      updatePreview(); setDirty(true); updateEditorOverlay(); return;
+      executeAction("Auto-close", () => {
+        editor.value = left + e.key + pair + right;
+        editor.selectionStart = editor.selectionEnd = start + 1;
+        updatePreview(); setDirty(true); updateEditorOverlay();
+      }); return;
     }
 
     if (e.key === "Tab") {
@@ -916,20 +1141,21 @@ window.addEventListener("DOMContentLoaded", () => {
       const after = editor.value.substring(end);
       const tabSpaces = " ".repeat(currentTabSize);
 
-      if (start === end) {
-        editor.value = before + tabSpaces + after;
-        editor.selectionStart = editor.selectionEnd = start + currentTabSize;
-      } else if (selected.includes('\n')) {
-        const regex = new RegExp('^', 'gm');
-        const indented = selected.replace(regex, tabSpaces);
-        editor.value = before + indented + after;
-        editor.selectionStart = start; editor.selectionEnd = start + indented.length;
-      } else {
-        editor.value = before + tabSpaces + selected + after;
-        editor.selectionStart = start + currentTabSize; editor.selectionEnd = end + currentTabSize;
-      }
-      updateEditorOverlay();
-      return;
+      executeAction("Indentation", () => {
+        if (start === end) {
+          editor.value = before + tabSpaces + after;
+          editor.selectionStart = editor.selectionEnd = start + currentTabSize;
+        } else if (selected.includes('\n')) {
+          const regex = new RegExp('^', 'gm');
+          const indented = selected.replace(regex, tabSpaces);
+          editor.value = before + indented + after;
+          editor.selectionStart = start; editor.selectionEnd = start + indented.length;
+        } else {
+          editor.value = before + tabSpaces + selected + after;
+          editor.selectionStart = start + currentTabSize; editor.selectionEnd = end + currentTabSize;
+        }
+        updateEditorOverlay();
+      }); return;
     }
     if (e.ctrlKey) {
       const start = editor.selectionStart, end = editor.selectionEnd;
@@ -948,9 +1174,11 @@ window.addEventListener("DOMContentLoaded", () => {
       }
       if (handled) {
         e.preventDefault();
-        editor.value = before + formatted + after;
-        editor.selectionStart = start; editor.selectionEnd = start + formatted.length;
-        updatePreview(); setDirty(true); updateEditorOverlay();
+        executeAction("Formatting Shortcut", () => {
+          editor.value = before + formatted + after;
+          editor.selectionStart = start; editor.selectionEnd = start + formatted.length;
+          updatePreview(); setDirty(true); updateEditorOverlay();
+        });
       }
     }
     if (e.key === "Enter") {
@@ -963,32 +1191,40 @@ window.addEventListener("DOMContentLoaded", () => {
         const [, indent, number, content] = numberedListMatch;
         if (content.trim() === '') {
           e.preventDefault();
-          const lineStart = cursorPos - currentLine.length;
-          editor.value = editor.value.substring(0, lineStart) + indent + editor.value.substring(cursorPos);
-          editor.selectionStart = editor.selectionEnd = lineStart + indent.length;
-          updatePreview(); setDirty(true); updateEditorOverlay(); return;
+          executeAction("Remove List", () => {
+            const lineStart = cursorPos - currentLine.length;
+            editor.value = editor.value.substring(0, lineStart) + indent + editor.value.substring(cursorPos);
+            editor.selectionStart = editor.selectionEnd = lineStart + indent.length;
+            updatePreview(); setDirty(true); updateEditorOverlay();
+          }); return;
         }
         e.preventDefault();
         const nextNumber = parseInt(number, 10) + 1;
         const newLine = `\n${indent}${nextNumber}. `;
-        editor.value = editor.value.substring(0, cursorPos) + newLine + editor.value.substring(cursorPos);
-        editor.selectionStart = editor.selectionEnd = cursorPos + newLine.length;
-        updatePreview(); setDirty(true); updateEditorOverlay(); return;
+        executeAction("Continue Numbered List", () => {
+          editor.value = editor.value.substring(0, cursorPos) + newLine + editor.value.substring(cursorPos);
+          editor.selectionStart = editor.selectionEnd = cursorPos + newLine.length;
+          updatePreview(); setDirty(true); updateEditorOverlay();
+        }); return;
       }
       if (listMatch) {
         const [, indent, marker, content] = listMatch;
         if (content.trim() === '') {
           e.preventDefault();
-          const lineStart = cursorPos - currentLine.length;
-          editor.value = editor.value.substring(0, lineStart) + indent + editor.value.substring(cursorPos);
-          editor.selectionStart = editor.selectionEnd = lineStart + indent.length;
-          updatePreview(); setDirty(true); updateEditorOverlay(); return;
+          executeAction("Remove List", () => {
+            const lineStart = cursorPos - currentLine.length;
+            editor.value = editor.value.substring(0, lineStart) + indent + editor.value.substring(cursorPos);
+            editor.selectionStart = editor.selectionEnd = lineStart + indent.length;
+            updatePreview(); setDirty(true); updateEditorOverlay();
+          }); return;
         }
         e.preventDefault();
         const newListItem = `\n${indent}${marker} `;
-        editor.value = editor.value.substring(0, cursorPos) + newListItem + editor.value.substring(cursorPos);
-        editor.selectionStart = editor.selectionEnd = cursorPos + newListItem.length;
-        updatePreview(); setDirty(true); updateEditorOverlay();
+        executeAction("Continue List", () => {
+          editor.value = editor.value.substring(0, cursorPos) + newListItem + editor.value.substring(cursorPos);
+          editor.selectionStart = editor.selectionEnd = cursorPos + newListItem.length;
+          updatePreview(); setDirty(true); updateEditorOverlay();
+        });
       }
     }
   });
@@ -1028,8 +1264,30 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  const debouncedUpdate = debounce(() => { updatePreview(); updateWordCount(); }, 300);
+  const debouncedUpdate = debounce(() => {
+    updatePreview();
+    updateWordCount();
+    const sc = document.getElementById("search-container");
+    if (sc && !sc.classList.contains("hidden")) {
+      performSearch(false);
+    } else {
+      updateEditorOverlay();
+    }
+  }, 300);
   editor && editor.addEventListener("input", () => {
+    if (isProgrammaticEdit) {
+      debouncedUpdate();
+      return;
+    }
+    if (typingStartValue === null) {
+      typingStartValue = lastKnownEditorValue;
+    }
+    clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(() => {
+      recordAction("Typing", typingStartValue, editor.value);
+      typingStartValue = null;
+    }, 1000);
+
     debouncedUpdate();
     setDirty(true);
     // Update overlay on input (clears highlights if text changes, or we could re-search)
@@ -1086,11 +1344,13 @@ window.addEventListener("DOMContentLoaded", () => {
           fs.writeFileSync(imagePath, buffer);
           const relativeImagePath = path.relative(folderPath, imagePath).replace(/\\/g, "/");
           const markdownImage = `![immagine](${relativeImagePath})`;
-          const start = editor.selectionStart; const end = editor.selectionEnd;
-          editor.value = editor.value.slice(0, start) + markdownImage + editor.value.slice(end);
-          const newCursorPos = start + markdownImage.length;
-          editor.setSelectionRange(newCursorPos, newCursorPos);
-          updatePreview(); updateWordCount(); setDirty(true);
+          executeAction("Paste Image", () => {
+            const start = editor.selectionStart; const end = editor.selectionEnd;
+            editor.value = editor.value.slice(0, start) + markdownImage + editor.value.slice(end);
+            const newCursorPos = start + markdownImage.length;
+            editor.setSelectionRange(newCursorPos, newCursorPos);
+            updatePreview(); updateWordCount(); setDirty(true);
+          });
         };
         reader.readAsArrayBuffer(blob);
       }
@@ -1106,7 +1366,14 @@ window.addEventListener("DOMContentLoaded", () => {
     menu.append(new MenuItem({ label: 'Cut', accelerator: 'CmdOrCtrl+X', click: () => document.execCommand('cut') }));
     menu.append(new MenuItem({ label: 'Copy', accelerator: 'CmdOrCtrl+C', click: () => document.execCommand('copy') }));
     menu.append(new MenuItem({ label: 'Paste', accelerator: 'CmdOrCtrl+V', click: () => document.execCommand('paste') }));
+    
     menu.append(new MenuItem({ label: 'Format', accelerator: 'CmdOrCtrl+K', click: () => formatMarkdown() }));
+    menu.append(new MenuItem({ type: 'separator' }));
+    menu.append(new MenuItem({ label: 'Show Undo History', accelerator: 'Ctrl+Alt+Z', click: () => {
+      const modal = document.getElementById("history-modal");
+      if(modal) { modal.classList.remove('hidden'); renderHistoryModal(); }
+    }}));
+
     if (selectedText) {
       menu.append(new MenuItem({ type: 'separator' }));
       menu.append(new MenuItem({ label: 'AI Tool', accelerator: 'CmdOrCtrl+Shift+A', click: () => showAISearchDialog(selectedText) }));
@@ -1119,6 +1386,7 @@ window.addEventListener("DOMContentLoaded", () => {
     if (!editor) return;
     currentFilePath = filePath;
     editor.value = content; 
+    lastKnownEditorValue = content;
     updatePreview(); 
     wordCountEl && updateWordCount(); 
     updateEditorOverlay();
@@ -1186,10 +1454,12 @@ window.addEventListener("DOMContentLoaded", () => {
     const textBefore = editor.value.substring(0, cursorPos);
     const textAfter = editor.value.substring(cursorPos);
     const imageTag = `![${fileName}](${relativeImagePath})`;
-    editor.value = textBefore + imageTag + textAfter;
-    const newCursorPos = cursorPos + imageTag.length;
-    editor.setSelectionRange(newCursorPos, newCursorPos);
-    updatePreview(); wordCountEl && updateWordCount(); setDirty(true); updateEditorOverlay(); editor.focus();
+    executeAction("Image from File", () => {
+      editor.value = textBefore + imageTag + textAfter;
+      const newCursorPos = cursorPos + imageTag.length;
+      editor.setSelectionRange(newCursorPos, newCursorPos);
+      updatePreview(); wordCountEl && updateWordCount(); setDirty(true); updateEditorOverlay(); editor.focus();
+    });
   });
 
   // ===== Paste image (scorciatoia) =====
@@ -1369,7 +1639,7 @@ window.addEventListener("DOMContentLoaded", () => {
     });
     if (!filename) return;
     fs.writeFileSync(filename, '', 'utf8');
-    editor.value = ''; updatePreview(); updateWordCount(); updateEditorOverlay();
+    editor.value = ''; lastKnownEditorValue = ''; updatePreview(); updateWordCount(); updateEditorOverlay();
     currentFilePath = filename; setDirty(false);
     if (currentFolderPath) openFolder(currentFolderPath);
     setTimeout(() => {
@@ -1439,6 +1709,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
             currentFilePath = itemPath;
             editor.value = content; 
+            lastKnownEditorValue = content;
             updatePreview(); 
             updateWordCount(); 
             setDirty(false); 
@@ -1489,62 +1760,69 @@ window.addEventListener("DOMContentLoaded", () => {
   function insertMarkdownLinkBtn() { insertMarkdownLink(); }
 
   btnBold && btnBold.addEventListener("click", () => {
-    preserveScroll(() => {
+    executeAction("Bold", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.substring(start, end);
       const text = `**${selected || 'text'}**`; editor.setRangeText(text, start, end, 'end');
       editor.focus(); editor.setSelectionRange(start + 2, start + 2 + (selected ? selected.length : 4));
       updatePreview(); setDirty(true); updateEditorOverlay();
     });
   });
+  });
   btnItalic && btnItalic.addEventListener("click", () => {
-    preserveScroll(() => {
+    executeAction("Italic", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.substring(start, end);
       const text = `*${selected || 'text'}*`; editor.setRangeText(text, start, end, 'end');
       editor.focus(); editor.setSelectionRange(start + 1, start + 1 + (selected ? selected.length : 4));
       updatePreview(); setDirty(true); updateEditorOverlay();
     });
   });
-  btnCode && btnCode.addEventListener("click", () => preserveScroll(() => { formatAsCode(); }));
+  });
+  btnCode && btnCode.addEventListener("click", () => executeAction("Code block", () => preserveScroll(() => { formatAsCode(); })));
   btnImage && btnImage.addEventListener("click", () => {
-    preserveScroll(() => {
+    executeAction("Image", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.substring(start, end);
       const imageMd = `![alt](${selected || 'url'})`; editor.setRangeText(imageMd, start, end, 'end');
       editor.focus(); editor.setSelectionRange(start + 7, start + 10); updatePreview(); setDirty(true); updateEditorOverlay();
     });
   });
+  });
   btnUl && btnUl.addEventListener("click", () => {
-    preserveScroll(() => {
+    executeAction("Bullet List", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.substring(start, end);
       const listMd = `* ${selected || 'elem'}`; editor.setRangeText(listMd, start, end, 'end');
       editor.focus(); editor.setSelectionRange(start + 2, start + 2 + (selected ? selected.length : 4));
       updatePreview(); setDirty(true); updateEditorOverlay();
     });
   });
+  });
   btnOl && btnOl.addEventListener("click", () => {
-    preserveScroll(() => {
+    executeAction("Numbered List", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.substring(start, end);
       const listMd = `1. ${selected || 'elem'}`; editor.setRangeText(listMd, start, end, 'end');
       editor.focus(); editor.setSelectionRange(start + 3, start + 3 + (selected ? selected.length : 4));
       updatePreview(); setDirty(true); updateEditorOverlay();
     });
   });
-  btnLink && btnLink.addEventListener("click", () => preserveScroll(() => insertMarkdownLinkBtn()));
+  });
+  btnLink && btnLink.addEventListener("click", () => executeAction("Link", () => preserveScroll(() => insertMarkdownLinkBtn())));
   btnHr && btnHr.addEventListener("click", () => {
-    preserveScroll(() => {
+    executeAction("Horizontal Rule", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd; editor.setRangeText("***\n", start, end, 'end');
       editor.focus(); editor.setSelectionRange(start + 4, start + 4); updatePreview(); setDirty(true); updateEditorOverlay();
     });
   });
+  });
   btnUnderline && btnUnderline.addEventListener("click", () => {
-    preserveScroll(() => {
+    executeAction("Underline", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.substring(start, end);
       const text = `<u>${selected || 'text'}</u>`; editor.setRangeText(text, start, end, 'end');
       editor.focus(); editor.setSelectionRange(start + 3, start + 3 + (selected ? selected.length : 4));
       updatePreview(); setDirty(true); updateEditorOverlay();
     });
   });
+  });
   btnQuote && btnQuote.addEventListener("click", () => {
-    preserveScroll(() => {
+    executeAction("Quote", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.substring(start, end);
       const quoteMd = `> ${selected || 'quote'}`;
       editor.value = editor.value.substring(0, start) + quoteMd + editor.value.substring(end);
@@ -1552,14 +1830,16 @@ window.addEventListener("DOMContentLoaded", () => {
       updatePreview(); setDirty(true); updateEditorOverlay();
     });
   });
+  });
   btnTable && btnTable.addEventListener("click", () => {
-    preserveScroll(() => {
+    executeAction("Table", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd;
       const tableMd = `| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |\n| Cell 3   | Cell 4   |`;
       editor.setRangeText(tableMd, start, end, 'end');
       editor.focus(); editor.setSelectionRange(start + tableMd.length, start + tableMd.length);
       editor.dispatchEvent(new Event('input', { bubbles: true })); updatePreview(); setDirty(true); updateEditorOverlay();
     });
+  });
   });
 
   btnExtra && btnExtra.addEventListener("click", (e) => {
@@ -1605,6 +1885,10 @@ window.addEventListener("DOMContentLoaded", () => {
     if (editor && overlay) {
       editor.style.fontSize = size + 'px';
       overlay.style.fontSize = size + 'px';
+    }
+    const preview = document.getElementById('preview');
+    if (preview) {
+      preview.style.fontSize = size + 'px';
     }
   }
 
@@ -1687,16 +1971,24 @@ window.addEventListener("DOMContentLoaded", () => {
     if (dropdownTitle && !dropdownTitle.contains(e.target)) { dropdownTitle.classList.remove("open"); btnTitle?.classList.remove("active"); }
   });
 
+  function refreshSearchIfOpen() {
+    const sc = document.getElementById("search-container");
+    if (sc && !sc.classList.contains("hidden")) performSearch(false);
+  }
+
   btnViewEditor && btnViewEditor.addEventListener("click", () => {
     if (container) container.className = "solo-editor";
+    refreshSearchIfOpen();
   });
 
   btnViewSplit && btnViewSplit.addEventListener("click", () => {
     if (container) container.className = "split-view";
+    refreshSearchIfOpen();
   });
 
   btnViewPreview && btnViewPreview.addEventListener("click", () => {
     if (container) container.className = "solo-preview";
+    refreshSearchIfOpen();
   });
   // ===== PRIMO RENDER + link esterni =====
   setupExternalLinks();
@@ -1819,11 +2111,11 @@ window.addEventListener('DOMContentLoaded', () => {
         const start = editor.selectionStart;
         const end = editor.selectionEnd;
         
-        editor.value = text;
-        editor.setSelectionRange(start, end);
-        
-        // Trigger input event so preview updates and autosave works
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        executeAction("Toggle Checkbox", () => {
+          editor.value = text;
+          editor.setSelectionRange(start, end);
+          updatePreview(); setDirty(true); updateEditorOverlay();
+        });
       }
     });
   }
