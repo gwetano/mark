@@ -34,23 +34,43 @@ function createWindow() {
 
   initializeRemote();
 
-  win = new BrowserWindow({
+  const isMac = process.platform === 'darwin';
+
+  const windowOptions = {
     width: 1200,
     height: 800,
     minWidth: 650,
     minHeight: 400,
-    titleBarStyle: 'hidden',
-    trafficLightPosition: { x: 15, y: 19 },
+    ...(isMac
+      ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 15, y: 19 } }
+      : { frame: false }),
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
       clipboard: true
     }
-  });
+  };
+
+  win = new BrowserWindow(windowOptions);
 
   remoteMain.enable(win.webContents);
 
   win.loadFile("index.html");
+
+  // Window control IPC handlers (for Windows/Linux custom buttons)
+  ipcMain.on('window-minimize', () => win.minimize());
+  ipcMain.on('window-maximize', () => {
+    if (win.isMaximized()) {
+      win.unmaximize();
+    } else {
+      win.maximize();
+    }
+  });
+  ipcMain.on('window-close', () => win.close());
+  ipcMain.on('get-platform', (event) => {
+    event.returnValue = process.platform;
+  });
+
   
   const menu = Menu.buildFromTemplate([
     {

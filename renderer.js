@@ -35,6 +35,16 @@ ipcRenderer.on('update-downloaded', () => {
   showNotification('Aggiornamento scaricato! Riavvia per applicare.', 'success');
 });
 
+// ====== PLATFORM DETECTION & WINDOW CONTROLS ================================
+const platform = ipcRenderer.sendSync('get-platform');
+document.body.classList.add(`platform-${platform}`);
+
+if (platform !== 'darwin') {
+  document.getElementById('win-minimize')?.addEventListener('click', () => ipcRenderer.send('window-minimize'));
+  document.getElementById('win-maximize')?.addEventListener('click', () => ipcRenderer.send('window-maximize'));
+  document.getElementById('win-close')?.addEventListener('click', () => ipcRenderer.send('window-close'));
+}
+
 // ====== GROQ AI (facoltativo) ===============================================
 let GROQ_API_KEY = '';
 try {
