@@ -241,12 +241,10 @@ body.dark #logo {
   hyphens: auto;
 }
 
-/* Applica anche ai paragrafi, alle liste, alle citazioni e alle celle di tabella */
+/* Applica ai paragrafi, alle liste e alle citazioni */
 #preview p,
 #preview li,
-#preview blockquote,
-#preview td,
-#preview th {
+#preview blockquote {
   text-align: justify;
   -webkit-hyphens: auto;
   -ms-hyphens: auto;
@@ -254,6 +252,43 @@ body.dark #logo {
   word-break: normal;
   /* lascia che la sillabazione gestisca il wrap */
   overflow-wrap: normal;
+}
+
+/* Titoli stile GitHub: allineamento a sinistra di default */
+#preview h1,
+#preview h2,
+#preview h3,
+#preview h4,
+#preview h5,
+#preview h6,
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  text-align: left;
+}
+
+/* Gestione allineamento generico e titoli stile GitHub (align="center", align="right", align="left", align="justify") */
+#preview [align="left"],
+.markdown-body [align="left"] {
+  text-align: left;
+}
+
+#preview [align="center"],
+.markdown-body [align="center"] {
+  text-align: center;
+}
+
+#preview [align="right"],
+.markdown-body [align="right"] {
+  text-align: right;
+}
+
+#preview [align="justify"],
+.markdown-body [align="justify"] {
+  text-align: justify;
 }
 
 /* Assicura che i link lunghi possano andare a capo senza rompere il layout */
@@ -1127,8 +1162,7 @@ body.dark #preview tr:hover {
 
 /* Stile tabelle stile GitHub */
 .markdown-body table,
-#preview table,
-.markdown-body table {
+#preview table {
   border-collapse: collapse;
   width: 100%;
   margin: 16px 0;
@@ -1144,6 +1178,35 @@ body.dark #preview tr:hover {
   border: 1px solid #d0d7de;
   padding: 8px 12px;
   text-align: left;
+}
+
+/* Allineamento colonne tabella (GFM: :---, :---:, ---:) */
+.markdown-body th[align="left"],
+.markdown-body td[align="left"],
+#preview th[align="left"],
+#preview td[align="left"] {
+  text-align: left;
+}
+
+.markdown-body th[align="center"],
+.markdown-body td[align="center"],
+#preview th[align="center"],
+#preview td[align="center"] {
+  text-align: center;
+}
+
+.markdown-body th[align="right"],
+.markdown-body td[align="right"],
+#preview th[align="right"],
+#preview td[align="right"] {
+  text-align: right;
+}
+
+.markdown-body th[align="justify"],
+.markdown-body td[align="justify"],
+#preview th[align="justify"],
+#preview td[align="justify"] {
+  text-align: justify;
 }
 
 .markdown-body th,
@@ -1666,9 +1729,18 @@ body.dark #preview pre code {
 }
 
 /* ====== TASK LIST STYLES ====== */
+.task-list-item,
+#preview li:has(> .task-list-item-checkbox),
+#preview li:has(> p > .task-list-item-checkbox),
+.markdown-body li:has(> .task-list-item-checkbox),
+.markdown-body li:has(> p > .task-list-item-checkbox) {
+  list-style-type: none;
+}
+
 .task-list-item-checkbox {
   margin-right: 0.5em;
   cursor: pointer;
+  vertical-align: middle;
 }
 
 

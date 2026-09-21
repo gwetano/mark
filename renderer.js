@@ -127,6 +127,55 @@ function extToLang(ext) {
 }
 function looksLikeImage(p) { return /\.(png|jpe?g|gif|webp|bmp|svg|avif)$/i.test(p || ''); }
 
+// ====== TASK LIST UTILS & MARKED RENDERER ====================================
+function toggleTaskInMarkdown(markdown, targetIndex, isChecked) {
+  const lines = markdown.split('\n');
+  let inCodeBlock = false;
+  let currentIdx = 0;
+  let codeBlockFence = '';
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const fenceMatch = line.match(/^(\s*)(`{3,}|~{3,})/);
+    if (fenceMatch) {
+      const fence = fenceMatch[2];
+      if (!inCodeBlock) {
+        inCodeBlock = true;
+        codeBlockFence = fence[0];
+      } else if (line.trim().startsWith(codeBlockFence.repeat(3))) {
+        inCodeBlock = false;
+      }
+      continue;
+    }
+
+    if (!inCodeBlock) {
+      const taskMatch = line.match(/^((?:[ \t]*>[ \t]*)*[ \t]*(?:[*+-]|\d+[.)])\s+)\[([ xX\-])\](.*)$/);
+      if (taskMatch) {
+        if (currentIdx === targetIndex) {
+          lines[i] = `${taskMatch[1]}[${isChecked ? 'x' : ' '}]${taskMatch[3]}`;
+          return lines.join('\n');
+        }
+        currentIdx++;
+      }
+    }
+  }
+  return markdown;
+}
+
+let checkboxCount = 0;
+if (typeof marked !== 'undefined' && marked.use) {
+  marked.use({
+    breaks: true,
+    gfm: true,
+    renderer: {
+      checkbox({ checked }) {
+        const index = checkboxCount++;
+        return `<input type="checkbox" class="task-list-item-checkbox" data-index="${index}" ${checked ? 'checked' : ''}>`;
+      }
+    }
+  });
+}
+
 // ====== INCLUDE DI CODICE ====================================================
 // Supporta: !(Alt)[path[#Lx-Ly]]  e  ![Alt](path[#Lx-Ly])
 // Inoltre accetta :x-y come alternativa (es. file.c:10-40)
@@ -956,12 +1005,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const rawOriginal = editor.value;
     let raw = preprocessCodeIncludes(rawOriginal);
 
-    let checkboxCount = 0;
-    raw = raw.replace(/^(>[ \t]*)*(\s*[-*+]\s+)\[([xX\-\s])\]/gm, (match, bq, prefix, check) => {
-      const isChecked = check.toLowerCase() === 'x';
-      const index = checkboxCount++;
-      return `${bq || ''}${prefix}<input type="checkbox" class="task-list-item-checkbox" data-index="${index}" ${isChecked ? 'checked' : ''}>`;
-    });
+    checkboxCount = 0;
 
     // Capture current scroll state
     const currentScrollTop = preview.scrollTop;
@@ -970,6 +1014,8 @@ window.addEventListener("DOMContentLoaded", () => {
     const isAtBottom = (maxScrollTop - currentScrollTop) <= 20;
 
     let html = marked.parse(raw, {
+      breaks: true,
+      gfm: true,
       highlight: (code, lang) => {
         if (window.hljs) {
           try { return hljs.highlight(code, { language: lang || 'plaintext' }).value; }
@@ -1195,7 +1241,56 @@ window.addEventListener("DOMContentLoaded", () => {
       const cursorPos = editor.selectionStart;
       const before = editor.value.substring(0, cursorPos);
       const currentLine = before.split('\n').pop();
-      const listMatch = currentLine.match(/^(\s*)([*-])\s(.*)$/);
+
+      // Checkbox list numerata (es. "1. [ ] Testo")
+      const numberedTaskMatch = currentLine.match(/^(\s*)(\d+)\.\s+\[([ xX\-])\]\s*(.*)$/);
+      if (numberedTaskMatch) {
+        const [, indent, number, check, content] = numberedTaskMatch;
+        if (content.trim() === '') {
+          e.preventDefault();
+          executeAction("Remove List", () => {
+            const lineStart = cursorPos - currentLine.length;
+            editor.value = editor.value.substring(0, lineStart) + indent + editor.value.substring(cursorPos);
+            editor.selectionStart = editor.selectionEnd = lineStart + indent.length;
+            updatePreview(); setDirty(true); updateEditorOverlay();
+          });
+          return;
+        }
+        e.preventDefault();
+        const nextNumber = parseInt(number, 10) + 1;
+        const newLine = `\n${indent}${nextNumber}. [ ] `;
+        executeAction("Continue Numbered Checkbox", () => {
+          editor.value = editor.value.substring(0, cursorPos) + newLine + editor.value.substring(cursorPos);
+          editor.selectionStart = editor.selectionEnd = cursorPos + newLine.length;
+          updatePreview(); setDirty(true); updateEditorOverlay();
+        });
+        return;
+      }
+
+      // Checkbox list puntata (es. "- [ ] Testo", "* [ ] Testo", "+ [ ] Testo")
+      const taskMatch = currentLine.match(/^(\s*)([*+-])\s+\[([ xX\-])\]\s*(.*)$/);
+      if (taskMatch) {
+        const [, indent, marker, check, content] = taskMatch;
+        if (content.trim() === '') {
+          e.preventDefault();
+          executeAction("Remove List", () => {
+            const lineStart = cursorPos - currentLine.length;
+            editor.value = editor.value.substring(0, lineStart) + indent + editor.value.substring(cursorPos);
+            editor.selectionStart = editor.selectionEnd = lineStart + indent.length;
+            updatePreview(); setDirty(true); updateEditorOverlay();
+          });
+          return;
+        }
+        e.preventDefault();
+        const newListItem = `\n${indent}${marker} [ ] `;
+        executeAction("Continue Checkbox", () => {
+          editor.value = editor.value.substring(0, cursorPos) + newListItem + editor.value.substring(cursorPos);
+          editor.selectionStart = editor.selectionEnd = cursorPos + newListItem.length;
+          updatePreview(); setDirty(true); updateEditorOverlay();
+        });
+        return;
+      }
+
       const numberedListMatch = currentLine.match(/^(\s*)(\d+)\.\s(.*)$/);
       if (numberedListMatch) {
         const [, indent, number, content] = numberedListMatch;
@@ -1217,6 +1312,7 @@ window.addEventListener("DOMContentLoaded", () => {
           updatePreview(); setDirty(true); updateEditorOverlay();
         }); return;
       }
+      const listMatch = currentLine.match(/^(\s*)([*+-])\s(.*)$/);
       if (listMatch) {
         const [, indent, marker, content] = listMatch;
         if (content.trim() === '') {
@@ -2000,6 +2096,30 @@ window.addEventListener("DOMContentLoaded", () => {
     if (container) container.className = "solo-preview";
     refreshSearchIfOpen();
   });
+  // ===== TASK LIST CHECKBOX TOGGLE =====
+  if (preview) {
+    preview.addEventListener('change', (e) => {
+      if (e.target && e.target.classList.contains('task-list-item-checkbox')) {
+        const index = parseInt(e.target.dataset.index, 10);
+        const isChecked = e.target.checked;
+        if (!editor || isNaN(index)) return;
+
+        const newText = toggleTaskInMarkdown(editor.value, index, isChecked);
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+
+        executeAction("Toggle Checkbox", () => {
+          editor.value = newText;
+          editor.setSelectionRange(start, end);
+          updatePreview();
+          setDirty(true);
+          if (typeof updateWordCount === 'function') updateWordCount();
+          if (typeof updateEditorOverlay === 'function') updateEditorOverlay();
+        });
+      }
+    });
+  }
+
   // ===== PRIMO RENDER + link esterni =====
   setupExternalLinks();
   updatePreview();
@@ -2074,7 +2194,7 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 })();
 
-// ====== TASK LIST TOGGLE & THEME HANDLING ======
+// ====== THEME HANDLING FOR HIGHLIGHT.JS ======
 window.addEventListener('DOMContentLoaded', () => {
   // Theme handling for highlight.js
   function updateHighlightTheme() {
@@ -2094,39 +2214,4 @@ window.addEventListener('DOMContentLoaded', () => {
   
   // Set initial theme
   updateHighlightTheme();
-
-  // Handle checkbox toggles in preview
-  const previewEl = document.getElementById('preview');
-  if (previewEl) {
-    previewEl.addEventListener('change', (e) => {
-      if (e.target && e.target.classList.contains('task-list-item-checkbox')) {
-        const index = parseInt(e.target.dataset.index, 10);
-        const isChecked = e.target.checked;
-        
-        const editor = document.getElementById('editor');
-        if (!editor) return;
-        
-        let text = editor.value;
-        let currentIdx = 0;
-        
-        text = text.replace(/^(>[ \t]*)*(\s*[-*+]\s+)\[([xX\-\s])\]/gm, (match, bq, prefix, check) => {
-          if (currentIdx === index) {
-            currentIdx++;
-            return `${bq || ''}${prefix}[${isChecked ? 'x' : '-'}]`;
-          }
-          currentIdx++;
-          return match;
-        });
-        
-        const start = editor.selectionStart;
-        const end = editor.selectionEnd;
-        
-        executeAction("Toggle Checkbox", () => {
-          editor.value = text;
-          editor.setSelectionRange(start, end);
-          updatePreview(); setDirty(true); updateEditorOverlay();
-        });
-      }
-    });
-  }
 });
