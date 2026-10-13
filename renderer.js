@@ -15,6 +15,12 @@ const { ipcRenderer, remote, shell } = require("electron");
 const fs = require("fs");
 const path = require("path");
 const { dialog, clipboard } = require("@electron/remote");
+let katexLib = null;
+try {
+  katexLib = require("./api/katex.min.js");
+} catch (e) {
+  if (typeof window !== "undefined") katexLib = window.katex;
+}
 
 // ====== STATO ================================================================
 let currentFilePath = null;
@@ -225,6 +231,79 @@ function preprocessCodeIncludes(raw) {
   });
 
   return raw;
+}
+
+// ====== MATH PREPROCESSOR (KaTeX LaTeX formulas) =============================
+function getKatex() {
+  if (katexLib) return katexLib;
+  if (typeof window !== "undefined" && window.katex) return window.katex;
+  try {
+    katexLib = require("./api/katex.min.js");
+    return katexLib;
+  } catch (e) {
+    return null;
+  }
+}
+
+function processMath(markdown) {
+  if (!markdown) return markdown;
+  const k = getKatex();
+  if (!k) return markdown;
+
+  // 1. Proteggi i blocchi di codice (fenced ``` e ~~~ e inline `...`)
+  const codeBlocks = [];
+  let protectedMd = markdown.replace(/(```[\s\S]*?```|~~~[\s\S]*?~~~|`[^`\n\r]+`)/g, (match) => {
+    const placeholder = `%%MATH_CODE_BLOCK_${codeBlocks.length}%%`;
+    codeBlocks.push(match);
+    return placeholder;
+  });
+
+  const renderDisplay = (math) => {
+    const trimmed = math.trim();
+    try {
+      const rendered = k.renderToString(trimmed, {
+        displayMode: true,
+        throwOnError: false,
+        trust: true,
+        macros: { "\\eqref": "\\href{#1}{}" }
+      });
+      return `\n\n<div class="katex-display-container">${rendered}</div>\n\n`;
+    } catch (err) {
+      return `\n\n<div class="katex-display-container katex-error">${trimmed}</div>\n\n`;
+    }
+  };
+
+  const renderInline = (math) => {
+    const trimmed = math.trim();
+    try {
+      const rendered = k.renderToString(trimmed, {
+        displayMode: false,
+        throwOnError: false,
+        trust: true,
+        macros: { "\\eqref": "\\href{#1}{}" }
+      });
+      return `<span class="katex-inline-container">${rendered}</span>`;
+    } catch (err) {
+      return `<span class="katex-inline-container katex-error">${trimmed}</span>`;
+    }
+  };
+
+  // 2. Display math: $$...$$ e \[...\]
+  protectedMd = protectedMd.replace(/\$\$([\s\S]+?)\$\$/g, (match, math) => renderDisplay(math));
+  protectedMd = protectedMd.replace(/\\\[([\s\S]+?)\\\]/g, (match, math) => renderDisplay(math));
+
+  // 3. Inline math: \(...\) e $...$
+  protectedMd = protectedMd.replace(/\\\(([\s\S]+?)\\\)/g, (match, math) => renderInline(math));
+  protectedMd = protectedMd.replace(/(^|[^\\])\$([^\s\$](?:[^\$\n\r]*?[^\s\$\\ ])?)\$/g, (match, prefix, math) => {
+    return prefix + renderInline(math);
+  });
+
+  // 4. Ripristina i blocchi di codice
+  protectedMd = protectedMd.replace(/%%MATH_CODE_BLOCK_(\d+)%%/g, (_, index) => {
+    return codeBlocks[parseInt(index, 10)];
+  });
+
+  return protectedMd;
 }
 
 // ====== SEARCH UI, LINKS, ecc. (come prima) =================================
@@ -978,6 +1057,8 @@ window.addEventListener("DOMContentLoaded", () => {
     const text = editor.value;
     let clean = text
       .replace(/```[\s\S]*?```/g, ' ')
+      .replace(/\$\$[\s\S]*?\$\$/g, ' ')
+      .replace(/(^|[^\\])\$([^\s\$](?:[^\$\n\r]*?[^\s\$\\ ])?)\$/g, ' ')
       .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
       .replace(/\[[^\]]*\]\([^)]*\)/g, ' ')
       .replace(/(^|\n)[*\-]{3,}(\n|$)/g, ' ')
@@ -1004,6 +1085,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
     const rawOriginal = editor.value;
     let raw = preprocessCodeIncludes(rawOriginal);
+    raw = processMath(raw);
 
     checkboxCount = 0;
 
@@ -1122,24 +1204,18 @@ window.addEventListener("DOMContentLoaded", () => {
       } catch (e) { console.warn('Mermaid init warning:', e); }
     }
 
-    // Math
+    // Math fallback
     if (window.renderMathInElement) {
-      renderMathInElement(preview, {
-        delimiters: [
-          { left: "$$", right: "$$", display: true },
-          { left: "$", right: "$", display: false }
-        ],
-        throwOnError: false, output: 'html', trust: true,
-        macros: { "\\eqref": "\\href{#1}{}" }
-      });
-      preview.querySelectorAll('.katex-display').forEach(display => {
-        display.style.overflowX = 'auto'; display.style.maxWidth = '100%';
-      });
-      preview.querySelectorAll('.katex').forEach(inline => {
-        if (!inline.closest('.katex-display')) {
-          inline.style.maxWidth = '100%'; inline.style.whiteSpace = 'normal';
-        }
-      });
+      try {
+        renderMathInElement(preview, {
+          delimiters: [
+            { left: "$$", right: "$$", display: true },
+            { left: "$", right: "$", display: false }
+          ],
+          throwOnError: false, output: 'html', trust: true,
+          macros: { "\\eqref": "\\href{#1}{}" }
+        });
+      } catch (_) {}
     }
     
     // Re-apply preview search highlights if needed
