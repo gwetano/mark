@@ -736,17 +736,42 @@ body.dark .clickable-code:active,
   color: black;
 }
 
+.katex-display-container {
+  display: block;
+  width: 100%;
+  text-align: center;
+  margin: 1.2em 0;
+  clear: both;
+}
+
 .katex-display {
+  display: block;
+  margin: 1.2em 0;
+  text-align: center;
   max-width: 100%;
-  overflow: auto;
+  overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
   padding-bottom: 5px;
 }
 
+.katex-display > .katex {
+  display: block;
+  text-align: center;
+}
+
+.katex-display > .katex > .katex-html {
+  display: block;
+  position: relative;
+  text-align: center;
+}
+
 .katex {
   max-width: 100%;
-  white-space: normal;
+}
+
+.katex * {
+  font-family: inherit;
 }
 
 .katex-display::-webkit-scrollbar {

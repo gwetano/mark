@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Print</title>
   <link rel="stylesheet" href="./api/katex.min.css">
+  <link rel="stylesheet" href="./api/katex-fonts.css">
   <style>
     @font-face {
       font-family: "Inter";
@@ -35,8 +36,52 @@
       font-style: normal;
     }
 
-    * {
+    body, button, input, textarea, select {
       font-family: "Inter", sans-serif;
+    }
+
+    .katex {
+      font-family: KaTeX_Main, 'Times New Roman', serif !important;
+    }
+
+    .katex * {
+      font-family: inherit;
+    }
+
+    .katex .mathnormal {
+      font-family: KaTeX_Math, 'Times New Roman', serif !important;
+      font-style: italic !important;
+    }
+
+    .katex .mathit {
+      font-family: KaTeX_Main, 'Times New Roman', serif !important;
+      font-style: italic !important;
+    }
+
+    .katex .mathrm {
+      font-family: KaTeX_Main, 'Times New Roman', serif !important;
+      font-style: normal !important;
+    }
+
+    .katex .mathbf {
+      font-family: KaTeX_Main, 'Times New Roman', serif !important;
+      font-weight: 700 !important;
+    }
+
+    .katex .amsrm,
+    .katex .mathbb,
+    .katex .textbb {
+      font-family: KaTeX_AMS, 'Times New Roman', serif !important;
+    }
+
+    .katex .delimsizing.size1,
+    .katex .op-symbol.small-op {
+      font-family: KaTeX_Size1, 'Times New Roman', serif !important;
+    }
+
+    .katex .delimsizing.size2,
+    .katex .op-symbol.large-op {
+      font-family: KaTeX_Size2, 'Times New Roman', serif !important;
     }
 
     body {
@@ -236,23 +281,32 @@
       font-size: 1.1em;
     }
 
-    .katex-display {
-      white-space: normal !important;
-      overflow-x: visible !important;
-      overflow-wrap: break-word;
-      word-wrap: break-word;
-      word-break: break-word;
+    .katex-display-container {
       display: block;
-      text-align: left;
-      font-size: 1.05em;
+      width: 100%;
+      text-align: center;
+      margin: 1.2em 0;
       page-break-inside: avoid;
     }
 
-    .katex-display .katex {
-      display: inline !important;
-      white-space: normal !important;
-      overflow-wrap: break-word;
-      word-break: break-word;
+    .katex-display {
+      display: block;
+      margin: 1.2em 0;
+      text-align: center !important;
+      font-size: 1.15em;
+      page-break-inside: avoid;
+    }
+
+    .katex-display > .katex {
+      display: block !important;
+      text-align: center !important;
+      white-space: nowrap;
+    }
+
+    .katex-display > .katex > .katex-html {
+      display: block;
+      position: relative;
+      text-align: center;
     }
 
     .katex-src {
@@ -472,11 +526,14 @@
         });
       });
 
-      Promise.all(imagePromises).then(() => {
-        // Small buffer to ensure layout is settled
+      Promise.all([
+        ...imagePromises,
+        document.fonts ? document.fonts.ready : Promise.resolve()
+      ]).then(() => {
+        // Small buffer to ensure layout and fonts are fully settled
         setTimeout(() => {
           ipcRenderer.send('content-ready');
-        }, 500);
+        }, 300);
       });
     });
   </script>
