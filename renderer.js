@@ -920,6 +920,10 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   newFileBtn && newFileBtn.addEventListener("click", () => {
+    if (!confirmLeaveCollabIfActive('creare un nuovo file')) {
+      return;
+    }
+
     if (!currentFolderPath) {
       if (typeof createNewFile === 'function') createNewFile();
       return;
@@ -1578,6 +1582,12 @@ window.addEventListener("DOMContentLoaded", () => {
   // ===== IPC handlers (file/load/view/theme) =====
   ipcRenderer.on("load-md", (event, filePath, content) => {
     if (!editor) return;
+    if (currentFilePath === filePath) return;
+
+    if (!confirmLeaveCollabIfActive('aprire un altro file')) {
+      return;
+    }
+
     currentFilePath = filePath;
     editor.value = content; 
     lastKnownEditorValue = content;
@@ -1812,6 +1822,45 @@ window.addEventListener("DOMContentLoaded", () => {
     createFileTree(folderPath, fileTree);
   }
 
+  // ===== COLLABORATION GUARD CONTRO CAMBIO FILE ACCIDENTALE =====
+  function confirmLeaveCollabIfActive(actionDescription = 'cambiare file') {
+    const collabState = getCollabState();
+    if (!collabState || !collabState.isActive) {
+      return true;
+    }
+
+    const choice = dialog.showMessageBoxSync({
+      type: 'warning',
+      buttons: ['Termina sessione e procedi', 'Rimani nella sessione'],
+      defaultId: 1,
+      cancelId: 1,
+      title: 'Sessione collaborativa attiva',
+      message: `Sei attualmente in una sessione di collaborazione live.\n\nSe decidi di ${actionDescription}, la sessione collaborativa verrà terminata per evitare disallineamenti con gli altri partecipanti.\n\nVuoi terminare la sessione e procedere?`
+    });
+
+    if (choice === 0) {
+      if (currentFilePath && isDirty && typeof saveCurrentFile === 'function') {
+        try {
+          saveCurrentFile();
+        } catch (e) {
+          console.error('[Collab] Errore salvataggio prima di terminare sessione:', e);
+        }
+      }
+      leaveCollaboration();
+      const bCollab = document.getElementById("btn-collab");
+      bCollab?.classList.remove("active-collab");
+      const sContainer = document.getElementById("collab-status-container");
+      sContainer?.classList.add("hidden");
+      if (typeof updateCollabModalView === 'function') {
+        updateCollabModalView();
+      }
+      showNotification("Sessione collaborativa terminata", "info");
+      return true;
+    }
+
+    return false;
+  }
+
   function saveCurrentFile() {
     if (!editor) return;
     const content = editor.value;
@@ -1825,11 +1874,16 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     }
   }
+
   function createNewFile() {
+    if (!confirmLeaveCollabIfActive('creare un nuovo file')) {
+      return;
+    }
+
     if (isDirty) {
       const answer = dialog.showMessageBoxSync({
-        type: 'question', buttons: ['Save', 'Don\'t Save', 'Discard'], defaultId: 0,
-        title: 'File not saved', message: 'There are some changes not saved. Do you want to save before creating another file?'
+        type: 'question', buttons: ['Salva', 'Non salvare', 'Annulla'], defaultId: 0,
+        title: 'File non salvato', message: 'Ci sono modifiche non salvate. Vuoi salvare prima di creare un altro file?'
       });
       if (answer === 0) saveCurrentFile(); else if (answer === 2) return;
     }
@@ -1905,10 +1959,16 @@ window.addEventListener("DOMContentLoaded", () => {
             <span class="tree-label">${item}</span>
           `;
           fileElement.addEventListener('click', () => {
+            if (currentFilePath === itemPath) return;
+
+            if (!confirmLeaveCollabIfActive(`aprire "${item}"`)) {
+              return;
+            }
+
             if (isDirty) {
               const answer = dialog.showMessageBoxSync({
                 type: 'question', buttons: ['Salva', 'Non salvare', 'Annulla'], defaultId: 0,
-                title: 'File not saved', message: 'Ci sono modifiche non salvate. Vuoi salvare prima di aprire un nuovo file?'
+                title: 'File non salvato', message: 'Ci sono modifiche non salvate. Vuoi salvare prima di aprire un nuovo file?'
               });
               if (answer === 0) saveCurrentFile();
               else if (answer === 2) return;
@@ -2212,6 +2272,7 @@ window.addEventListener("DOMContentLoaded", () => {
       editor: editor,
       isJoining: isJoining,
       onRemoteUpdate: () => {
+        if (editor) lastKnownEditorValue = editor.value;
         updatePreview();
         updateWordCount();
         updateEditorOverlay();
@@ -2251,6 +2312,55 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   btnCollabCreate?.addEventListener("click", () => {
+    if (getCollabState().isActive) {
+      if (!confirmLeaveCollabIfActive('avviare una nuova sessione')) {
+        return;
+      }
+    }
+
+    // Assicurati che il file corrente sia salvato sul dispositivo prima di avviare
+    if (!currentFilePath || !fs.existsSync(currentFilePath)) {
+      const choice = dialog.showMessageBoxSync({
+        type: 'question',
+        buttons: ['Salva file e avvia', 'Annulla'],
+        defaultId: 0,
+        cancelId: 1,
+        title: 'Salvataggio richiesto',
+        message: 'Per avviare una sessione di collaborazione, devi prima salvare il file corrente sul tuo dispositivo.'
+      });
+      if (choice !== 0) return;
+
+      const defaultName = 'collaborazione.md';
+      const savedPath = dialog.showSaveDialogSync({
+        title: 'Salva file per la collaborazione',
+        defaultPath: path.join(currentFolderPath || '', defaultName),
+        filters: [{ name: "Markdown", extensions: ["md"] }]
+      });
+
+      if (!savedPath) {
+        showNotification("Avvio annullato: file non salvato", "info");
+        return;
+      }
+
+      try {
+        fs.writeFileSync(savedPath, editor?.value || '', 'utf8');
+        currentFilePath = savedPath;
+        lastKnownEditorValue = editor?.value || '';
+        setDirty(false);
+        if (currentFolderPath && savedPath.startsWith(currentFolderPath)) {
+          openFolder(currentFolderPath);
+        }
+      } catch (err) {
+        console.error('[Collab] Errore salvataggio:', err);
+        showNotification('Errore salvataggio: ' + err.message, 'error');
+        return;
+      }
+    } else {
+      if (isDirty && typeof saveCurrentFile === 'function') {
+        saveCurrentFile();
+      }
+    }
+
     const roomId = collabNewRoomId?.value || generateRoomId();
     handleConnectCollab(roomId, false);
   });
@@ -2261,15 +2371,90 @@ window.addEventListener("DOMContentLoaded", () => {
       showNotification("Inserisci il codice", "error");
       return;
     }
+
+    if (getCollabState().isActive) {
+      if (!confirmLeaveCollabIfActive("unirti a un'altra sessione")) {
+        return;
+      }
+    }
+
+    // Se ci sono modifiche non salvate nel file attuale, chiedi se salvarle
+    if (isDirty) {
+      const answer = dialog.showMessageBoxSync({
+        type: 'question',
+        buttons: ['Salva', 'Non salvare', 'Annulla'],
+        defaultId: 0,
+        cancelId: 2,
+        title: 'Modifiche non salvate',
+        message: 'Ci sono modifiche non salvate nel file attuale. Vuoi salvarle prima di unirti alla sessione?'
+      });
+      if (answer === 0) {
+        saveCurrentFile();
+      } else if (answer === 2) {
+        return;
+      }
+    }
+
+    // Chiedi dove salvare localmente il file della sessione prima di entrare nella visualizzazione
+    const defaultName = `${roomId}.md`;
+    const savePath = dialog.showSaveDialogSync({
+      title: 'Dove vuoi salvare il file della sessione?',
+      defaultPath: path.join(currentFolderPath || '', defaultName),
+      filters: [{ name: "Markdown", extensions: ["md"] }]
+    });
+
+    if (!savePath) {
+      showNotification("Connessione annullata: percorso non selezionato", "info");
+      return;
+    }
+
+    try {
+      fs.writeFileSync(savePath, '', 'utf8');
+      currentFilePath = savePath;
+      if (editor) {
+        editor.value = '';
+        lastKnownEditorValue = '';
+      }
+      setDirty(false);
+      updatePreview();
+      if (typeof updateWordCount === 'function') updateWordCount();
+      if (typeof updateEditorOverlay === 'function') updateEditorOverlay();
+      if (currentFolderPath && savePath.startsWith(currentFolderPath)) {
+        openFolder(currentFolderPath);
+      }
+    } catch (err) {
+      console.error('[Collab] Errore creazione file sessione:', err);
+      showNotification('Errore creazione file: ' + err.message, 'error');
+      return;
+    }
+
     handleConnectCollab(roomId, true);
   });
 
   btnCollabLeave?.addEventListener("click", () => {
+    if (currentFilePath && isDirty && typeof saveCurrentFile === 'function') {
+      try {
+        saveCurrentFile();
+      } catch (e) {
+        console.error('[Collab] Errore salvataggio chiusura sessione:', e);
+      }
+    }
     leaveCollaboration();
     btnCollab?.classList.remove("active-collab");
     collabStatusContainer?.classList.add("hidden");
     updateCollabModalView();
     showNotification("Sessione terminata", "info");
+  });
+
+  window.addEventListener('beforeunload', () => {
+    if (getCollabState().isActive) {
+      if (currentFilePath && isDirty && typeof saveCurrentFile === 'function') {
+        try {
+          saveCurrentFile();
+        } catch (_) {}
+      }
+      leaveCollaboration();
+    }
   });
 
 

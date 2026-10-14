@@ -139,12 +139,18 @@ function startCollaboration({
   }
 
   // Sincronizzazione iniziale completata (quando ci si unisce o si riceve il documento)
-  provider.on('synced', (event) => {
+  provider.on('synced', () => {
     applyRemoteTextToEditor();
   });
 
   // Ricezione aggiornamenti da Yjs
-  ydoc.on('update', () => {
+  ydoc.on('update', (_update, origin) => {
+    if (origin !== 'local') {
+      applyRemoteTextToEditor();
+    }
+  });
+
+  provider.on('peers', () => {
     applyRemoteTextToEditor();
   });
 
