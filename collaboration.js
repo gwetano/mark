@@ -56,6 +56,7 @@ function startCollaboration({
   roomId,
   password = null,
   editor,
+  isJoining = false,
   onRemoteUpdate,
   onUsersChange,
   onStatusChange,
@@ -71,9 +72,9 @@ function startCollaboration({
   ydoc = new Y.Doc();
   yText = ydoc.getText('markdown-content');
 
-  // Se l'editor locale ha già del contenuto e siamo i primi ad avviare la sessione,
-  // inseriamo il contenuto locale nel documento Yjs
-  if (editor.value && editor.value.trim().length > 0) {
+  // Solo se siamo noi ad avviare la sessione (host/creatore) e l'editor ha del testo,
+  // popoliamo inizialmente il documento condiviso. Se ci stiamo unendo, aspettiamo i dati della stanza.
+  if (!isJoining && editor.value && editor.value.trim().length > 0) {
     ydoc.transact(() => {
       if (yText.length === 0) {
         yText.insert(0, editor.value);
@@ -81,13 +82,22 @@ function startCollaboration({
     }, 'local');
   }
 
-  // Opzioni del provider WebRTC
+  // Opzioni del provider WebRTC con signaling server attivi e server STUN per il NAT traversal
   const providerOpts = {
     signaling: [
-      'wss://signaling.yjs.dev',
-      'wss://y-webrtc-signaling-eu.herokuapp.com',
-      'wss://y-webrtc-signaling-us.herokuapp.com'
-    ]
+      'wss://y-webrtc.fly.dev',
+      'wss://y-webrtc-signaling.fly.dev',
+      'wss://signaling.fly.dev'
+    ],
+    peerOpts: {
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:global.stun.twilio.com:3478' }
+        ]
+      }
+    }
   };
 
   if (password && password.trim().length > 0) {
@@ -102,9 +112,40 @@ function startCollaboration({
     return null;
   }
 
-  // Sincronizzazione completata
-  provider.on('synced', (synced) => {
-    // Pronto
+  // Imposta la presenza dell'utente per l'awareness di rete
+  try {
+    provider.awareness.setLocalStateField('user', {
+      connectedAt: Date.now()
+    });
+  } catch (_) {}
+
+  function applyRemoteTextToEditor() {
+    if (isApplyingRemote || !yText || !editor) return;
+    const remoteText = yText.toString();
+    if (editor.value === remoteText) return;
+
+    isApplyingRemote = true;
+    const currentStart = editor.selectionStart;
+    const currentEnd = editor.selectionEnd;
+    editor.value = remoteText;
+    if (currentStart <= remoteText.length) {
+      editor.setSelectionRange(currentStart, Math.min(currentEnd, remoteText.length));
+    }
+    isApplyingRemote = false;
+
+    if (onRemoteUpdate) {
+      onRemoteUpdate();
+    }
+  }
+
+  // Sincronizzazione iniziale completata (quando ci si unisce o si riceve il documento)
+  provider.on('synced', (event) => {
+    applyRemoteTextToEditor();
+  });
+
+  // Ricezione aggiornamenti da Yjs
+  ydoc.on('update', () => {
+    applyRemoteTextToEditor();
   });
 
   provider.on('status', (event) => {

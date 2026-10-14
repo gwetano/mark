@@ -47,9 +47,12 @@ for i in "${!steps[@]}"; do
       fi
       ;;
     "Build progetto")
+      # Pulisce la vecchia cartella dist che potrebbe essere appartenuta a root
+      sudo rm -rf "$PWD/dist"
       # Se la build completa fallisce, prova la build unpacked
       if ! npm run build; then
         echo "Build standard fallita, riprovo con electron-builder --dir..."
+        sudo rm -rf "$PWD/dist"
         if ! npx electron-builder --dir; then
           echo "Errore critico durante la build del progetto!"
           exit 1

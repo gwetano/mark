@@ -2201,7 +2201,7 @@ window.addEventListener("DOMContentLoaded", () => {
     if (collabActiveRoomId?.value) copyTextToClipboard(collabActiveRoomId.value);
   });
 
-  function handleConnectCollab(roomId) {
+  function handleConnectCollab(roomId, isJoining = false) {
     if (!roomId) {
       showNotification("Inserisci un codice valido", "error");
       return;
@@ -2210,6 +2210,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const session = startCollaboration({
       roomId: roomId,
       editor: editor,
+      isJoining: isJoining,
       onRemoteUpdate: () => {
         updatePreview();
         updateWordCount();
@@ -2219,6 +2220,9 @@ window.addEventListener("DOMContentLoaded", () => {
       onUsersChange: (count) => {
         if (collabUsersCount) collabUsersCount.textContent = count;
         if (collabStatusText) collabStatusText.textContent = `${roomId} · ${count}`;
+        if (count > 1) {
+          showNotification(`${count} partecipanti connessi`, "info");
+        }
       },
       onStatusChange: (connected) => {
         if (connected) {
@@ -2242,13 +2246,13 @@ window.addEventListener("DOMContentLoaded", () => {
       if (collabStatusText) collabStatusText.textContent = `${roomId} · 1`;
       updateCollabModalView();
       collabModal?.classList.add("hidden");
-      showNotification(`Connesso a ${roomId}`, "success");
+      showNotification(isJoining ? `Unito a ${roomId}` : `Sessione ${roomId} avviata`, "success");
     }
   }
 
   btnCollabCreate?.addEventListener("click", () => {
     const roomId = collabNewRoomId?.value || generateRoomId();
-    handleConnectCollab(roomId);
+    handleConnectCollab(roomId, false);
   });
 
   btnCollabJoin?.addEventListener("click", () => {
@@ -2257,7 +2261,7 @@ window.addEventListener("DOMContentLoaded", () => {
       showNotification("Inserisci il codice", "error");
       return;
     }
-    handleConnectCollab(roomId);
+    handleConnectCollab(roomId, true);
   });
 
   btnCollabLeave?.addEventListener("click", () => {
