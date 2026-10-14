@@ -22,6 +22,13 @@ try {
   if (typeof window !== "undefined") katexLib = window.katex;
 }
 
+const {
+  startCollaboration,
+  leaveCollaboration,
+  generateRoomId,
+  getCollabState
+} = require("./collaboration.js");
+
 // ====== STATO ================================================================
 let currentFilePath = null;
 let isDirty = false;
@@ -207,7 +214,7 @@ function preprocessCodeIncludes(raw) {
     if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) {
       const nice = escapeHtml(filePath);
       const caption = alt ? `<figcaption class="code-figcaption">${escapeHtml(alt)}</figcaption>` : '';
-      return `<figure class="code-include error"><div class="include-error">⚠️ File not found: <code>${nice}</code></div>${caption}</figure>`;
+      return `<figure class="code-include error"><div class="include-error">File not found: <code>${nice}</code></div>${caption}</figure>`;
     }
     let content = fs.readFileSync(abs, 'utf8');
     let from = 1, to = content.split(/\r?\n/).length;
@@ -576,6 +583,11 @@ function updateOnlineStatus() {
 // ====== DOM READY ===========================================================
 window.addEventListener("DOMContentLoaded", () => {
 
+  // ===== TREE SVG ICONS (FILLED) =====
+  const FOLDER_CHEVRON_SVG = `<svg class="tree-chevron-icon" width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
+  const FOLDER_SVG = `<svg class="tree-item-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>`;
+  const FILE_SVG = `<svg class="tree-item-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 14H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>`;
+
   // ===== UNDO HISTORY LOGIC =====
   let actionHistory = [];
   let lastKnownEditorValue = "";
@@ -916,19 +928,12 @@ window.addEventListener("DOMContentLoaded", () => {
     // Creazione del campo input inline
     const inputContainer = document.createElement('div');
     inputContainer.className = 'tree-item tree-file';
-    inputContainer.style.paddingLeft = '28px';
+    inputContainer.innerHTML = `<span class="tree-file-icon">${FILE_SVG}</span>`;
 
     const input = document.createElement('input');
     input.type = 'text';
-    input.placeholder = 'nomefile.md';
-    input.style.width = '90%';
-    input.style.background = 'var(--editor-bg)';
-    input.style.color = 'var(--fg)';
-    input.style.border = '1px solid #007acc';
-    input.style.outline = 'none';
-    input.style.padding = '2px 5px';
-    input.style.fontFamily = 'inherit';
-    input.style.fontSize = '12px';
+    input.placeholder = 'nuovo-file.md';
+    input.className = 'tree-inline-input';
 
     inputContainer.appendChild(input);
 
@@ -1170,27 +1175,34 @@ window.addEventListener("DOMContentLoaded", () => {
       preview.scrollTop = currentScrollTop;
     }
 
-    preview.querySelectorAll('pre code').forEach(codeBlock => {
-      codeBlock.classList.add('clickable-code');
-      codeBlock.title = 'Click to copy the code';
-      codeBlock.addEventListener('click', function () {
-        const text = this.textContent;
-        navigator.clipboard.writeText(text)
-          .then(() => {
-            const originalBg = this.style.backgroundColor;
-            this.style.backgroundColor = '#4CAF50';
-            setTimeout(() => { this.style.backgroundColor = originalBg; }, 500);
-            const notification = document.createElement('div');
-            notification.className = 'copy-notification';
-            notification.textContent = 'Copied!';
-            notification.style.position = 'absolute';
-            notification.style.top = `${window.scrollY + this.getBoundingClientRect().top - 30}px`;
-            notification.style.left = `${window.scrollX + this.getBoundingClientRect().left + this.offsetWidth / 2}px`;
-            document.body.appendChild(notification);
-            setTimeout(() => notification.remove(), 1500);
-          })
-          .catch(err => console.error('Error ', err));
-      });
+    const CODE_COPY_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
+    const CODE_CHECK_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`;
+
+    preview.querySelectorAll('pre').forEach(pre => {
+      const codeBlock = pre.querySelector('code');
+      if (!codeBlock) return;
+      if (!pre.querySelector('.code-copy-btn')) {
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'code-copy-btn';
+        copyBtn.setAttribute('title', 'Copia codice');
+        copyBtn.setAttribute('type', 'button');
+        copyBtn.innerHTML = CODE_COPY_ICON;
+        copyBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const text = codeBlock.textContent;
+          navigator.clipboard.writeText(text)
+            .then(() => {
+              copyBtn.innerHTML = CODE_CHECK_ICON;
+              copyBtn.classList.add('copied');
+              setTimeout(() => {
+                copyBtn.innerHTML = CODE_COPY_ICON;
+                copyBtn.classList.remove('copied');
+              }, 1500);
+            })
+            .catch(err => console.error('Error copying code:', err));
+        });
+        pre.appendChild(copyBtn);
+      }
     });
 
     // Mermaid init
@@ -1777,12 +1789,19 @@ window.addEventListener("DOMContentLoaded", () => {
   function openFolder(folderPath) {
     currentFolderPath = folderPath;
 
-    // Rende il percorso relativo partendo da /home
     let displayPath = folderPath;
     if (folderPath.startsWith('/home')) {
       displayPath = path.relative('/home', folderPath);
     }
-    folderPathEl && (folderPathEl.textContent = displayPath);
+    if (folderPathEl) {
+      folderPathEl.innerHTML = `
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>
+        </svg>
+        <span class="folder-path-text">${displayPath}</span>
+      `;
+      folderPathEl.classList.remove('hidden');
+    }
 
     if (fileTree) fileTree.innerHTML = '';
     explorerPanel && explorerPanel.classList.remove("hidden");
@@ -1847,12 +1866,18 @@ window.addEventListener("DOMContentLoaded", () => {
           const itemPath = path.join(folderPath, item);
           const folderElement = document.createElement('div');
           folderElement.className = 'tree-folder collapsed';
-          const folderHeader = document.createElement('div'); folderHeader.className = 'tree-folder-header';
-          const folderIcon = document.createElement('span'); folderIcon.className = 'tree-folder-icon';
-          const folderName = document.createElement('span'); folderName.textContent = item; folderName.title = item;
-          folderHeader.appendChild(folderIcon); folderHeader.appendChild(folderName);
-          const folderContent = document.createElement('div'); folderContent.className = 'tree-folder-content';
-          folderElement.appendChild(folderHeader); folderElement.appendChild(folderContent);
+          const folderHeader = document.createElement('div');
+          folderHeader.className = 'tree-folder-header';
+          folderHeader.title = item;
+          folderHeader.innerHTML = `
+            <span class="tree-folder-chevron">${FOLDER_CHEVRON_SVG}</span>
+            <span class="tree-folder-icon">${FOLDER_SVG}</span>
+            <span class="tree-label">${item}</span>
+          `;
+          const folderContent = document.createElement('div');
+          folderContent.className = 'tree-folder-content';
+          folderElement.appendChild(folderHeader);
+          folderElement.appendChild(folderContent);
           parentElement.appendChild(folderElement);
           folderHeader.addEventListener('click', () => {
             folderElement.classList.toggle('collapsed');
@@ -1873,9 +1898,12 @@ window.addEventListener("DOMContentLoaded", () => {
           const itemPath = path.join(folderPath, item);
           const fileElement = document.createElement('div');
           fileElement.className = 'tree-item tree-file';
-          fileElement.textContent = item;
           fileElement.title = item;
           fileElement.dataset.path = itemPath;
+          fileElement.innerHTML = `
+            <span class="tree-file-icon">${FILE_SVG}</span>
+            <span class="tree-label">${item}</span>
+          `;
           fileElement.addEventListener('click', () => {
             if (isDirty) {
               const answer = dialog.showMessageBoxSync({
@@ -2061,6 +2089,185 @@ window.addEventListener("DOMContentLoaded", () => {
   // Gestione chiusura del Modal
   btnCloseSettings && btnCloseSettings.addEventListener('click', () => settingsModal.classList.add('hidden'));
   modalOverlay && modalOverlay.addEventListener('click', () => settingsModal.classList.add('hidden'));
+
+  // ===== GESTIONE COLLABORAZIONE (Yjs + WebRTC) =====
+  const btnCollab = document.getElementById("btn-collab");
+  const collabModal = document.getElementById("collab-modal");
+  const btnCloseCollab = document.getElementById("btn-close-collab");
+  const collabOverlay = document.getElementById("collab-overlay");
+
+  const collabDisconnectedView = document.getElementById("collab-disconnected-view");
+  const collabConnectedView = document.getElementById("collab-connected-view");
+
+  const tabBtnCreate = document.getElementById("tab-btn-create");
+  const tabBtnJoin = document.getElementById("tab-btn-join");
+  const collabPaneCreate = document.getElementById("collab-pane-create");
+  const collabPaneJoin = document.getElementById("collab-pane-join");
+
+  const collabNewRoomId = document.getElementById("collab-new-room-id");
+  const btnCollabCopyId = document.getElementById("btn-collab-copy-id");
+  const btnCollabRegenId = document.getElementById("btn-collab-regen-id");
+  const btnCollabCreate = document.getElementById("btn-collab-create");
+
+  const collabJoinRoomId = document.getElementById("collab-join-room-id");
+  const btnCollabJoin = document.getElementById("btn-collab-join");
+
+  const collabUsersCount = document.getElementById("collab-users-count");
+  const collabActiveRoomId = document.getElementById("collab-active-room-id");
+  const btnCollabCopyActiveId = document.getElementById("btn-collab-copy-active-id");
+  const btnCollabLeave = document.getElementById("btn-collab-leave");
+
+  const collabStatusContainer = document.getElementById("collab-status-container");
+  const collabStatusText = document.getElementById("collab-status-text");
+
+  function switchCollabTab(tab) {
+    if (tab === "create") {
+      tabBtnCreate?.classList.add("active");
+      tabBtnJoin?.classList.remove("active");
+      collabPaneCreate?.classList.remove("hidden");
+      collabPaneJoin?.classList.add("hidden");
+      if (collabNewRoomId && !collabNewRoomId.value) {
+        collabNewRoomId.value = generateRoomId();
+      }
+    } else {
+      tabBtnJoin?.classList.add("active");
+      tabBtnCreate?.classList.remove("active");
+      collabPaneJoin?.classList.remove("hidden");
+      collabPaneCreate?.classList.add("hidden");
+      collabJoinRoomId?.focus();
+    }
+  }
+
+  tabBtnCreate?.addEventListener("click", () => switchCollabTab("create"));
+  tabBtnJoin?.addEventListener("click", () => switchCollabTab("join"));
+
+  function updateCollabModalView() {
+    const state = getCollabState();
+    if (state.isActive) {
+      if (collabDisconnectedView) {
+        collabDisconnectedView.classList.add("hidden");
+        collabDisconnectedView.style.display = "none";
+      }
+      if (collabConnectedView) {
+        collabConnectedView.classList.remove("hidden");
+        collabConnectedView.style.display = "flex";
+      }
+      if (collabActiveRoomId) collabActiveRoomId.value = state.roomId;
+      if (collabUsersCount) collabUsersCount.textContent = state.userCount || 1;
+    } else {
+      if (collabDisconnectedView) {
+        collabDisconnectedView.classList.remove("hidden");
+        collabDisconnectedView.style.display = "flex";
+      }
+      if (collabConnectedView) {
+        collabConnectedView.classList.add("hidden");
+        collabConnectedView.style.display = "none";
+      }
+      switchCollabTab("create");
+    }
+  }
+
+  if (btnCollab) {
+    btnCollab.addEventListener("click", (e) => {
+      e.stopPropagation();
+      updateCollabModalView();
+      collabModal?.classList.remove("hidden");
+      dropdownTitle?.classList.remove("open");
+      dropdownExtra?.classList.remove("open");
+    });
+  }
+
+  btnCloseCollab?.addEventListener("click", () => collabModal?.classList.add("hidden"));
+  collabOverlay?.addEventListener("click", () => collabModal?.classList.add("hidden"));
+
+  btnCollabRegenId?.addEventListener("click", () => {
+    if (collabNewRoomId) collabNewRoomId.value = generateRoomId();
+  });
+
+  function copyTextToClipboard(text) {
+    if (clipboard && clipboard.writeText) {
+      clipboard.writeText(text);
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+    }
+    showNotification("Codice copiato", "info");
+  }
+
+  btnCollabCopyId?.addEventListener("click", () => {
+    if (collabNewRoomId?.value) copyTextToClipboard(collabNewRoomId.value);
+  });
+
+  btnCollabCopyActiveId?.addEventListener("click", () => {
+    if (collabActiveRoomId?.value) copyTextToClipboard(collabActiveRoomId.value);
+  });
+
+  function handleConnectCollab(roomId) {
+    if (!roomId) {
+      showNotification("Inserisci un codice valido", "error");
+      return;
+    }
+
+    const session = startCollaboration({
+      roomId: roomId,
+      editor: editor,
+      onRemoteUpdate: () => {
+        updatePreview();
+        updateWordCount();
+        updateEditorOverlay();
+        setDirty(true);
+      },
+      onUsersChange: (count) => {
+        if (collabUsersCount) collabUsersCount.textContent = count;
+        if (collabStatusText) collabStatusText.textContent = `${roomId} · ${count}`;
+      },
+      onStatusChange: (connected) => {
+        if (connected) {
+          btnCollab?.classList.add("active-collab");
+          collabStatusContainer?.classList.remove("hidden");
+          const count = getCollabState().userCount || 1;
+          if (collabStatusText) collabStatusText.textContent = `${roomId} · ${count}`;
+        } else {
+          const state = getCollabState();
+          if (!state.isActive) {
+            btnCollab?.classList.remove("active-collab");
+          }
+        }
+      },
+      showNotification: showNotification
+    });
+
+    if (session) {
+      btnCollab?.classList.add("active-collab");
+      collabStatusContainer?.classList.remove("hidden");
+      if (collabStatusText) collabStatusText.textContent = `${roomId} · 1`;
+      updateCollabModalView();
+      collabModal?.classList.add("hidden");
+      showNotification(`Connesso a ${roomId}`, "success");
+    }
+  }
+
+  btnCollabCreate?.addEventListener("click", () => {
+    const roomId = collabNewRoomId?.value || generateRoomId();
+    handleConnectCollab(roomId);
+  });
+
+  btnCollabJoin?.addEventListener("click", () => {
+    const roomId = collabJoinRoomId?.value?.trim();
+    if (!roomId) {
+      showNotification("Inserisci il codice", "error");
+      return;
+    }
+    handleConnectCollab(roomId);
+  });
+
+  btnCollabLeave?.addEventListener("click", () => {
+    leaveCollaboration();
+    btnCollab?.classList.remove("active-collab");
+    collabStatusContainer?.classList.add("hidden");
+    updateCollabModalView();
+    showNotification("Sessione terminata", "info");
+  });
+
 
   // --- Funzione per applicare la dimensione del Font all'editor ---
   function applyEditorFontSize(size) {
