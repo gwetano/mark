@@ -32,27 +32,52 @@ total=${#steps[@]}
 
 clear
 
+# Richiedi credenziali sudo all'inizio
+sudo -v || { echo "Permessi sudo richiesti."; exit 1; }
+
 for i in "${!steps[@]}"; do
   step=${steps[$i]}
   echo "$step..."
   progress_bar $((i+1)) $total
-  sleep 1 # Simula tempo di esecuzione
   case $step in
     "Installazione dipendenze")
-      npm install > /dev/null 2>&1
+      if ! npm install; then
+        echo "Errore durante l'installazione delle dipendenze (npm install)!"
+        exit 1
+      fi
       ;;
     "Build progetto")
-      npm run build > /dev/null 2>&1
+      # Se la build completa fallisce, prova la build unpacked
+      if ! npm run build; then
+        echo "Build standard fallita, riprovo con electron-builder --dir..."
+        if ! npx electron-builder --dir; then
+          echo "Errore critico durante la build del progetto!"
+          exit 1
+        fi
+      fi
       ;;
     "Copia file")
+      if [ ! -d "$DIST_DIR" ]; then
+        echo "Errore: cartella $DIST_DIR non trovata dopo la build!"
+        exit 1
+      fi
       sudo mkdir -p "$INSTALL_DIR"
+      sudo rm -rf "$INSTALL_DIR"/*
       sudo cp -r "$DIST_DIR"/* "$INSTALL_DIR/"
-      sudo chmod +x "$INSTALL_DIR/mark"
+      # Se il binario generato si chiama Mark (maiuscolo), crea symlink a mark (minuscolo)
+      if [ -f "$INSTALL_DIR/Mark" ] && [ ! -f "$INSTALL_DIR/mark" ]; then
+        sudo ln -sf "$INSTALL_DIR/Mark" "$INSTALL_DIR/mark"
+      fi
+      sudo chmod +x "$INSTALL_DIR/mark" 2>/dev/null || true
+      [ -f "$INSTALL_DIR/Mark" ] && sudo chmod +x "$INSTALL_DIR/Mark" 2>/dev/null || true
       ;;
     "Compilazione mark.c")
-      gcc -o mark mark.c > /dev/null 2>&1
-      sudo cp mark "$BIN_DIR/mark"
-      sudo chmod +x "$BIN_DIR/mark"
+      if gcc -o mark mark.c; then
+        sudo cp mark "$BIN_DIR/mark"
+        sudo chmod +x "$BIN_DIR/mark"
+      else
+        echo "Avviso: compilazione mark.c fallita. Puoi comunque avviare Mark da $INSTALL_DIR/mark"
+      fi
       ;;
     "Installazione completata")
       echo "Mark è stato installato correttamente!"

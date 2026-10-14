@@ -25,6 +25,7 @@
     "build": {
         "appId": "com.Giovanni.Mark",
         "productName": "Mark",
+        "executableName": "mark",
         "fileAssociations": [
             {
                 "ext": "md",
