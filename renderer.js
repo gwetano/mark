@@ -1,15 +1,16 @@
-// --- CARICAMENTO INIZIALE DEL TEMA DA LOCALSTORAGE ---
-  // Recupera il tema salvato (sostituisci 'mark-theme' con la chiave esatta che usa la tua app se è diversa)
-  const savedTheme = localStorage.getItem('mark-theme') || 'light'; 
-  const toggleThemeSwitch = document.getElementById('toggle-theme-switch');
+// --- CARICAMENTO INIZIALE DEL TEMA E DELLA LINGUA ---
+const i18n = require("./i18n.js");
+const savedTheme = localStorage.getItem('mark-theme') || 'light'; 
+if (savedTheme === 'dark') {
+  document.body.classList.add('dark');
+} else {
+  document.body.classList.remove('dark');
+}
 
-  if (savedTheme === 'dark') {
-    if (toggleThemeSwitch) toggleThemeSwitch.checked = true;
-    document.body.classList.add('dark'); // <--- QUESTO APPLICA EFFETTIVAMENTE I COLORI SCURI
-  } else {
-    if (toggleThemeSwitch) toggleThemeSwitch.checked = false;
-    document.body.classList.remove('dark');
-  }
+// Lingua predefinita: inglese come richiesto
+const savedLang = localStorage.getItem('mark.lang') || 'en';
+i18n.setLanguage(savedLang);
+
 // ====== IMPORTS ==============================================================
 const { ipcRenderer, remote, shell } = require("electron");
 const fs = require("fs");
@@ -29,6 +30,126 @@ const {
   getCollabState
 } = require("./collaboration.js");
 
+// ====== UTILS PRECOCI ======
+function escapeHtml(s) { 
+  if (typeof s !== 'string') return String(s);
+  return s.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])); 
+}
+
+// ====== NOTIFICHE POP-UP OPACO LIQUID GLASS & SWIPE A NUVOLA ======
+function getOrCreateNotificationContainer() {
+  let container = document.getElementById('notification-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'notification-container';
+    document.body.appendChild(container);
+  }
+  return container;
+}
+
+function showNotification(message, type = 'info') {
+  const container = getOrCreateNotificationContainer();
+  const notification = document.createElement('div');
+  notification.className = `cloud-notification ${type}`;
+
+  let iconSvg = '';
+  if (type === 'success') {
+    iconSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+  } else if (type === 'error') {
+    iconSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
+  } else {
+    iconSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
+  }
+
+  notification.innerHTML = `
+    <div class="cloud-notification-icon">${iconSvg}</div>
+    <div class="cloud-notification-text">${escapeHtml(message)}</div>
+  `;
+
+  container.appendChild(notification);
+
+  let isDragging = false;
+  let startX = 0;
+  let currentX = 0;
+  let dismissTimer = null;
+  let isDismissed = false;
+
+  function dismiss(direction = 1) {
+    if (isDismissed) return;
+    isDismissed = true;
+    clearTimeout(dismissTimer);
+    notification.classList.remove('grabbing');
+    if (direction > 0) {
+      notification.classList.add('cloud-dismiss-right');
+    } else {
+      notification.classList.add('cloud-dismiss-left');
+    }
+    setTimeout(() => {
+      try { notification.remove(); } catch (_) {}
+    }, 450);
+  }
+
+  function startAutoDismiss() {
+    clearTimeout(dismissTimer);
+    dismissTimer = setTimeout(() => {
+      dismiss(1); // Scompare dolcemente a destra come una nuvola
+    }, 3800);
+  }
+
+  startAutoDismiss();
+
+  notification.addEventListener('mouseenter', () => {
+    if (!isDragging) clearTimeout(dismissTimer);
+  });
+  notification.addEventListener('mouseleave', () => {
+    if (!isDragging && !isDismissed) startAutoDismiss();
+  });
+
+  // Swipe / drag a nuvola verso destra o sinistra
+  notification.addEventListener('pointerdown', (e) => {
+    if (isDismissed) return;
+    isDragging = true;
+    startX = e.clientX;
+    currentX = startX;
+    clearTimeout(dismissTimer);
+    notification.classList.add('grabbing');
+    try { notification.setPointerCapture(e.pointerId); } catch (_) {}
+    notification.style.transition = 'none';
+  });
+
+  notification.addEventListener('pointermove', (e) => {
+    if (!isDragging || isDismissed) return;
+    currentX = e.clientX;
+    const deltaX = currentX - startX;
+    const tilt = deltaX * 0.04;
+    const scale = 1 - Math.min(Math.abs(deltaX) / 800, 0.08);
+    const opacity = 1 - Math.min(Math.abs(deltaX) / 320, 0.5);
+
+    notification.style.transform = `translate3d(${deltaX}px, 0, 0) rotate(${tilt}deg) scale(${scale})`;
+    notification.style.opacity = `${opacity}`;
+  });
+
+  const onPointerEnd = (e) => {
+    if (!isDragging) return;
+    isDragging = false;
+    notification.classList.remove('grabbing');
+    try { notification.releasePointerCapture(e.pointerId); } catch (_) {}
+
+    const deltaX = currentX - startX;
+    if (Math.abs(deltaX) > 60) {
+      dismiss(deltaX > 0 ? 1 : -1);
+    } else {
+      notification.style.transition = 'all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      notification.style.transform = 'translate3d(0, 0, 0) rotate(0deg) scale(1)';
+      notification.style.opacity = '1';
+      startAutoDismiss();
+    }
+  };
+
+  notification.addEventListener('pointerup', onPointerEnd);
+  notification.addEventListener('pointercancel', onPointerEnd);
+}
+
 // ====== STATO ================================================================
 let currentFilePath = null;
 let isDirty = false;
@@ -42,10 +163,10 @@ let currentTabSize = 4;
 
 // ====== AUTO-UPDATE NOTIFICATIONS ===========================================
 ipcRenderer.on('update-available', () => {
-  showNotification('Aggiornamento disponibile! Verrà scaricato in background.', 'info');
+  showNotification(i18n.t('notif_update_available'), 'info');
 });
 ipcRenderer.on('update-downloaded', () => {
-  showNotification('Aggiornamento scaricato! Riavvia per applicare.', 'success');
+  showNotification(i18n.t('notif_update_downloaded'), 'success');
 });
 
 // ====== PLATFORM DETECTION & WINDOW CONTROLS ================================
@@ -70,25 +191,8 @@ try {
 } catch (err) { /* noop */ }
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-function showNotification(message, type = 'info') {
-  const notification = document.createElement('div');
-  notification.className = `ai-notification ${type}`;
-  notification.textContent = message;
-  notification.style.cssText = `
-    position: fixed; top: 20px; right: 20px;
-    background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
-    color: white; padding: 12px 20px; border-radius: 4px; z-index: 1000;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2); transition: opacity 0.3s ease;
-  `;
-  document.body.appendChild(notification);
-  setTimeout(() => {
-    notification.style.opacity = '0';
-    setTimeout(() => notification.remove(), 300);
-  }, 3000);
-}
-
 async function queryGroqAI(selectedText, query) {
-  if (!GROQ_API_KEY) { showNotification('API Groq key missing.', 'error'); return null; }
+  if (!GROQ_API_KEY) { showNotification(i18n.t('notif_groq_key_missing'), 'error'); return null; }
   const prompt = `Selected Text: "${selectedText}"
 
 Query utente: ${query}
@@ -117,7 +221,7 @@ Fornisci una risposta utile e precisa basata sul testo selezionato. Se la query 
     return data.choices[0]?.message?.content || 'Nessuna risposta ricevuta.';
   } catch (error) {
     console.error('Errore API Groq:', error);
-    showNotification(`Errore: ${error.message}`, 'error');
+    showNotification(i18n.t('notif_error', { msg: error.message }), 'error');
     return null;
   }
 }
@@ -126,7 +230,6 @@ Fornisci una risposta utile e precisa basata sul testo selezionato. Se la query 
 const SCROLL_DEBOUNCE_DELAY = 200;
 function debounce(func, delay) { let timeout; return (...args) => { clearTimeout(timeout); timeout = setTimeout(() => func.apply(this, args), delay); }; }
 let searchMatches = []; let currentMatchIndex = -1;
-function escapeHtml(s) { return s.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])); }
 function extToLang(ext) {
   const map = {
     js: 'javascript', c: 'c', h: 'c', cpp: 'cpp', cc: 'cpp', cxx: 'cpp', hpp: 'cpp',
@@ -675,7 +778,7 @@ window.addEventListener("DOMContentLoaded", () => {
          selEnd = selStart;
       } else {
          if (typeof showNotification === 'function') {
-           showNotification("Unable to undo action: the text was modified too much.", "error");
+           showNotification(i18n.t("notif_undo_error"), "error");
          }
          return;
       }
@@ -797,7 +900,10 @@ window.addEventListener("DOMContentLoaded", () => {
   const searchCloseBtn = document.getElementById("search-close");
   const autosaveSwitch = document.getElementById("toggle-autosave");
   const autoscrollSwitch = document.getElementById("toggle-autoscroll");
-  const themeSwitch = document.getElementById("toggle-theme-switch");
+  const themeBtnLight = document.getElementById("theme-btn-light");
+  const themeBtnDark = document.getElementById("theme-btn-dark");
+  const langBtnEn = document.getElementById("lang-btn-en");
+  const langBtnIt = document.getElementById("lang-btn-it");
   const btnToggleExplorer = document.getElementById('btn-toggle-explorer');
   const explorerResizer = document.getElementById('explorer-resizer');
   
@@ -920,7 +1026,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   newFileBtn && newFileBtn.addEventListener("click", () => {
-    if (!confirmLeaveCollabIfActive('creare un nuovo file')) {
+    if (!confirmLeaveCollabIfActive('action_create_new')) {
       return;
     }
 
@@ -1007,10 +1113,7 @@ window.addEventListener("DOMContentLoaded", () => {
     preview.removeAttribute("style");
   }
 
-  try {
-    const savedTheme = localStorage.getItem("mark-theme") || "light";
-    if (themeSwitch) themeSwitch.checked = savedTheme === "dark";
-  } catch (_) { }
+  // Theme & language initialized via settings segmented buttons
 
   // ===== AUTOSAVE (come prima) =====
   const AUTOSAVE_KEY = 'mark.autosaveEnabled';
@@ -1037,11 +1140,11 @@ window.addEventListener("DOMContentLoaded", () => {
       if (enabled) {
         if (!currentFilePath) {
           this.checked = false; localStorage.setItem(AUTOSAVE_KEY, 'false');
-          showNotification && showNotification('You must save the file first to enable autosave.', 'error');
+          showNotification && showNotification(i18n.t('notif_save_first_autosave'), 'error');
           return;
         }
-        startAutosave(); showNotification && showNotification('Autosave attivato.', 'success');
-      } else { stopAutosave(); showNotification && showNotification('Autosave disattivato.', 'info'); }
+        startAutosave(); showNotification && showNotification(i18n.t('notif_autosave_on'), 'success');
+      } else { stopAutosave(); showNotification && showNotification(i18n.t('notif_autosave_off'), 'info'); }
     });
     if (autosaveSwitch.checked && currentFilePath) startAutosave();
   }
@@ -1082,7 +1185,7 @@ window.addEventListener("DOMContentLoaded", () => {
       .replace(/`[^`]*`/g, ' ')
       .replace(/\s+/g, ' ');
     const words = clean.match(/\b[a-zA-ZÀ-ÿ]{2,}\b/g);
-    wordCountEl.textContent = `word-count: ${words ? words.length : 0}`;
+    wordCountEl.textContent = i18n.t('word_count', { count: words ? words.length : 0 });
   };
 
   // ===== DIRTY FLAG =====
@@ -1522,7 +1625,7 @@ window.addEventListener("DOMContentLoaded", () => {
       if (item.type.indexOf('image') !== -1) {
         e.preventDefault();
         if (!currentFilePath) {
-          dialog.showMessageBoxSync({ type: 'info', title: 'File not saved', message: 'If you want to paste an image, you should save the file.' });
+          dialog.showMessageBoxSync({ type: 'info', title: i18n.t('dialog_paste_img_title'), message: i18n.t('dialog_paste_img_message') });
           const file = dialog.showSaveDialogSync({ filters: [{ name: "Markdown", extensions: ["md"] }] });
           if (!file) return;
           fs.writeFileSync(file, editor.value, "utf8");
@@ -1584,7 +1687,7 @@ window.addEventListener("DOMContentLoaded", () => {
     if (!editor) return;
     if (currentFilePath === filePath) return;
 
-    if (!confirmLeaveCollabIfActive('aprire un altro file')) {
+    if (!confirmLeaveCollabIfActive('action_open_file', { name: path.basename(filePath) })) {
       return;
     }
 
@@ -1624,24 +1727,16 @@ window.addEventListener("DOMContentLoaded", () => {
     else { editor.style.display = 'none'; preview.style.width = '100%'; }
     setTimeout(calculateLineHeights, 100);
   });
-  ipcRenderer.on("toggle-theme", () => { document.body.classList.toggle("dark"); });
-
-  // ===== Tema switch coerente =====
-  themeSwitch && themeSwitch.addEventListener("change", function () {
-    if (this.checked) {
-      document.body.classList.add("dark");
-      localStorage.setItem("mark-theme", "dark");
-    } else {
-      document.body.classList.remove("dark");
-      localStorage.setItem("mark-theme", "light");
-    }
+  ipcRenderer.on("toggle-theme", () => {
+    const isDark = document.body.classList.contains("dark");
+    applyTheme(isDark ? "light" : "dark");
   });
 
   // ===== Inserimento immagini via menu =====
   ipcRenderer.on("insert-image-from-file", async (event, imagePath) => {
     if (!editor) return;
     if (!currentFilePath) {
-      dialog.showMessageBoxSync({ type: 'info', title: 'File non salvato', message: 'Per inserire un\'immagine, devi prima salvare il file.' });
+      dialog.showMessageBoxSync({ type: 'info', title: i18n.t('dialog_paste_img_title'), message: i18n.t('dialog_paste_img_message') });
       const file = dialog.showSaveDialogSync({ filters: [{ name: "Markdown", extensions: ["md"] }] });
       if (!file) return;
       fs.writeFileSync(file, editor.value, "utf8");
@@ -1823,19 +1918,23 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   // ===== COLLABORATION GUARD CONTRO CAMBIO FILE ACCIDENTALE =====
-  function confirmLeaveCollabIfActive(actionDescription = 'cambiare file') {
+  function confirmLeaveCollabIfActive(actionKey = 'action_open_file', actionParam = {}) {
     const collabState = getCollabState();
     if (!collabState || !collabState.isActive) {
       return true;
     }
 
+    const actionText = typeof actionKey === 'string' && actionKey.startsWith('action_')
+      ? i18n.t(actionKey, actionParam)
+      : actionKey;
+
     const choice = dialog.showMessageBoxSync({
       type: 'warning',
-      buttons: ['Termina sessione e procedi', 'Rimani nella sessione'],
+      buttons: [i18n.t('dialog_leave_session'), i18n.t('dialog_stay')],
       defaultId: 1,
       cancelId: 1,
-      title: 'Sessione collaborativa attiva',
-      message: `Sei attualmente in una sessione di collaborazione live.\n\nSe decidi di ${actionDescription}, la sessione collaborativa verrà terminata per evitare disallineamenti con gli altri partecipanti.\n\nVuoi terminare la sessione e procedere?`
+      title: i18n.t('dialog_leave_collab_title'),
+      message: i18n.t('dialog_leave_collab_message', { action: actionText })
     });
 
     if (choice === 0) {
@@ -1854,7 +1953,7 @@ window.addEventListener("DOMContentLoaded", () => {
       if (typeof updateCollabModalView === 'function') {
         updateCollabModalView();
       }
-      showNotification("Sessione collaborativa terminata", "info");
+      showNotification(i18n.t('notif_session_ended'), "info");
       return true;
     }
 
@@ -1882,15 +1981,15 @@ window.addEventListener("DOMContentLoaded", () => {
 
     if (isDirty) {
       const answer = dialog.showMessageBoxSync({
-        type: 'question', buttons: ['Salva', 'Non salvare', 'Annulla'], defaultId: 0,
-        title: 'File non salvato', message: 'Ci sono modifiche non salvate. Vuoi salvare prima di creare un altro file?'
+        type: 'question', buttons: [i18n.t('dialog_save'), i18n.t('dialog_dont_save'), i18n.t('dialog_cancel')], defaultId: 0,
+        title: i18n.t('dialog_unsaved_title'), message: i18n.t('dialog_unsaved_message')
       });
       if (answer === 0) saveCurrentFile(); else if (answer === 2) return;
     }
     const filename = dialog.showSaveDialogSync({
       defaultPath: path.join(currentFolderPath || '', 'new-file.md'),
       filters: [{ name: "Markdown", extensions: ["md"] }],
-      title: 'Create new file'
+      title: i18n.t('dialog_create_new_file_title')
     });
     if (!filename) return;
     fs.writeFileSync(filename, '', 'utf8');
@@ -1961,14 +2060,14 @@ window.addEventListener("DOMContentLoaded", () => {
           fileElement.addEventListener('click', () => {
             if (currentFilePath === itemPath) return;
 
-            if (!confirmLeaveCollabIfActive(`aprire "${item}"`)) {
+            if (!confirmLeaveCollabIfActive('action_open_file', { name: item })) {
               return;
             }
 
             if (isDirty) {
               const answer = dialog.showMessageBoxSync({
-                type: 'question', buttons: ['Salva', 'Non salvare', 'Annulla'], defaultId: 0,
-                title: 'File non salvato', message: 'Ci sono modifiche non salvate. Vuoi salvare prima di aprire un nuovo file?'
+                type: 'question', buttons: [i18n.t('dialog_save'), i18n.t('dialog_dont_save'), i18n.t('dialog_cancel')], defaultId: 0,
+                title: i18n.t('dialog_unsaved_title'), message: i18n.t('dialog_unsaved_message')
               });
               if (answer === 0) saveCurrentFile();
               else if (answer === 2) return;
@@ -2150,6 +2249,68 @@ window.addEventListener("DOMContentLoaded", () => {
   btnCloseSettings && btnCloseSettings.addEventListener('click', () => settingsModal.classList.add('hidden'));
   modalOverlay && modalOverlay.addEventListener('click', () => settingsModal.classList.add('hidden'));
 
+  // Gestione Tema (Chiaro / Scuro) con selettore a tab
+  function applyTheme(theme) {
+    if (theme === "dark") {
+      document.body.classList.add("dark");
+    } else {
+      document.body.classList.remove("dark");
+    }
+    localStorage.setItem("mark-theme", theme);
+
+    if (themeBtnLight && themeBtnDark) {
+      themeBtnLight.classList.toggle("active", theme === "light");
+      themeBtnDark.classList.toggle("active", theme === "dark");
+    }
+  }
+
+  function applyLanguage(lang) {
+    i18n.setLanguage(lang);
+    localStorage.setItem("mark.lang", lang);
+
+    const footerLangDisplay = document.getElementById("footer-lang-display");
+    if (footerLangDisplay) {
+      footerLangDisplay.textContent = lang.toUpperCase();
+    }
+
+    if (preview) {
+      preview.setAttribute("lang", lang);
+    }
+
+    if (langBtnEn && langBtnIt) {
+      langBtnEn.classList.toggle("active", lang === "en");
+      langBtnIt.classList.toggle("active", lang === "it");
+    }
+
+    document.querySelectorAll("[data-i18n]").forEach(el => {
+      const key = el.getAttribute("data-i18n");
+      el.textContent = i18n.t(key);
+    });
+    document.querySelectorAll("[data-i18n-title]").forEach(el => {
+      const key = el.getAttribute("data-i18n-title");
+      el.title = i18n.t(key);
+    });
+    document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
+      const key = el.getAttribute("data-i18n-placeholder");
+      el.placeholder = i18n.t(key);
+    });
+
+    if (typeof updateWordCount === "function") {
+      updateWordCount();
+    }
+
+    ipcRenderer.send("app-language-changed", lang);
+  }
+
+  themeBtnLight?.addEventListener("click", () => applyTheme("light"));
+  themeBtnDark?.addEventListener("click", () => applyTheme("dark"));
+  langBtnEn?.addEventListener("click", () => applyLanguage("en"));
+  langBtnIt?.addEventListener("click", () => applyLanguage("it"));
+
+  // Inizializza lingua (default inglese) e tema
+  applyTheme(localStorage.getItem("mark-theme") || "light");
+  applyLanguage(localStorage.getItem("mark.lang") || "en");
+
   // ===== GESTIONE COLLABORAZIONE (Yjs + WebRTC) =====
   const btnCollab = document.getElementById("btn-collab");
   const collabModal = document.getElementById("collab-modal");
@@ -2250,7 +2411,7 @@ window.addEventListener("DOMContentLoaded", () => {
     } else if (navigator.clipboard) {
       navigator.clipboard.writeText(text);
     }
-    showNotification("Codice copiato", "info");
+    showNotification(i18n.t('notif_code_copied'), "info");
   }
 
   btnCollabCopyId?.addEventListener("click", () => {
@@ -2263,7 +2424,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   function handleConnectCollab(roomId, isJoining = false) {
     if (!roomId) {
-      showNotification("Inserisci un codice valido", "error");
+      showNotification(i18n.t('notif_enter_valid_code'), "error");
       return;
     }
 
@@ -2282,7 +2443,7 @@ window.addEventListener("DOMContentLoaded", () => {
         if (collabUsersCount) collabUsersCount.textContent = count;
         if (collabStatusText) collabStatusText.textContent = `${roomId} · ${count}`;
         if (count > 1) {
-          showNotification(`${count} partecipanti connessi`, "info");
+          showNotification(i18n.t('notif_participants_connected', { count: count }), "info");
         }
       },
       onStatusChange: (connected) => {
@@ -2307,13 +2468,13 @@ window.addEventListener("DOMContentLoaded", () => {
       if (collabStatusText) collabStatusText.textContent = `${roomId} · 1`;
       updateCollabModalView();
       collabModal?.classList.add("hidden");
-      showNotification(isJoining ? `Unito a ${roomId}` : `Sessione ${roomId} avviata`, "success");
+      showNotification(isJoining ? i18n.t('notif_joined_session', { roomId: roomId }) : i18n.t('notif_session_started', { roomId: roomId }), "success");
     }
   }
 
   btnCollabCreate?.addEventListener("click", () => {
     if (getCollabState().isActive) {
-      if (!confirmLeaveCollabIfActive('avviare una nuova sessione')) {
+      if (!confirmLeaveCollabIfActive('action_start_new')) {
         return;
       }
     }
@@ -2322,23 +2483,23 @@ window.addEventListener("DOMContentLoaded", () => {
     if (!currentFilePath || !fs.existsSync(currentFilePath)) {
       const choice = dialog.showMessageBoxSync({
         type: 'question',
-        buttons: ['Salva file e avvia', 'Annulla'],
+        buttons: [i18n.t('dialog_save_file_and_start'), i18n.t('dialog_cancel')],
         defaultId: 0,
         cancelId: 1,
-        title: 'Salvataggio richiesto',
-        message: 'Per avviare una sessione di collaborazione, devi prima salvare il file corrente sul tuo dispositivo.'
+        title: i18n.t('dialog_save_required_title'),
+        message: i18n.t('dialog_save_required_message')
       });
       if (choice !== 0) return;
 
       const defaultName = 'collaborazione.md';
       const savedPath = dialog.showSaveDialogSync({
-        title: 'Salva file per la collaborazione',
+        title: i18n.t('dialog_save_collab_title'),
         defaultPath: path.join(currentFolderPath || '', defaultName),
         filters: [{ name: "Markdown", extensions: ["md"] }]
       });
 
       if (!savedPath) {
-        showNotification("Avvio annullato: file non salvato", "info");
+        showNotification(i18n.t('notif_start_cancelled_no_save'), "info");
         return;
       }
 
@@ -2352,7 +2513,7 @@ window.addEventListener("DOMContentLoaded", () => {
         }
       } catch (err) {
         console.error('[Collab] Errore salvataggio:', err);
-        showNotification('Errore salvataggio: ' + err.message, 'error');
+        showNotification(i18n.t('notif_save_error', { msg: err.message }), 'error');
         return;
       }
     } else {
@@ -2368,12 +2529,12 @@ window.addEventListener("DOMContentLoaded", () => {
   btnCollabJoin?.addEventListener("click", () => {
     const roomId = collabJoinRoomId?.value?.trim();
     if (!roomId) {
-      showNotification("Inserisci il codice", "error");
+      showNotification(i18n.t('notif_enter_valid_code'), "error");
       return;
     }
 
     if (getCollabState().isActive) {
-      if (!confirmLeaveCollabIfActive("unirti a un'altra sessione")) {
+      if (!confirmLeaveCollabIfActive('action_join_other')) {
         return;
       }
     }
@@ -2382,11 +2543,11 @@ window.addEventListener("DOMContentLoaded", () => {
     if (isDirty) {
       const answer = dialog.showMessageBoxSync({
         type: 'question',
-        buttons: ['Salva', 'Non salvare', 'Annulla'],
+        buttons: [i18n.t('dialog_save'), i18n.t('dialog_dont_save'), i18n.t('dialog_cancel')],
         defaultId: 0,
         cancelId: 2,
-        title: 'Modifiche non salvate',
-        message: 'Ci sono modifiche non salvate nel file attuale. Vuoi salvarle prima di unirti alla sessione?'
+        title: i18n.t('dialog_unsaved_title'),
+        message: i18n.t('dialog_unsaved_message')
       });
       if (answer === 0) {
         saveCurrentFile();
@@ -2398,13 +2559,13 @@ window.addEventListener("DOMContentLoaded", () => {
     // Chiedi dove salvare localmente il file della sessione prima di entrare nella visualizzazione
     const defaultName = `${roomId}.md`;
     const savePath = dialog.showSaveDialogSync({
-      title: 'Dove vuoi salvare il file della sessione?',
+      title: i18n.t('dialog_save_session_title'),
       defaultPath: path.join(currentFolderPath || '', defaultName),
       filters: [{ name: "Markdown", extensions: ["md"] }]
     });
 
     if (!savePath) {
-      showNotification("Connessione annullata: percorso non selezionato", "info");
+      showNotification(i18n.t('notif_connect_cancelled_no_path'), "info");
       return;
     }
 
@@ -2424,7 +2585,7 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     } catch (err) {
       console.error('[Collab] Errore creazione file sessione:', err);
-      showNotification('Errore creazione file: ' + err.message, 'error');
+      showNotification(i18n.t('notif_file_create_error', { msg: err.message }), 'error');
       return;
     }
 
@@ -2443,7 +2604,7 @@ window.addEventListener("DOMContentLoaded", () => {
     btnCollab?.classList.remove("active-collab");
     collabStatusContainer?.classList.add("hidden");
     updateCollabModalView();
-    showNotification("Sessione terminata", "info");
+    showNotification(i18n.t('notif_session_ended'), "info");
   });
 
   window.addEventListener('beforeunload', () => {
@@ -2609,62 +2770,8 @@ window.addEventListener("DOMContentLoaded", () => {
   window.__forcePreview = updatePreview;
 });
 
-// ===== Language selector (footer) =====
-(function () {
-  function initLangSelector() {
-    const preview = document.getElementById('preview');
-    const btn = document.getElementById('lang-button');
-    const dropdown = document.getElementById('lang-dropdown');
-    if (!preview || !btn || !dropdown) return;
-
-    const saved = localStorage.getItem('previewLang') || preview.getAttribute('lang') || 'it';
-    setLang(saved);
-
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const isOpen = dropdown.style.display === 'block' || btn.getAttribute('aria-expanded') === 'true';
-      if (isOpen) {
-        dropdown.style.display = 'none';
-        btn.setAttribute('aria-expanded', 'false');
-      } else {
-        dropdown.style.display = 'block';
-        btn.setAttribute('aria-expanded', 'true');
-      }
-    });
-
-    dropdown.addEventListener('click', (e) => {
-      const option = e.target.closest('.lang-option');
-      if (!option) return;
-      const lang = option.dataset.lang;
-      setLang(lang);
-      dropdown.style.display = 'none';
-      btn.setAttribute('aria-expanded', 'false');
-    });
-
-    document.addEventListener('click', (e) => {
-      if (!dropdown.contains(e.target) && e.target !== btn) {
-        dropdown.style.display = 'none';
-        btn.setAttribute('aria-expanded', 'false');
-      }
-    });
-
-    function setLang(lang) {
-      try {
-        preview.setAttribute('lang', lang);
-        btn.textContent = lang.toUpperCase();
-        localStorage.setItem('previewLang', lang);
-      } catch (err) {
-        console.error('Error setting preview language:', err);
-      }
-    }
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initLangSelector);
-  } else {
-    initLangSelector();
-  }
-})();
+// ===== LANGUAGE INITIALIZATION =====
+// La lingua è ora gestita globalmente con i18n e sincronizzata nelle impostazioni e nel footer.
 
 // ====== THEME HANDLING FOR HIGHLIGHT.JS ======
 window.addEventListener('DOMContentLoaded', () => {

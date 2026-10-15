@@ -3,6 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const remoteMain = require("@electron/remote/main");
 const { autoUpdater } = require("electron-updater");
+const i18n = require("./i18n.js");
 
 let win;
 let printWin = null;
@@ -71,20 +72,29 @@ function createWindow() {
     event.returnValue = process.platform;
   });
 
-  
+  buildApplicationMenu();
+}
+
+ipcMain.on('app-language-changed', (event, lang) => {
+  i18n.setLanguage(lang);
+  buildApplicationMenu();
+});
+
+function buildApplicationMenu() {
+  if (!win) return;
   const menu = Menu.buildFromTemplate([
     {
-      label: "File",
+      label: i18n.t("menu_file"),
       submenu: [
         {
-          label: "New file",
+          label: i18n.t("menu_new_file"),
           accelerator: "CmdOrCtrl+N",
           click: () => {
             win.webContents.send("new-file");
           }
         },
         {
-          label: "Open file",
+          label: i18n.t("menu_open_file"),
           accelerator: "CmdOrCtrl+O",
           click: async () => {
             const result = await dialog.showOpenDialog(win, {
@@ -100,7 +110,7 @@ function createWindow() {
           }
         },
         {
-          label: "Importa da PDF/Word/HTML",
+          label: i18n.t("menu_import"),
           accelerator: "CmdOrCtrl+I",
           click: async () => {
             const result = await dialog.showOpenDialog(win, {
@@ -120,13 +130,13 @@ function createWindow() {
                 const targetPath = filePath.replace(/\.[^/.]+$/, "") + ".md";
                 win.webContents.send("load-md", targetPath, output.textContent || output);
               } catch (err) {
-                dialog.showErrorBox("Errore di conversione", "Impossibile convertire il file: " + err.message);
+                dialog.showErrorBox(i18n.t("dialog_import_error_title"), i18n.t("dialog_import_error_message", { msg: err.message }));
               }
             }
           }
         },
         {
-          label: "Open folder",
+          label: i18n.t("menu_open_folder"),
           accelerator: "CmdOrCtrl+Shift+O",
           click: async () => {
             const result = await dialog.showOpenDialog(win, {
@@ -140,55 +150,55 @@ function createWindow() {
           }
         },
         {
-          label: "Save...",
+          label: i18n.t("menu_save"),
           accelerator: "CmdOrCtrl+S",
           click: () => {
             win.webContents.send("trigger-save");
           }
         },
         {
-          label: "Export as PDF",
+          label: i18n.t("menu_export_pdf"),
           accelerator: "CmdOrCtrl+E",
           click: () => {
             win.webContents.send("export-pdf");
           }
         },
         { type: "separator" },
-        { role: "quit", label: "Quit" }
+        { role: "quit", label: i18n.t("menu_quit") }
       ]
     },
     {
-      label: "Edit",
+      label: i18n.t("menu_edit"),
       submenu: [
         {
-          label: "Undo",
+          label: i18n.t("menu_undo"),
           accelerator: "CmdOrCtrl+Z",
           role: "undo"
         },
         { type: "separator" },
         {
-          label: "Cut",
+          label: i18n.t("menu_cut"),
           accelerator: "CmdOrCtrl+X",
           role: "cut"
         },
         {
-          label: "Copy",
+          label: i18n.t("menu_copy"),
           accelerator: "CmdOrCtrl+C",
           role: "copy"
         },
         {
-          label: "Paste",
+          label: i18n.t("menu_paste"),
           accelerator: "CmdOrCtrl+V",
           role: "paste"
         },
         { type: "separator" },
         {
-          label: "Select All",
+          label: i18n.t("menu_select_all"),
           accelerator: "CmdOrCtrl+A",
           role: "selectAll"
         },
         {
-          label: "Find",
+          label: i18n.t("menu_find"),
           accelerator: "CmdOrCtrl+F",
           click: () => {
             win.webContents.send("open-search");
@@ -196,7 +206,7 @@ function createWindow() {
         },
         { type: "separator" },
         {
-          label: "Insert Image from File",
+          label: i18n.t("menu_insert_image"),
           accelerator: "CmdOrCtrl+Shift+I",
           click: async () => {
             const result = await dialog.showOpenDialog(win, {
@@ -211,7 +221,7 @@ function createWindow() {
           }
         },
         {
-          label: "Paste Image from Clipboard",
+          label: i18n.t("menu_paste_image"),
           accelerator: "CmdOrCtrl+Shift+V",
           click: () => {
             win.webContents.send("paste-image-from-clipboard");
@@ -220,24 +230,24 @@ function createWindow() {
       ]
     },
     {
-      label: "View",
+      label: i18n.t("menu_view"),
       submenu: [
         {
-          label: "Explorer",
+          label: i18n.t("menu_explorer"),
           accelerator: "CmdOrCtrl+R",
           click: () => {
             win.webContents.send("toggle-explorer");
           }
         },
         {
-          label: "Editor",
+          label: i18n.t("menu_editor"),
           accelerator: "CmdOrCtrl+L",
           click: () => {
             win.webContents.send("toggle-preview");
           }
         },
         {
-          label: "Preview",
+          label: i18n.t("menu_preview"),
           accelerator: "CmdOrCtrl+P",
           click: () => {
             win.webContents.send("toggle-editor");
@@ -245,7 +255,7 @@ function createWindow() {
         },
         { type: "separator" },
         {
-          label: "Dark Mode",
+          label: i18n.t("menu_dark_mode"),
           accelerator: "CmdOrCtrl+M",
           click: () => {
             win.webContents.send("toggle-theme");
@@ -301,7 +311,7 @@ ipcMain.on("print-to-pdf", async (event, content, title) => {
   }
 
   const result = await dialog.showSaveDialog({
-    title: "Salva PDF",
+    title: i18n.t("dialog_save_pdf_title"),
     defaultPath: defaultPath,
     filters: [{ name: "PDF", extensions: ["pdf"] }]
   });

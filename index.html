@@ -47,63 +47,63 @@
   <div id="main">
     <div id="navbar">
       <div class="navbar-left">
-        <button id="btn-toggle-explorer" class="icon-btn" title="Mostra/Nascondi Explorer">&lt;</button>
+        <button id="btn-toggle-explorer" class="icon-btn" data-i18n-title="toggle_explorer" title="Toggle Explorer">&lt;</button>
         <span id="title">*</span>
       </div>
 
       <div id="toolbar">
         <div id="dropdown-title" class="dropdown">
-          <button id="btn-title" title="Title">#</button>
+          <button id="btn-title" data-i18n-title="title_btn" title="Title">#</button>
           <div id="dropdown-content" class="dropdown-content">
-            <button class="dropdown-item" data-level="1">Title 1</button>
-            <button class="dropdown-item" data-level="2">Title 2</button>
-            <button class="dropdown-item" data-level="3">Title 3</button>
+            <button class="dropdown-item" data-level="1" data-i18n="title_1">Title 1</button>
+            <button class="dropdown-item" data-level="2" data-i18n="title_2">Title 2</button>
+            <button class="dropdown-item" data-level="3" data-i18n="title_3">Title 3</button>
           </div>
         </div>
-        <button id="btn-bold" title="Bold"><b>B</b></button>
-        <button id="btn-italic" title="Italic"><i>I</i></button>
-        <button id="btn-underline" title="Underline"><u>U</u></button>
-        <button id="btn-hr" title="Line">-</button>
-        <button id="btn-code" title="Code">{ }</button>
+        <button id="btn-bold" data-i18n-title="bold" title="Bold"><b>B</b></button>
+        <button id="btn-italic" data-i18n-title="italic" title="Italic"><i>I</i></button>
+        <button id="btn-underline" data-i18n-title="underline" title="Underline"><u>U</u></button>
+        <button id="btn-hr" data-i18n-title="line" title="Line">-</button>
+        <button id="btn-code" data-i18n-title="code" title="Code">{ }</button>
 
         <div id="dropdown-extra" class="dropdown">
-          <button id="btn-extra" title="Extra">+</button>
+          <button id="btn-extra" data-i18n-title="extra" title="Extra">+</button>
           <div class="dropdown-content">
-            <button id="btn-link" class="extra-item" title="Link">Link</button>
-            <button id="btn-image" class="extra-item" title="Image">Image</button>
-            <button id="btn-table" class="extra-item" title="Table">Table</button>
-            <button id="btn-ul" class="extra-item" title="Pointer List">• List</button>
-            <button id="btn-ol" class="extra-item" title="Numeric List">1. List</button>
-            <button id="btn-quote" class="extra-item" title="Quote">Quote</button>
+            <button id="btn-link" class="extra-item" data-i18n-title="link" data-i18n="link" title="Link">Link</button>
+            <button id="btn-image" class="extra-item" data-i18n-title="image" data-i18n="image" title="Image">Image</button>
+            <button id="btn-table" class="extra-item" data-i18n-title="table" data-i18n="table" title="Table">Table</button>
+            <button id="btn-ul" class="extra-item" data-i18n-title="bullet_list" data-i18n="bullet_list" title="Bullet List">• List</button>
+            <button id="btn-ol" class="extra-item" data-i18n-title="numeric_list" data-i18n="numeric_list" title="Numbered List">1. List</button>
+            <button id="btn-quote" class="extra-item" data-i18n-title="quote" data-i18n="quote" title="Quote">Quote</button>
           </div>
         </div>
       </div>
 
       <div class="navbar-right">
-        <button id="btn-collab" title="Collabora">
+        <button id="btn-collab" data-i18n-title="collaborate" title="Collaborate">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
             <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
           </svg>
         </button>
-        <button id="btn-view-editor" title="Solo Editor">&lt;</button>
-        <button id="btn-view-split" title="Split View">&gt;|&lt;</button>
-        <button id="btn-view-preview" title="Solo Render">&gt;</button>
+        <button id="btn-view-editor" data-i18n-title="view_editor" title="Editor Only">&lt;</button>
+        <button id="btn-view-split" data-i18n-title="view_split" title="Split View">&gt;|&lt;</button>
+        <button id="btn-view-preview" data-i18n-title="view_preview" title="Preview Only">&gt;</button>
       </div>
 
       <div id="window-controls">
-        <button id="win-minimize" class="win-ctrl-btn" title="Minimize">&#x2014;</button>
-        <button id="win-maximize" class="win-ctrl-btn" title="Maximize">&#x25A1;</button>
-        <button id="win-close" class="win-ctrl-btn win-close-btn" title="Close">&#x2715;</button>
+        <button id="win-minimize" class="win-ctrl-btn" data-i18n-title="win_minimize" title="Minimize">&#x2014;</button>
+        <button id="win-maximize" class="win-ctrl-btn" data-i18n-title="win_maximize" title="Maximize">&#x25A1;</button>
+        <button id="win-close" class="win-ctrl-btn win-close-btn" data-i18n-title="win_close" title="Close">&#x2715;</button>
       </div>
     </div>
 
     <div id="search-container" class="hidden">
-      <input type="text" id="search-input" placeholder="Search..." />
+      <input type="text" id="search-input" data-i18n-placeholder="search_placeholder" placeholder="Search..." />
       <div id="search-buttons">
-        <button id="search-button" title="Search">&rarr;</button>
-        <button id="search-prev" title="Previous">&uarr;</button>
-        <button id="search-next" title="Next">&darr;</button>
-        <button id="search-close" title="Close">
+        <button id="search-button" data-i18n-title="search_button" title="Search">&rarr;</button>
+        <button id="search-prev" data-i18n-title="search_prev" title="Previous">&uarr;</button>
+        <button id="search-next" data-i18n-title="search_next" title="Next">&darr;</button>
+        <button id="search-close" data-i18n-title="search_close" title="Close">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
           </svg>
@@ -115,24 +115,24 @@
     <div id="app-container">
       <div id="explorer-panel">
         <div id="explorer-header">
-          <span class="explorer-title">Explorer</span>
+          <span class="explorer-title" data-i18n="explorer_title">Explorer</span>
           <div class="explorer-actions">
-            <button id="new-file" class="explorer-action-btn" title="Nuovo file">
+            <button id="new-file" class="explorer-action-btn" data-i18n-title="new_file" title="New file">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm1 14h-2v2h-2v-2H9v-2h2v-2h2v2h2v2zm-2-8V3.5L18.5 9H13z"/>
               </svg>
             </button>
-            <button id="open-folder" class="explorer-action-btn" title="Apri cartella">
+            <button id="open-folder" class="explorer-action-btn" data-i18n-title="open_folder" title="Open folder">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>
               </svg>
             </button>
-            <button id="refresh-explorer" class="explorer-action-btn" title="Aggiorna">
+            <button id="refresh-explorer" class="explorer-action-btn" data-i18n-title="refresh" title="Refresh">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
               </svg>
             </button>
-            <button id="collapse-all" class="explorer-action-btn" title="Chiudi explorer">
+            <button id="collapse-all" class="explorer-action-btn" data-i18n-title="close_explorer" title="Close Explorer">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
               </svg>
@@ -143,17 +143,17 @@
         <div id="file-tree"></div>
       </div>
       <div id="explorer-resizer"></div>
-    <div id="container">
+      <div id="container">
         <div id="editor-container">
-          <textarea id="editor" placeholder="Write markdown here..." spellcheck="false"></textarea>
+          <textarea id="editor" data-i18n-placeholder="editor_placeholder" placeholder="Write markdown here..." spellcheck="false"></textarea>
           <div id="editor-overlay" aria-hidden="true"></div>
         </div>
-  <div id="preview" class="markdown-body" lang="it"></div>
+        <div id="preview" class="markdown-body" lang="en"></div>
       </div>
     </div>
     <div id="footer">
       <div id="footer-left" class="footer-left">
-        <button id="btn-options" title="Settings" class="icon-btn">Settings</button>
+        <button id="btn-options" data-i18n-title="settings" data-i18n="settings" title="Settings" class="icon-btn">Settings</button>
       </div>
       <div id="footer-right" class="footer-right">
         <div id="collab-status-container" class="collab-status-container hidden" title="Stato sessione">
@@ -162,28 +162,27 @@
           </svg>
           <span id="collab-status-text"></span>
         </div>
-        <span id="word-count">word-count: 0</span>
-        <div id="lang-selector" class="lang-selector" aria-haspopup="true">
-          <button id="lang-button" class="lang-button" aria-expanded="false" title="Preview language">IT</button>
-          <div id="lang-dropdown" class="lang-dropdown" role="menu" aria-hidden="true">
-            <button class="lang-option" data-lang="it" role="menuitem">Italiano (IT)</button>
-            <button class="lang-option" data-lang="en" role="menuitem">English (EN)</button>
-          </div>
-        </div>
+        <span id="word-count">words: 0</span>
+        <span id="footer-lang-display" class="footer-lang-display">EN</span>
         <div class="connection-status">
           <div class="status-indicator"></div>
-          <span id="connection-text">Online</span>
+          <span id="connection-text" data-i18n="status_online">Online</span>
         </div>
       </div>
     </div>
   </div>
+
+  <div id="notification-container"></div>
+
   <script src="renderer.js"></script>
+
+  <!-- POP-UP MODAL IMPOSTAZIONI -->
   <div id="settings-modal" class="modal hidden">
     <div class="modal-overlay" id="modal-overlay"></div>
     <div class="modal-content settings-modal-content">
       <div class="modal-header">
-        <h2>Impostazioni</h2>
-        <button id="btn-close-settings" class="collab-close-btn" title="Chiudi">
+        <h2 data-i18n="settings_title">Settings</h2>
+        <button id="btn-close-settings" class="collab-close-btn" data-i18n-title="win_close" title="Close">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
           </svg>
@@ -193,10 +192,7 @@
       <div class="modal-body settings-modal-body">
         <div class="settings-row">
           <div class="settings-label-group">
-            <svg class="settings-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
-            </svg>
-            <label for="toggle-autosave">Autosave</label>
+            <label for="toggle-autosave" data-i18n="settings_autosave">Autosave</label>
           </div>
           <label class="switch">
             <input type="checkbox" id="toggle-autosave" />
@@ -206,10 +202,7 @@
         
         <div class="settings-row">
           <div class="settings-label-group">
-            <svg class="settings-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3L5 6.99h3V14h2V6.99h3L9 3z"/>
-            </svg>
-            <label for="toggle-autoscroll">Autoscroll</label>
+            <label for="toggle-autoscroll" data-i18n="settings_autoscroll">Autoscroll</label>
           </div>
           <label class="switch">
             <input type="checkbox" id="toggle-autoscroll" checked />
@@ -217,48 +210,53 @@
           </label>
         </div>
         
+        <!-- Dark mode segmented control (stesso stile tabs di collaborazione) -->
         <div class="settings-row">
           <div class="settings-label-group">
-            <svg class="settings-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M9.37 5.51A7.35 7.35 0 0 0 9.1 7.5c0 4.08 3.32 7.4 7.4 7.4.68 0 1.35-.09 1.99-.27A9.03 9.03 0 0 1 12 21a9 9 0 0 1-9-9c0-4.28 2.99-7.86 6.37-6.49z"/>
-            </svg>
-            <label for="toggle-theme-switch">Dark Mode</label>
+            <label data-i18n="settings_theme">Theme</label>
           </div>
-          <label class="switch">
-            <input type="checkbox" id="toggle-theme-switch" />
-            <span class="slider"></span>
-          </label>
+          <div class="collab-tabs settings-tabs" id="theme-segmented">
+            <button type="button" class="collab-tab active" id="theme-btn-light" data-theme="light" data-i18n="theme_light">Light</button>
+            <button type="button" class="collab-tab" id="theme-btn-dark" data-theme="dark" data-i18n="theme_dark">Dark</button>
+          </div>
+        </div>
+
+        <!-- Selettore lingua (default inglese) con stile tabs di collaborazione -->
+        <div class="settings-row">
+          <div class="settings-label-group">
+            <label data-i18n="settings_language">Language</label>
+          </div>
+          <div class="collab-tabs settings-tabs" id="lang-segmented">
+            <button type="button" class="collab-tab active" id="lang-btn-en" data-lang="en">English</button>
+            <button type="button" class="collab-tab" id="lang-btn-it" data-lang="it">Italiano</button>
+          </div>
         </div>
 
         <div class="settings-row">
           <div class="settings-label-group">
-            <svg class="settings-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
-            </svg>
-            <label for="input-tab-size">Tab Size</label>
+            <label for="input-tab-size" data-i18n="settings_tab_size">Tab Size</label>
           </div>
           <input type="number" id="input-tab-size" min="2" max="8" value="4" class="settings-number-input" />
         </div>
 
         <div class="settings-row">
           <div class="settings-label-group">
-            <svg class="settings-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M9 4v3h5v12h3V7h5V4H9zm-6 8h3v7h3v-7h3V9H3v3z"/>
-            </svg>
-            <label for="input-font-size">Font Size (px)</label>
+            <label for="input-font-size" data-i18n="settings_font_size">Font Size (px)</label>
           </div>
           <input type="number" id="input-font-size" min="12" max="24" value="16" class="settings-number-input" />
         </div>
       </div>
     </div>
   </div>
-  <div id="reading-mode-popup">Press ESC to exit Reading Mode</div>
+
+  <div id="reading-mode-popup" data-i18n="reading_mode_exit">Press ESC to exit Reading Mode</div>
+
   <div id="history-modal" class="modal hidden">
     <div class="modal-overlay" id="history-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5);"></div>
     <div class="modal-content" style="position:relative; z-index:1; width:450px; background:var(--editor-bg); color:var(--fg); border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.2); overflow:hidden;">
       <div class="modal-header" style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid var(--explorer-border);">
-        <h2 style="margin:0; font-size:18px;">Undo History</h2>
-        <button id="btn-close-history" class="collab-close-btn" title="Chiudi">
+        <h2 style="margin:0; font-size:18px;" data-i18n="history_title">Undo History</h2>
+        <button id="btn-close-history" class="collab-close-btn" data-i18n-title="win_close" title="Close">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
           </svg>
@@ -269,12 +267,13 @@
       </div>
     </div>
   </div>
+
   <div id="collab-modal" class="modal hidden">
     <div class="modal-overlay" id="collab-overlay"></div>
     <div class="modal-content collab-modal-content">
       <div class="modal-header">
-        <h2>Collabora</h2>
-        <button id="btn-close-collab" class="collab-close-btn" title="Chiudi">
+        <h2 data-i18n="collab_title">Collaborate</h2>
+        <button id="btn-close-collab" class="collab-close-btn" data-i18n-title="win_close" title="Close">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
           </svg>
@@ -285,36 +284,36 @@
         <!-- VISTA DISCONNESSO: STEP TABS -->
         <div id="collab-disconnected-view" class="collab-pane">
           <div class="collab-tabs">
-            <button id="tab-btn-create" class="collab-tab active">Crea</button>
-            <button id="tab-btn-join" class="collab-tab">Unisciti</button>
+            <button id="tab-btn-create" class="collab-tab active" data-i18n="collab_tab_create">Create</button>
+            <button id="tab-btn-join" class="collab-tab" data-i18n="collab_tab_join">Join</button>
           </div>
 
           <!-- SCHERMATA CREA -->
           <div id="collab-pane-create" class="collab-pane">
-            <label class="collab-label" for="collab-new-room-id">Codice sessione</label>
+            <label class="collab-label" for="collab-new-room-id" data-i18n="collab_session_code">Session code</label>
             <div class="collab-input-row">
               <input type="text" id="collab-new-room-id" readonly spellcheck="false" class="collab-input" />
-              <button id="btn-collab-copy-id" class="collab-icon-btn" title="Copia codice">
+              <button id="btn-collab-copy-id" class="collab-icon-btn" data-i18n-title="collab_copy_code" title="Copy code">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
                 </svg>
               </button>
-              <button id="btn-collab-regen-id" class="collab-icon-btn" title="Nuovo codice">
+              <button id="btn-collab-regen-id" class="collab-icon-btn" data-i18n-title="collab_new_code" title="New code">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
                 </svg>
               </button>
             </div>
-            <button id="btn-collab-create" class="collab-submit-btn">Avvia sessione</button>
+            <button id="btn-collab-create" class="collab-submit-btn" data-i18n="collab_start_session">Start session</button>
           </div>
 
           <!-- SCHERMATA UNISCITI -->
           <div id="collab-pane-join" class="collab-pane hidden">
-            <label class="collab-label" for="collab-join-room-id">Codice sessione</label>
+            <label class="collab-label" for="collab-join-room-id" data-i18n="collab_session_code">Session code</label>
             <div class="collab-input-row">
-              <input type="text" id="collab-join-room-id" placeholder="mark-xxxxxx" spellcheck="false" class="collab-input" />
+              <input type="text" id="collab-join-room-id" data-i18n-placeholder="collab_enter_code_placeholder" placeholder="mark-xxxxxx" spellcheck="false" class="collab-input" />
             </div>
-            <button id="btn-collab-join" class="collab-submit-btn">Entra</button>
+            <button id="btn-collab-join" class="collab-submit-btn" data-i18n="collab_join_session">Join session</button>
           </div>
         </div>
 
@@ -323,25 +322,25 @@
           <div class="collab-active-meta">
             <div class="collab-live-indicator">
               <span class="collab-status-dot"></span>
-              <span>Sessione attiva</span>
+              <span data-i18n="collab_session_active">Active session</span>
             </div>
-            <div class="collab-users-pill" title="Partecipanti connessi">
+            <div class="collab-users-pill" data-i18n-title="collab_participants" title="Connected participants">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
               </svg>
               <span id="collab-users-count">1</span>
             </div>
           </div>
-          <label class="collab-label" for="collab-active-room-id">Codice sessione</label>
+          <label class="collab-label" for="collab-active-room-id" data-i18n="collab_session_code">Session code</label>
           <div class="collab-input-row">
             <input type="text" id="collab-active-room-id" readonly spellcheck="false" class="collab-input" />
-            <button id="btn-collab-copy-active-id" class="collab-icon-btn" title="Copia codice">
+            <button id="btn-collab-copy-active-id" class="collab-icon-btn" data-i18n-title="collab_copy_code" title="Copy code">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
               </svg>
             </button>
           </div>
-          <button id="btn-collab-leave" class="collab-danger-btn">Termina sessione</button>
+          <button id="btn-collab-leave" class="collab-danger-btn" data-i18n="collab_leave_session">End session</button>
         </div>
       </div>
     </div>

@@ -566,55 +566,19 @@ code {
   font-size: 13px;
 }
 
-.lang-selector {
-  margin-left: 0;
-  position: relative;
-  display: inline-block;
-}
-
-.lang-button {
-  background: none;
-  border: none;
-  padding: 4px 8px;
-  border-radius: 6px;
-  cursor: pointer;
+.footer-lang-display {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
   color: var(--fg);
-  background-color: var(--editor-bg);
-  font-size: 12px;
-}
-
-.lang-dropdown {
-  position: absolute;
-  right: 0;
-  bottom: 120%;
-  display: none;
-  background: var(--editor-bg);
-  border-radius: 6px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
-  z-index: 1001;
-  min-width: 150px;
-  padding: 6px;
-}
-
-.lang-dropdown .lang-option {
-  display: block;
-  width: 100%;
-  background: none;
-  border: none;
-  text-align: left;
-  padding: 6px 8px;
-  cursor: pointer;
+  opacity: 0.75;
+  padding: 3px 7px;
   border-radius: 4px;
-  color: var(--fg);
-}
-
-.lang-dropdown .lang-option:hover {
-  background: var(--explorer-hover);
-}
-
-.lang-selector.open .lang-dropdown,
-.lang-dropdown[aria-hidden="false"] {
-  display: block;
+  background-color: var(--code-bg);
+  user-select: none;
 }
 
 .footer-left {
@@ -1482,15 +1446,15 @@ body.dark .code-figcaption {
 
 /* Settings Modal Specific */
 .settings-modal-content {
-  width: min(88vw, 320px);
-  max-height: min(85vh, 440px);
+  width: min(92vw, 360px);
+  max-height: min(85vh, 480px);
 }
 
 .settings-modal-body {
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   overflow-y: auto;
 }
 
@@ -1498,10 +1462,11 @@ body.dark .code-figcaption {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 7px 9px;
-  border-radius: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
   transition: background-color 0.15s ease;
   background: transparent;
+  gap: 12px;
 }
 
 .settings-row:hover {
@@ -1511,26 +1476,30 @@ body.dark .code-figcaption {
 .settings-label-group {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--fg);
   user-select: none;
+  flex: 1;
 }
 
 .settings-label-group label {
   cursor: pointer;
 }
 
-.settings-icon {
-  width: 13px;
-  height: 13px;
-  opacity: 0.7;
-  flex-shrink: 0;
+.settings-tabs {
+  min-width: 140px;
+  max-width: 160px;
+}
+
+.settings-tabs .collab-tab {
+  padding: 5px 8px;
+  font-size: 11.5px;
+  text-align: center;
 }
 
 .settings-number-input {
-  width: 48px;
+  width: 52px;
   padding: 4px 6px;
   font-size: 12px;
   font-family: var(--code-font-family);
@@ -2179,4 +2148,137 @@ body.dark #preview pre code {
   gap: 4px;
   font-size: 12px;
   opacity: 0.8;
+}
+
+/* ====== LIQUID GLASS CLOUD NOTIFICATIONS ====== */
+#notification-container {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 100000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+  align-items: flex-end;
+}
+
+.cloud-notification {
+  pointer-events: auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  min-width: 200px;
+  max-width: 420px;
+  border-radius: 28px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--fg);
+  user-select: none;
+  cursor: grab;
+  touch-action: pan-y;
+  
+  /* Liquid Glass Style */
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(28px) saturate(200%);
+  backdrop-filter: blur(28px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow:
+    0 18px 40px -8px rgba(0, 0, 0, 0.12),
+    0 4px 14px rgba(0, 0, 0, 0.04),
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.95);
+  
+  animation: cloudDriftIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity, filter;
+}
+
+body.dark .cloud-notification {
+  background: rgba(26, 30, 42, 0.75);
+  -webkit-backdrop-filter: blur(28px) saturate(200%);
+  backdrop-filter: blur(28px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow:
+    0 18px 40px -8px rgba(0, 0, 0, 0.6),
+    0 4px 14px rgba(0, 0, 0, 0.35),
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.15);
+  color: #f3f4f6;
+}
+
+.cloud-notification.grabbing {
+  cursor: grabbing !important;
+}
+
+.cloud-notification-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cloud-notification.info .cloud-notification-icon {
+  background: rgba(33, 150, 243, 0.15);
+  color: #1976d2;
+  box-shadow: 0 0 14px rgba(33, 150, 243, 0.3);
+}
+body.dark .cloud-notification.info .cloud-notification-icon {
+  background: rgba(66, 165, 245, 0.22);
+  color: #90caf9;
+}
+
+.cloud-notification.success .cloud-notification-icon {
+  background: rgba(46, 125, 50, 0.15);
+  color: #2e7d32;
+  box-shadow: 0 0 14px rgba(76, 175, 80, 0.3);
+}
+body.dark .cloud-notification.success .cloud-notification-icon {
+  background: rgba(102, 187, 106, 0.22);
+  color: #a5d6a7;
+}
+
+.cloud-notification.error .cloud-notification-icon {
+  background: rgba(211, 47, 47, 0.15);
+  color: #d32f2f;
+  box-shadow: 0 0 14px rgba(244, 67, 54, 0.3);
+}
+body.dark .cloud-notification.error .cloud-notification-icon {
+  background: rgba(239, 83, 80, 0.22);
+  color: #ef9a9a;
+}
+
+.cloud-notification-text {
+  flex: 1;
+  white-space: pre-wrap;
+}
+
+@keyframes cloudDriftIn {
+  0% {
+    opacity: 0;
+    transform: translate3d(50px, -18px, 0) scale(0.88);
+    filter: blur(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+.cloud-notification.cloud-dismiss-right {
+  opacity: 0 !important;
+  transform: translate3d(260px, -24px, 0) rotate(14deg) scale(0.8) !important;
+  filter: blur(12px) !important;
+  transition: all 0.45s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.cloud-notification.cloud-dismiss-left {
+  opacity: 0 !important;
+  transform: translate3d(-260px, -24px, 0) rotate(-14deg) scale(0.8) !important;
+  filter: blur(12px) !important;
+  transition: all 0.45s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }

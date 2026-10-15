@@ -1,6 +1,7 @@
 // ====== MARK COLLABORATION MODULE (Yjs + WebRTC) ======
 const Y = require('yjs');
 const { WebrtcProvider } = require('y-webrtc');
+const i18n = require('./i18n.js');
 
 let ydoc = null;
 let provider = null;
@@ -108,7 +109,7 @@ function startCollaboration({
     provider = new WebrtcProvider(currentRoomId, ydoc, providerOpts);
   } catch (err) {
     console.error('[Collab] Errore creazione WebrtcProvider:', err);
-    if (showNotification) showNotification('Errore di connessione WebRTC: ' + err.message, 'error');
+    if (showNotification) showNotification(i18n.t('notif_collab_webrtc_error', { msg: err.message }), 'error');
     return null;
   }
 
