@@ -29,6 +29,7 @@ const {
   generateRoomId,
   getCollabState
 } = require("./collaboration.js");
+const { buildExportHtml } = require("./html-export.js");
 
 // ====== UTILS PRECOCI ======
 function escapeHtml(s) { 
@@ -1711,6 +1712,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   ipcRenderer.on("export-pdf", () => exportToPdf());
+  ipcRenderer.on("export-html", () => exportToHtml());
   ipcRenderer.on("new-file", () => createNewFile());
   ipcRenderer.on("open-folder", (event, folderPath) => openFolder(folderPath));
   ipcRenderer.on("trigger-save", () => saveCurrentFile());
@@ -1888,6 +1890,132 @@ window.addEventListener("DOMContentLoaded", () => {
     });
     document.body.appendChild(notification);
     ipcRenderer.once('pdf-saved', () => notification.remove());
+  }
+
+  // ===== HTML export =====
+  function exportToHtml() {
+    if (!preview) return;
+
+    try {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = preview.innerHTML;
+
+      // 1. Rimuovi eventuali bottoni di copia già presenti nella preview per pulire l'HTML
+      tempDiv.querySelectorAll('.code-copy-btn').forEach(btn => btn.remove());
+
+      // 2. Converti immagini locali / relative in Base64 data URLs
+      const imgs = tempDiv.querySelectorAll('img');
+      imgs.forEach(img => {
+        img.removeAttribute('loading');
+        const src = img.getAttribute('src');
+        if (!src) return;
+
+        if (/^data:/i.test(src) || /^https?:\/\//i.test(src)) {
+          return;
+        }
+
+        let filePath = src;
+
+        try {
+          if (/^file:\/\//i.test(src)) {
+            const u = new URL(src);
+            filePath = decodeURIComponent(u.pathname);
+            if (process.platform === 'win32' && filePath.startsWith('/')) {
+              filePath = filePath.slice(1);
+            }
+          } else if (currentFilePath) {
+            const folder = path.dirname(currentFilePath);
+            filePath = path.resolve(folder, decodeURIComponent(src));
+          }
+
+          if (!fs.existsSync(filePath)) {
+            console.warn('[HTML export] Immagine non trovata:', filePath);
+            return;
+          }
+
+          const buffer = fs.readFileSync(filePath);
+          const base64 = buffer.toString('base64');
+
+          const ext = (path.extname(filePath) || '').toLowerCase();
+          let mime = 'image/png';
+          if (ext === '.jpg' || ext === '.jpeg') mime = 'image/jpeg';
+          else if (ext === '.gif') mime = 'image/gif';
+          else if (ext === '.svg') mime = 'image/svg+xml';
+          else if (ext === '.webp') mime = 'image/webp';
+
+          img.setAttribute('src', `data:${mime};base64,${base64}`);
+        } catch (err) {
+          console.error('[HTML export] Errore nel leggere/convertire immagine:', src, err);
+        }
+      });
+
+      // 3. Estrai titoli (h1..h6), assegna ID univoci per il Table of Contents e scroll-spy
+      const headingEls = tempDiv.querySelectorAll('h1, h2, h3, h4, h5, h6');
+      const headings = [];
+      const usedIds = new Set();
+
+      headingEls.forEach((h, idx) => {
+        let text = (h.textContent || '').trim();
+        if (!text) text = `Heading ${idx + 1}`;
+        let baseId = text.toLowerCase()
+          .replace(/[^\w\s-]/g, '')
+          .trim()
+          .replace(/\s+/g, '-');
+        if (!baseId) baseId = `heading-${idx + 1}`;
+        let id = baseId;
+        let count = 1;
+        while (usedIds.has(id)) {
+          id = `${baseId}-${count++}`;
+        }
+        usedIds.add(id);
+        h.id = id;
+        const level = parseInt(h.tagName.substring(1), 10) || 1;
+        headings.push({ id, level, text });
+      });
+
+      // 4. Determina percorso di salvataggio
+      const currentName = currentFilePath ? path.basename(currentFilePath) : "document.md";
+      const defaultName = currentName.replace(/\.[^/.]+$/, "") + ".html";
+      let defaultPath = defaultName;
+      if (currentFilePath) {
+        defaultPath = path.join(path.dirname(currentFilePath), defaultName);
+      } else {
+        try {
+          const docsDir = remote.app.getPath("documents");
+          if (docsDir) defaultPath = path.join(docsDir, defaultName);
+        } catch (_) {}
+      }
+
+      const savePath = dialog.showSaveDialogSync({
+        title: i18n.t("dialog_save_html_title") || "Save HTML",
+        defaultPath: defaultPath,
+        filters: [
+          { name: "HTML Files (*.html, *.htm)", extensions: ["html", "htm"] },
+          { name: "All Files", extensions: ["*"] }
+        ]
+      });
+
+      if (!savePath) return;
+
+      // 5. Genera standalone HTML
+      const isDark = document.body.classList.contains("dark");
+      const lang = (typeof i18n.getLanguage === 'function') ? i18n.getLanguage() : (localStorage.getItem('mark.lang') || 'en');
+
+      const fullHtml = buildExportHtml({
+        filename: currentName,
+        bodyHtml: tempDiv.innerHTML,
+        headings,
+        theme: isDark ? "dark" : "light",
+        lang
+      });
+
+      // 6. Scrivi file su disco e mostra notifica
+      fs.writeFileSync(savePath, fullHtml, "utf8");
+      showNotification(i18n.t("notif_html_saved") || "HTML file exported successfully", "success");
+    } catch (err) {
+      console.error('[HTML export] Errore esportazione:', err);
+      showNotification(i18n.t("notif_html_export_error", { msg: err.message }) || ("Error: " + err.message), "error");
+    }
   }
 
   // ===== File tree / IO =====

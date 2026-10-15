@@ -137,6 +137,10 @@ const translations = {
     menu_open_folder: "Open folder",
     menu_save: "Save...",
     menu_export_pdf: "Export as PDF",
+    menu_export_html: "Export as HTML",
+    dialog_save_html_title: "Save HTML",
+    notif_html_saved: "HTML file exported successfully",
+    notif_html_export_error: "Error exporting HTML: {msg}",
     menu_quit: "Quit",
     menu_edit: "Edit",
     menu_undo: "Undo",
@@ -290,6 +294,10 @@ const translations = {
     menu_open_folder: "Apri cartella",
     menu_save: "Salva...",
     menu_export_pdf: "Esporta come PDF",
+    menu_export_html: "Esporta come HTML",
+    dialog_save_html_title: "Salva HTML",
+    notif_html_saved: "File HTML esportato con successo",
+    notif_html_export_error: "Errore durante l'esportazione HTML: {msg}",
     menu_quit: "Esci",
     menu_edit: "Modifica",
     menu_undo: "Annulla",
@@ -308,7 +316,7 @@ const translations = {
   }
 };
 
-let currentLanguage = 'en'; // Default in English as requested
+let currentLanguage = 'en';
 
 function getLanguage() {
   return currentLanguage;

@@ -163,6 +163,13 @@ function buildApplicationMenu() {
             win.webContents.send("export-pdf");
           }
         },
+        {
+          label: i18n.t("menu_export_html"),
+          accelerator: "CmdOrCtrl+Shift+E",
+          click: () => {
+            win.webContents.send("export-html");
+          }
+        },
         { type: "separator" },
         { role: "quit", label: i18n.t("menu_quit") }
       ]
