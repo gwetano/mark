@@ -48,7 +48,7 @@
     <div id="navbar">
       <div class="navbar-left">
         <button id="btn-toggle-explorer" class="icon-btn" data-i18n-title="toggle_explorer" title="Toggle Explorer">&lt;</button>
-        <span id="title">*</span>
+        <span id="title" style="display: none;"></span>
       </div>
 
       <div id="toolbar">
@@ -143,12 +143,61 @@
         <div id="file-tree"></div>
       </div>
       <div id="explorer-resizer"></div>
-      <div id="container">
-        <div id="editor-container">
-          <textarea id="editor" data-i18n-placeholder="editor_placeholder" placeholder="Write markdown here..." spellcheck="false"></textarea>
-          <div id="editor-overlay" aria-hidden="true"></div>
+      <div id="main-stage">
+        <!-- TABS BAR -->
+        <div id="tabs-bar">
+          <div id="tabs-scroll-area"></div>
+          <button id="btn-new-tab" class="tab-action-btn" data-i18n-title="new_file" title="New file">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+          </button>
         </div>
-        <div id="preview" class="markdown-body" lang="en"></div>
+
+        <!-- EMPTY STATE (VS Code / WhatsApp Web style) -->
+        <div id="empty-state" class="hidden">
+          <div class="empty-state-content">
+            <img id="empty-state-logo" src="./images/logo_white.png" alt="Mark" />
+            <p class="empty-state-subtitle" data-i18n="empty_subtitle">Markdown Editor</p>
+            <div class="empty-state-menu">
+              <button id="empty-btn-new-file" class="empty-menu-item">
+                <span class="empty-item-left">
+                  <svg class="empty-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm1 14h-2v2h-2v-2H9v-2h2v-2h2v2h2v2zm-2-8V3.5L18.5 9H13z"/>
+                  </svg>
+                  <span class="empty-item-label" data-i18n="empty_create_file">New File</span>
+                </span>
+                <span class="empty-item-shortcut"><kbd id="kbd-new-file">⌘ N</kbd></span>
+              </button>
+              <button id="empty-btn-open-file" class="empty-menu-item">
+                <span class="empty-item-left">
+                  <svg class="empty-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/>
+                  </svg>
+                  <span class="empty-item-label" data-i18n="empty_open_file">Open File</span>
+                </span>
+                <span class="empty-item-shortcut"><kbd id="kbd-open-file">⌘ O</kbd></span>
+              </button>
+              <button id="empty-btn-open-folder" class="empty-menu-item">
+                <span class="empty-item-left">
+                  <svg class="empty-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>
+                  </svg>
+                  <span class="empty-item-label" data-i18n="empty_open_folder">Open Folder</span>
+                </span>
+                <span class="empty-item-shortcut"><kbd id="kbd-open-folder">⇧ ⌘ O</kbd></span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="container">
+          <div id="editor-container">
+            <textarea id="editor" data-i18n-placeholder="editor_placeholder" placeholder="Write markdown here..." spellcheck="false"></textarea>
+            <div id="editor-overlay" aria-hidden="true"></div>
+          </div>
+          <div id="preview" class="markdown-body" lang="en"></div>
+        </div>
       </div>
     </div>
     <div id="footer">

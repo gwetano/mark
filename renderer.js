@@ -37,7 +37,7 @@ function escapeHtml(s) {
   return s.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])); 
 }
 
-// ====== NOTIFICHE POP-UP OPACO LIQUID GLASS & SWIPE A NUVOLA ======
+// ====== NOTIFICHE POP-UP COERENTI & DISSOLVENZA A NUVOLA AL CLICK ======
 function getOrCreateNotificationContainer() {
   let container = document.getElementById('notification-container');
   if (!container) {
@@ -55,11 +55,11 @@ function showNotification(message, type = 'info') {
 
   let iconSvg = '';
   if (type === 'success') {
-    iconSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+    iconSvg = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
   } else if (type === 'error') {
-    iconSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
+    iconSvg = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
   } else {
-    iconSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
+    iconSvg = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
   }
 
   notification.innerHTML = `
@@ -69,86 +69,41 @@ function showNotification(message, type = 'info') {
 
   container.appendChild(notification);
 
-  let isDragging = false;
-  let startX = 0;
-  let currentX = 0;
   let dismissTimer = null;
   let isDismissed = false;
 
-  function dismiss(direction = 1) {
+  function dismiss() {
     if (isDismissed) return;
     isDismissed = true;
     clearTimeout(dismissTimer);
-    notification.classList.remove('grabbing');
-    if (direction > 0) {
-      notification.classList.add('cloud-dismiss-right');
-    } else {
-      notification.classList.add('cloud-dismiss-left');
-    }
+    notification.classList.add('cloud-dismiss');
     setTimeout(() => {
       try { notification.remove(); } catch (_) {}
-    }, 450);
+    }, 320);
   }
 
   function startAutoDismiss() {
     clearTimeout(dismissTimer);
     dismissTimer = setTimeout(() => {
-      dismiss(1); // Scompare dolcemente a destra come una nuvola
-    }, 3800);
+      dismiss();
+    }, 4000);
   }
 
   startAutoDismiss();
 
+  // Sparisce a nuvola semplicemente cliccandoci sopra (senza trascinare)
+  notification.addEventListener('click', (e) => {
+    e.stopPropagation();
+    dismiss();
+  });
+
   notification.addEventListener('mouseenter', () => {
-    if (!isDragging) clearTimeout(dismissTimer);
-  });
-  notification.addEventListener('mouseleave', () => {
-    if (!isDragging && !isDismissed) startAutoDismiss();
-  });
-
-  // Swipe / drag a nuvola verso destra o sinistra
-  notification.addEventListener('pointerdown', (e) => {
-    if (isDismissed) return;
-    isDragging = true;
-    startX = e.clientX;
-    currentX = startX;
     clearTimeout(dismissTimer);
-    notification.classList.add('grabbing');
-    try { notification.setPointerCapture(e.pointerId); } catch (_) {}
-    notification.style.transition = 'none';
   });
 
-  notification.addEventListener('pointermove', (e) => {
-    if (!isDragging || isDismissed) return;
-    currentX = e.clientX;
-    const deltaX = currentX - startX;
-    const tilt = deltaX * 0.04;
-    const scale = 1 - Math.min(Math.abs(deltaX) / 800, 0.08);
-    const opacity = 1 - Math.min(Math.abs(deltaX) / 320, 0.5);
-
-    notification.style.transform = `translate3d(${deltaX}px, 0, 0) rotate(${tilt}deg) scale(${scale})`;
-    notification.style.opacity = `${opacity}`;
+  notification.addEventListener('mouseleave', () => {
+    if (!isDismissed) startAutoDismiss();
   });
-
-  const onPointerEnd = (e) => {
-    if (!isDragging) return;
-    isDragging = false;
-    notification.classList.remove('grabbing');
-    try { notification.releasePointerCapture(e.pointerId); } catch (_) {}
-
-    const deltaX = currentX - startX;
-    if (Math.abs(deltaX) > 60) {
-      dismiss(deltaX > 0 ? 1 : -1);
-    } else {
-      notification.style.transition = 'all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)';
-      notification.style.transform = 'translate3d(0, 0, 0) rotate(0deg) scale(1)';
-      notification.style.opacity = '1';
-      startAutoDismiss();
-    }
-  };
-
-  notification.addEventListener('pointerup', onPointerEnd);
-  notification.addEventListener('pointercancel', onPointerEnd);
 }
 
 // ====== STATO ================================================================
@@ -908,6 +863,15 @@ window.addEventListener("DOMContentLoaded", () => {
   const btnToggleExplorer = document.getElementById('btn-toggle-explorer');
   const explorerResizer = document.getElementById('explorer-resizer');
   
+  // TABS & EMPTY STATE DOM
+  const tabsBar = document.getElementById("tabs-bar");
+  const tabsScrollArea = document.getElementById("tabs-scroll-area");
+  const btnNewTab = document.getElementById("btn-new-tab");
+  const emptyState = document.getElementById("empty-state");
+  const emptyBtnNewFile = document.getElementById("empty-btn-new-file");
+  const emptyBtnOpenFile = document.getElementById("empty-btn-open-file");
+  const emptyBtnOpenFolder = document.getElementById("empty-btn-open-folder");
+
   // READING MODE
   const readingModePopup = document.getElementById("reading-mode-popup");
   const navbar = document.getElementById("navbar");
@@ -926,6 +890,8 @@ window.addEventListener("DOMContentLoaded", () => {
       if (footer) footer.style.display = 'none';
       if (explorerPanel) explorerPanel.classList.add('hidden');
       if (explorerResizer) explorerResizer.classList.add('hidden');
+      if (tabsBar) tabsBar.classList.add('hidden');
+      if (emptyState) emptyState.classList.add('hidden');
       if (viewContainer) viewContainer.className = "solo-preview";
       if (appContainer) {
         appContainer.style.marginTop = '0';
@@ -944,6 +910,8 @@ window.addEventListener("DOMContentLoaded", () => {
     } else {
       if (navbar) navbar.classList.remove('reading-mode-active');
       if (footer) footer.style.display = 'flex';
+      if (tabsBar && tabs.length > 0) tabsBar.classList.remove('hidden');
+      if (emptyState && tabs.length === 0) emptyState.classList.remove('hidden');
       if (viewContainer) viewContainer.className = previousViewClass;
       if (appContainer) {
         appContainer.style.marginTop = '55px';
@@ -1070,17 +1038,9 @@ window.addEventListener("DOMContentLoaded", () => {
 
         if (!fs.existsSync(fullPath)) {
           fs.writeFileSync(fullPath, '', 'utf8');
-
-          // Apre automaticamente il nuovo file nell'editor
-          if (isDirty && typeof saveCurrentFile === 'function') {
-            saveCurrentFile();
+          if (typeof openFileInTab === 'function') {
+            openFileInTab(fullPath, '');
           }
-          currentFilePath = fullPath;
-          if (editor) { editor.value = ''; lastKnownEditorValue = ''; }
-          updatePreview();
-          if (typeof updateWordCount === 'function') updateWordCount();
-          if (typeof updateEditorOverlay === 'function') updateEditorOverlay();
-          setDirty(false);
         } else {
           dialog.showErrorBox('Errore', 'Un file con questo nome esiste già.');
         }
@@ -1190,7 +1150,356 @@ window.addEventListener("DOMContentLoaded", () => {
   };
 
   // ===== DIRTY FLAG =====
-  const setDirty = (dirty) => { isDirty = dirty; if (title) title.textContent = dirty ? "*" : ""; };
+  const setDirty = (dirty) => {
+    isDirty = dirty;
+    if (title) title.textContent = "";
+    const activeTab = typeof getActiveTab === 'function' ? getActiveTab() : null;
+    if (activeTab) {
+      activeTab.isDirty = dirty;
+      if (typeof updateTabDirtyIndicator === 'function') {
+        updateTabDirtyIndicator(activeTab.id, dirty);
+      }
+    }
+  };
+
+  // ====== CALLOUT / ALERT BLOCKQUOTES & COLOR PICKER ======
+  const CALLOUT_REGEX = /^\s*\[!\s*([A-Za-z0-9_\-]+(?:\s+[A-Za-z0-9_\-]+)*)\s*(?::)?\s*(?:#([0-9a-fA-F]{3,8}))?\s*\](?:\s*<br\s*\/?>)?/i;
+
+  function getCalloutColor(tagName, hex) {
+    if (hex) {
+      return hex.startsWith('#') ? hex : '#' + hex;
+    }
+    const norm = (tagName || '').trim().toUpperCase();
+    if (['IMPORTANT', 'CAUTION', 'ERROR', 'DANGER'].includes(norm)) {
+      return '#ef4444'; // Rosso (Default Important)
+    }
+    if (['WARNING', 'ATTENTION'].includes(norm)) {
+      return '#f59e0b'; // Giallo / Amber (Default Warning)
+    }
+    // Altro verde di default come richiesto dall'utente
+    return '#10b981'; // Verde (Default Note, Tip, etc.)
+  }
+
+  function getCalloutIconSvg(tagName) {
+    const norm = (tagName || '').trim().toUpperCase();
+    if (['IMPORTANT', 'CAUTION', 'ERROR', 'DANGER'].includes(norm)) {
+      return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
+    }
+    if (['WARNING', 'ATTENTION'].includes(norm)) {
+      return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+    }
+    if (['TIP', 'IDEA'].includes(norm)) {
+      return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"></path><path d="M9 18h6"></path><path d="M10 22h4"></path></svg>`;
+    }
+    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
+  }
+
+  function hexToRgba(hex, alpha = 1) {
+    if (!hex) return `rgba(16, 185, 129, ${alpha})`;
+    let c = hex.replace('#', '').trim();
+    if (c.length === 3) c = c.split('').map(x => x + x).join('');
+    const num = parseInt(c, 16);
+    if (isNaN(num)) return `rgba(16, 185, 129, ${alpha})`;
+    const r = (num >> 16) & 255;
+    const g = (num >> 8) & 255;
+    const b = num & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  function processCalloutAlerts(container) {
+    if (!container) return;
+    const blockquotes = container.querySelectorAll('blockquote');
+    let calloutIndex = 0;
+
+    blockquotes.forEach(bq => {
+      const firstP = bq.querySelector('p');
+      if (!firstP) return;
+
+      const text = firstP.innerHTML;
+      const match = text.match(CALLOUT_REGEX);
+      if (!match) return;
+
+      const fullTag = match[0];
+      const tagName = match[1].trim();
+      const colorHex = match[2];
+
+      const color = getCalloutColor(tagName, colorHex);
+      const iconSvg = getCalloutIconSvg(tagName);
+
+      firstP.innerHTML = firstP.innerHTML.slice(fullTag.length).trim();
+      if (!firstP.innerHTML || firstP.innerHTML === '<br>' || firstP.innerHTML === '<br/>') {
+        firstP.remove();
+      }
+
+      bq.classList.add('callout-alert');
+      bq.dataset.calloutTag = tagName;
+      bq.dataset.calloutColor = color;
+      bq.dataset.calloutIndex = String(calloutIndex);
+
+      bq.style.setProperty('--callout-color', color);
+      bq.style.setProperty('--callout-bg', hexToRgba(color, 0.05));
+      bq.style.setProperty('--callout-bg-hover', hexToRgba(color, 0.09));
+      bq.style.setProperty('--callout-border', hexToRgba(color, 0.22));
+      bq.style.borderLeftColor = color;
+
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'callout-content';
+      while (bq.firstChild) {
+        contentDiv.appendChild(bq.firstChild);
+      }
+
+      const headerDiv = document.createElement('div');
+      headerDiv.className = 'callout-header';
+      headerDiv.style.color = color;
+      headerDiv.setAttribute('title', i18n.t('callout_click_color') || 'Clicca per scegliere il colore');
+      headerDiv.innerHTML = `
+        <span class="callout-icon">${iconSvg}</span>
+        <span class="callout-title">${escapeHtml(tagName)}</span>
+        <button type="button" class="callout-color-btn" title="${escapeHtml(i18n.t('callout_click_color') || 'Cambia colore')}">
+          <span class="callout-color-preview" style="background-color: ${color};"></span>
+          <svg class="callout-color-palette-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"></circle><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"></circle><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"></circle><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"></circle><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"></path></svg>
+        </button>
+      `;
+
+      bq.appendChild(headerDiv);
+      bq.appendChild(contentDiv);
+
+      calloutIndex++;
+    });
+  }
+
+  let currentCalloutPicker = null;
+
+  function closeCalloutColorPicker() {
+    if (currentCalloutPicker) {
+      try { currentCalloutPicker.remove(); } catch (_) {}
+      currentCalloutPicker = null;
+    }
+  }
+
+  function openCalloutColorPicker(blockquote, event) {
+    closeCalloutColorPicker();
+
+    const calloutIndex = parseInt(blockquote.dataset.calloutIndex, 10);
+    const currentColor = blockquote.dataset.calloutColor || '#10b981';
+    const currentTag = blockquote.dataset.calloutTag || 'NOTE';
+    const defaultColor = getCalloutColor(currentTag, null);
+
+    const popover = document.createElement('div');
+    popover.id = 'callout-picker-popover';
+
+    const presets = [
+      { color: '#ef4444', name: 'Rosso' },
+      { color: '#f97316', name: 'Arancione' },
+      { color: '#f59e0b', name: 'Giallo' },
+      { color: '#10b981', name: 'Verde' },
+      { color: '#007acc', name: 'Azzurro' },
+      { color: '#8b5cf6', name: 'Viola' },
+      { color: '#ec4899', name: 'Rosa' },
+      { color: '#64748b', name: 'Ardesia' }
+    ];
+
+    const swatchesHtml = presets.map(p => {
+      const isActive = p.color.toLowerCase() === currentColor.toLowerCase() ? ' active' : '';
+      return `<button type="button" class="callout-swatch${isActive}" data-color="${p.color}" title="${p.name} (${p.color})" style="background-color: ${p.color};"></button>`;
+    }).join('');
+
+    popover.innerHTML = `
+      <div class="callout-picker-header">
+        <div class="callout-picker-title">
+          <span class="callout-picker-badge" style="background-color: ${currentColor};"></span>
+          <span>${escapeHtml(currentTag)}</span>
+        </div>
+        <button type="button" class="callout-picker-close-btn" title="Chiudi">×</button>
+      </div>
+      
+      <div class="callout-picker-section-label">${escapeHtml(i18n.t('callout_presets') || 'Predefiniti')}</div>
+      <div class="callout-picker-swatches">
+        ${swatchesHtml}
+      </div>
+
+      <div class="callout-picker-section-label">${escapeHtml(i18n.t('callout_custom') || 'Personalizzato')}</div>
+      <div class="callout-picker-custom-row">
+        <input type="color" class="callout-picker-color-input" value="${currentColor}">
+        <input type="text" class="callout-picker-hex-input" value="${currentColor}" maxlength="7" spellcheck="false">
+        <button type="button" class="callout-picker-apply-btn">OK</button>
+      </div>
+
+      <div class="callout-picker-footer">
+        <button type="button" class="callout-picker-reset-btn" title="Ripristina colore di default (${defaultColor})">
+          ↺ ${escapeHtml(i18n.t('callout_default') || 'Default')}
+        </button>
+      </div>
+    `;
+
+    document.body.appendChild(popover);
+    currentCalloutPicker = popover;
+
+    let top = event.clientY + 12;
+    let left = event.clientX - 50;
+
+    const popWidth = 250;
+    const popHeight = 220;
+    if (left + popWidth > window.innerWidth - 16) {
+      left = window.innerWidth - popWidth - 16;
+    }
+    if (left < 16) left = 16;
+
+    if (top + popHeight > window.innerHeight - 16) {
+      top = Math.max(16, event.clientY - popHeight - 12);
+    }
+
+    popover.style.top = `${top}px`;
+    popover.style.left = `${left}px`;
+
+    const closeBtn = popover.querySelector('.callout-picker-close-btn');
+    closeBtn?.addEventListener('click', () => closeCalloutColorPicker());
+
+    popover.querySelectorAll('.callout-swatch').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const chosen = btn.dataset.color;
+        closeCalloutColorPicker();
+        updateCalloutColorInEditor(calloutIndex, chosen);
+      });
+    });
+
+    const colorInput = popover.querySelector('.callout-picker-color-input');
+    const hexInput = popover.querySelector('.callout-picker-hex-input');
+    const applyBtn = popover.querySelector('.callout-picker-apply-btn');
+
+    if (colorInput && hexInput) {
+      colorInput.addEventListener('input', () => {
+        hexInput.value = colorInput.value;
+        const badge = popover.querySelector('.callout-picker-badge');
+        if (badge) badge.style.backgroundColor = colorInput.value;
+      });
+
+      hexInput.addEventListener('input', () => {
+        let val = hexInput.value.trim();
+        if (!val.startsWith('#')) val = '#' + val;
+        if (/^#[0-9a-fA-F]{6}$/i.test(val)) {
+          colorInput.value = val;
+          const badge = popover.querySelector('.callout-picker-badge');
+          if (badge) badge.style.backgroundColor = val;
+        }
+      });
+
+      const applyCustom = () => {
+        let val = hexInput.value.trim();
+        if (!val.startsWith('#')) val = '#' + val;
+        if (/^#[0-9a-fA-F]{3,8}$/i.test(val)) {
+          closeCalloutColorPicker();
+          updateCalloutColorInEditor(calloutIndex, val);
+        }
+      };
+
+      applyBtn?.addEventListener('click', applyCustom);
+      hexInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          applyCustom();
+        }
+      });
+    }
+
+    const resetBtn = popover.querySelector('.callout-picker-reset-btn');
+    resetBtn?.addEventListener('click', () => {
+      closeCalloutColorPicker();
+      updateCalloutColorInEditor(calloutIndex, null);
+    });
+
+    const onDocClick = (e) => {
+      if (popover && !popover.contains(e.target) && !blockquote.contains(e.target)) {
+        closeCalloutColorPicker();
+        document.removeEventListener('pointerdown', onDocClick);
+      }
+    };
+    setTimeout(() => {
+      document.addEventListener('pointerdown', onDocClick);
+    }, 10);
+  }
+
+  function updateCalloutColorInEditor(calloutIndex, newColorHex) {
+    if (!editor) return;
+
+    const regex = /\[!\s*([A-Za-z0-9_\-]+(?:\s+[A-Za-z0-9_\-]+)*)\s*(?::)?\s*(?:#([0-9a-fA-F]{3,8}))?\s*\]/g;
+    let match;
+    let currentIndex = 0;
+    let found = null;
+
+    while ((match = regex.exec(editor.value)) !== null) {
+      if (currentIndex === calloutIndex) {
+        found = {
+          start: match.index,
+          end: match.index + match[0].length,
+          tagName: match[1].trim(),
+          fullMatch: match[0]
+        };
+        break;
+      }
+      currentIndex++;
+    }
+
+    if (!found) return;
+
+    let newTagStr;
+    if (newColorHex) {
+      const cleanHex = newColorHex.startsWith('#') ? newColorHex : '#' + newColorHex;
+      newTagStr = `[!${found.tagName} ${cleanHex}]`;
+    } else {
+      newTagStr = `[!${found.tagName}]`;
+    }
+
+    const before = editor.value.substring(0, found.start);
+    const after = editor.value.substring(found.end);
+    const selStart = editor.selectionStart;
+    const selEnd = editor.selectionEnd;
+
+    executeAction("Change Callout Color", () => {
+      editor.value = before + newTagStr + after;
+      try {
+        editor.setSelectionRange(selStart, selEnd);
+      } catch (_) {}
+      updatePreview();
+      setDirty(true);
+    });
+
+    const colorMsg = newColorHex ? (newColorHex.startsWith('#') ? newColorHex : '#' + newColorHex) : (i18n.t('callout_default') || 'Default');
+    showNotification(i18n.t('notif_callout_color_updated', { color: colorMsg }) || `Callout: ${colorMsg}`, 'info');
+  }
+
+  function attachCalloutInteractivity(container) {
+    if (!container) return;
+    const callouts = container.querySelectorAll('blockquote.callout-alert');
+    callouts.forEach(bq => {
+      bq.addEventListener('mousemove', (e) => {
+        const rect = bq.getBoundingClientRect();
+        const isLateral = (e.clientX - rect.left) <= 24;
+        if (isLateral) {
+          bq.style.cursor = 'pointer';
+          bq.setAttribute('title', i18n.t('callout_click_color') || 'Clicca per scegliere il colore');
+        } else {
+          bq.style.cursor = 'default';
+          if (!e.target.closest('.callout-header')) {
+            bq.removeAttribute('title');
+          }
+        }
+      });
+
+      bq.addEventListener('click', (e) => {
+        const rect = bq.getBoundingClientRect();
+        const isLateral = (e.clientX - rect.left) <= 24;
+        const isHeader = e.target.closest('.callout-header');
+        const isBtn = e.target.closest('.callout-color-btn');
+
+        if (isLateral || isHeader || isBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          openCalloutColorPicker(bq, e);
+        }
+      });
+    });
+  }
 
   // ===== PREVIEW RENDER (con include) =====
   function updatePreview() {
@@ -1222,6 +1531,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = html;
+    processCalloutAlerts(tempDiv);
 
     const imgs = tempDiv.querySelectorAll('img');
     imgs.forEach(img => {
@@ -1337,6 +1647,9 @@ window.addEventListener("DOMContentLoaded", () => {
         });
       } catch (_) {}
     }
+
+    // Callout interactive listeners
+    attachCalloutInteractivity(preview);
     
     // Re-apply preview search highlights if needed
     const sc = document.getElementById("search-container");
@@ -1581,6 +1894,10 @@ window.addEventListener("DOMContentLoaded", () => {
       debouncedUpdate();
       return;
     }
+    const activeTab = typeof getActiveTab === 'function' ? getActiveTab() : null;
+    if (activeTab) {
+      activeTab.content = editor.value;
+    }
     if (typingStartValue === null) {
       typingStartValue = lastKnownEditorValue;
     }
@@ -1685,30 +2002,9 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // ===== IPC handlers (file/load/view/theme) =====
   ipcRenderer.on("load-md", (event, filePath, content) => {
-    if (!editor) return;
-    if (currentFilePath === filePath) return;
-
-    if (!confirmLeaveCollabIfActive('action_open_file', { name: path.basename(filePath) })) {
-      return;
+    if (typeof openFileInTab === 'function') {
+      openFileInTab(filePath, content !== undefined ? content : null);
     }
-
-    currentFilePath = filePath;
-    editor.value = content; 
-    lastKnownEditorValue = content;
-    updatePreview(); 
-    wordCountEl && updateWordCount(); 
-    updateEditorOverlay();
-    setDirty(false);
-
-    // Ricava la cartella del file e la apre nell'explorer se non è già aperta
-    const containingFolder = path.dirname(filePath);
-    if (currentFolderPath !== containingFolder) {
-      openFolder(containingFolder);
-    }
-
-    document.querySelectorAll('.tree-item').forEach(item => {
-      item.classList.remove('active'); if (item.dataset.path === filePath) item.classList.add('active');
-    });
   });
 
   ipcRenderer.on("export-pdf", () => exportToPdf());
@@ -1716,6 +2012,11 @@ window.addEventListener("DOMContentLoaded", () => {
   ipcRenderer.on("new-file", () => createNewFile());
   ipcRenderer.on("open-folder", (event, folderPath) => openFolder(folderPath));
   ipcRenderer.on("trigger-save", () => saveCurrentFile());
+  ipcRenderer.on("close-active-tab", () => {
+    if (activeTabId && typeof closeTab === 'function') {
+      closeTab(activeTabId);
+    }
+  });
   ipcRenderer.on("toggle-explorer", () => { const p = document.getElementById("explorer-panel"); p && p.classList.toggle("hidden"); });
   ipcRenderer.on("toggle-preview", () => {
     if (!editor || !preview) return;
@@ -1824,6 +2125,9 @@ window.addEventListener("DOMContentLoaded", () => {
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = preview.innerHTML;
 
+    tempDiv.querySelectorAll('.code-copy-btn').forEach(btn => btn.remove());
+    tempDiv.querySelectorAll('.callout-color-btn').forEach(btn => btn.remove());
+
     const imgs = tempDiv.querySelectorAll('img');
 
     imgs.forEach(img => {
@@ -1900,8 +2204,9 @@ window.addEventListener("DOMContentLoaded", () => {
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = preview.innerHTML;
 
-      // 1. Rimuovi eventuali bottoni di copia già presenti nella preview per pulire l'HTML
+      // 1. Rimuovi eventuali bottoni di copia o colore già presenti nella preview per pulire l'HTML
       tempDiv.querySelectorAll('.code-copy-btn').forEach(btn => btn.remove());
+      tempDiv.querySelectorAll('.callout-color-btn').forEach(btn => btn.remove());
 
       // 2. Converti immagini locali / relative in Base64 data URLs
       const imgs = tempDiv.querySelectorAll('img');
@@ -2036,7 +2341,17 @@ window.addEventListener("DOMContentLoaded", () => {
       folderPathEl.classList.remove('hidden');
     }
 
-    if (fileTree) fileTree.innerHTML = '';
+    if (fileTree) {
+      fileTree.innerHTML = '';
+      if (!fileTree.dataset.hasClickListener) {
+        fileTree.dataset.hasClickListener = 'true';
+        fileTree.addEventListener('click', (e) => {
+          if (!e.target.closest('.tree-item')) {
+            clearExplorerSelection();
+          }
+        });
+      }
+    }
     explorerPanel && explorerPanel.classList.remove("hidden");
 
     const explorerResizer = document.getElementById('explorer-resizer');
@@ -2088,52 +2403,688 @@ window.addEventListener("DOMContentLoaded", () => {
     return false;
   }
 
-  function saveCurrentFile() {
-    if (!editor) return;
-    const content = editor.value;
-    if (currentFilePath) { fs.writeFileSync(currentFilePath, content, "utf8"); setDirty(false); }
-    else {
-      const file = dialog.showSaveDialogSync({ filters: [{ name: "Markdown", extensions: ["md"] }] });
-      if (file) {
-        fs.writeFileSync(file, content, "utf8");
-        currentFilePath = file; setDirty(false);
-        if (currentFolderPath && file.startsWith(currentFolderPath)) openFolder(currentFolderPath);
+  // ====== MULTI-TAB FILE MANAGEMENT ======
+  let tabs = [];
+  let activeTabId = null;
+  let untitledCounter = 0;
+
+  function getActiveTab() {
+    return tabs.find(t => t.id === activeTabId) || null;
+  }
+
+  function saveStateForActiveTab() {
+    const activeTab = getActiveTab();
+    if (activeTab && editor) {
+      activeTab.content = editor.value;
+      activeTab.scrollTop = editor.scrollTop;
+      activeTab.selectionStart = editor.selectionStart;
+      activeTab.selectionEnd = editor.selectionEnd;
+      activeTab.actionHistory = actionHistory;
+      activeTab.lastKnownEditorValue = lastKnownEditorValue;
+    }
+  }
+
+  function updateTabDirtyIndicator(tabId, dirty) {
+    const tabEl = document.querySelector(`.editor-tab[data-tab-id="${tabId}"]`);
+    if (tabEl) {
+      const dirtySpan = tabEl.querySelector('.tab-dirty');
+      if (dirtySpan) {
+        if (dirty) {
+          dirtySpan.classList.add('visible');
+        } else {
+          dirtySpan.classList.remove('visible');
+        }
       }
     }
   }
 
-  function createNewFile() {
-    if (!confirmLeaveCollabIfActive('creare un nuovo file')) {
+  function renderTabs() {
+    if (!tabsScrollArea) return;
+    tabsScrollArea.innerHTML = '';
+
+    if (tabs.length === 0) {
+      if (tabsBar) tabsBar.classList.add('hidden');
+      if (viewContainer) viewContainer.classList.add('hidden');
+      if (emptyState) emptyState.classList.remove('hidden');
+      if (wordCountEl) wordCountEl.textContent = i18n.t('word_count', { count: 0 });
+      document.querySelectorAll('.tree-item').forEach(item => item.classList.remove('active'));
       return;
     }
 
-    if (isDirty) {
-      const answer = dialog.showMessageBoxSync({
-        type: 'question', buttons: [i18n.t('dialog_save'), i18n.t('dialog_dont_save'), i18n.t('dialog_cancel')], defaultId: 0,
-        title: i18n.t('dialog_unsaved_title'), message: i18n.t('dialog_unsaved_message')
-      });
-      if (answer === 0) saveCurrentFile(); else if (answer === 2) return;
-    }
-    const filename = dialog.showSaveDialogSync({
-      defaultPath: path.join(currentFolderPath || '', 'new-file.md'),
-      filters: [{ name: "Markdown", extensions: ["md"] }],
-      title: i18n.t('dialog_create_new_file_title')
-    });
-    if (!filename) return;
-    fs.writeFileSync(filename, '', 'utf8');
-    editor.value = ''; lastKnownEditorValue = ''; updatePreview(); updateWordCount(); updateEditorOverlay();
-    currentFilePath = filename; setDirty(false);
-    if (currentFolderPath) openFolder(currentFolderPath);
-    setTimeout(() => {
-      document.querySelectorAll('.tree-item').forEach(item => {
-        item.classList.remove('active');
-        if (item.dataset.path === filename) {
-          item.classList.add('active');
-          item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (tabsBar && !isReadingMode) tabsBar.classList.remove('hidden');
+    if (viewContainer) viewContainer.classList.remove('hidden');
+    if (emptyState) emptyState.classList.add('hidden');
+
+    tabs.forEach(tab => {
+      const tabEl = document.createElement('div');
+      tabEl.className = 'editor-tab' + (tab.id === activeTabId ? ' active' : '');
+      tabEl.dataset.tabId = tab.id;
+      tabEl.title = tab.filePath || tab.title;
+
+      tabEl.innerHTML = `
+        <span class="tab-icon">${FILE_SVG}</span>
+        <span class="tab-title">${escapeHtml(tab.title)}</span>
+        <span class="tab-dirty ${tab.isDirty ? 'visible' : ''}">*</span>
+        <button class="tab-close-btn" data-tab-id="${tab.id}" title="${escapeHtml(i18n.t('tab_close_btn') || 'Close')}">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+      `;
+
+      tabEl.addEventListener('click', (e) => {
+        if (!e.target.closest('.tab-close-btn')) {
+          switchToTab(tab.id);
         }
       });
-    }, 100);
+
+      tabEl.addEventListener('auxclick', (e) => {
+        if (e.button === 1) { // Middle click
+          e.preventDefault();
+          closeTab(tab.id);
+        }
+      });
+
+      const closeBtn = tabEl.querySelector('.tab-close-btn');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeTab(tab.id);
+        });
+      }
+
+      tabsScrollArea.appendChild(tabEl);
+    });
+
+    const activeTab = getActiveTab();
+    if (activeTab && activeTab.filePath) {
+      document.querySelectorAll('.tree-item').forEach(item => {
+        item.classList.remove('active');
+        if (item.dataset.path === activeTab.filePath) item.classList.add('active');
+      });
+    } else {
+      document.querySelectorAll('.tree-item').forEach(item => item.classList.remove('active'));
+    }
   }
+
+  function switchToTab(tabId) {
+    if (activeTabId === tabId) {
+      renderTabs();
+      return;
+    }
+
+    const targetTab = tabs.find(t => t.id === tabId);
+    if (!targetTab) return;
+
+    if (getCollabState().isActive) {
+      if (!confirmLeaveCollabIfActive('action_open_file', { name: targetTab.title })) {
+        return;
+      }
+    }
+
+    saveStateForActiveTab();
+
+    activeTabId = targetTab.id;
+    currentFilePath = targetTab.filePath;
+    isDirty = targetTab.isDirty;
+
+    if (editor) {
+      isProgrammaticEdit = true;
+      editor.value = targetTab.content;
+      lastKnownEditorValue = targetTab.lastKnownEditorValue !== undefined ? targetTab.lastKnownEditorValue : targetTab.content;
+      actionHistory = Array.isArray(targetTab.actionHistory) ? targetTab.actionHistory : [];
+      isProgrammaticEdit = false;
+
+      updatePreview();
+      updateWordCount();
+      updateEditorOverlay();
+
+      editor.scrollTop = targetTab.scrollTop || 0;
+      const sStart = targetTab.selectionStart !== undefined ? targetTab.selectionStart : 0;
+      const sEnd = targetTab.selectionEnd !== undefined ? targetTab.selectionEnd : 0;
+      try {
+        editor.setSelectionRange(sStart, sEnd);
+      } catch (_) {}
+    }
+
+    renderTabs();
+
+    const activeEl = document.querySelector(`.editor-tab[data-tab-id="${tabId}"]`);
+    activeEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  }
+
+  function createNewTab(title = null, content = '') {
+    if (getCollabState().isActive) {
+      if (!confirmLeaveCollabIfActive('creare un nuovo file')) {
+        return;
+      }
+    }
+
+    untitledCounter++;
+    const defaultTitle = (i18n.t('untitled_file') || 'Untitled') + '-' + untitledCounter;
+    const newTab = {
+      id: 'tab-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+      filePath: null,
+      title: title || defaultTitle,
+      content: content,
+      isDirty: false,
+      scrollTop: 0,
+      selectionStart: 0,
+      selectionEnd: 0,
+      actionHistory: [],
+      lastKnownEditorValue: content
+    };
+
+    saveStateForActiveTab();
+    tabs.push(newTab);
+    switchToTab(newTab.id);
+    if (editor) editor.focus();
+  }
+
+  function openFileInTab(filePath, content = null) {
+    if (!filePath) return null;
+    const normalPath = path.resolve(filePath);
+
+    // If already open, switch to it
+    const existing = tabs.find(t => t.filePath && path.resolve(t.filePath) === normalPath);
+    if (existing) {
+      switchToTab(existing.id);
+      return existing;
+    }
+
+    if (getCollabState().isActive) {
+      if (!confirmLeaveCollabIfActive('action_open_file', { name: path.basename(normalPath) })) {
+        return null;
+      }
+    }
+
+    let fileContent = content;
+    if (fileContent === null) {
+      try {
+        fileContent = fs.readFileSync(normalPath, 'utf8');
+      } catch (err) {
+        dialog.showErrorBox(i18n.t('notif_error', { msg: err.message }) || 'Error', err.message);
+        return null;
+      }
+    }
+
+    // Check if current single tab is an untouched, empty untitled tab
+    if (tabs.length === 1 && !tabs[0].filePath && !tabs[0].isDirty && (tabs[0].content === '' || (editor && editor.value === ''))) {
+      tabs[0].filePath = normalPath;
+      tabs[0].title = path.basename(normalPath);
+      tabs[0].content = fileContent;
+      tabs[0].isDirty = false;
+      tabs[0].lastKnownEditorValue = fileContent;
+      tabs[0].actionHistory = [];
+      activeTabId = null;
+      switchToTab(tabs[0].id);
+
+      const containingFolder = path.dirname(normalPath);
+      if (currentFolderPath !== containingFolder && !currentFolderPath) {
+        openFolder(containingFolder);
+      }
+      return tabs[0];
+    }
+
+    saveStateForActiveTab();
+
+    const newTab = {
+      id: 'tab-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+      filePath: normalPath,
+      title: path.basename(normalPath),
+      content: fileContent,
+      isDirty: false,
+      scrollTop: 0,
+      selectionStart: 0,
+      selectionEnd: 0,
+      actionHistory: [],
+      lastKnownEditorValue: fileContent
+    };
+
+    tabs.push(newTab);
+    switchToTab(newTab.id);
+
+    const containingFolder = path.dirname(normalPath);
+    if (currentFolderPath !== containingFolder && !currentFolderPath) {
+      openFolder(containingFolder);
+    }
+    return newTab;
+  }
+
+  function saveSpecificTab(tab) {
+    if (!tab) return false;
+    if (tab.id === activeTabId && editor) {
+      tab.content = editor.value;
+    }
+
+    if (tab.filePath) {
+      try {
+        fs.writeFileSync(tab.filePath, tab.content, 'utf8');
+        tab.isDirty = false;
+        if (tab.id === activeTabId) {
+          isDirty = false;
+        }
+        updateTabDirtyIndicator(tab.id, false);
+        return true;
+      } catch (err) {
+        dialog.showErrorBox('Error saving file', err.message);
+        return false;
+      }
+    } else {
+      const defaultName = tab.title.endsWith('.md') ? tab.title : tab.title + '.md';
+      const file = dialog.showSaveDialogSync({
+        defaultPath: path.join(currentFolderPath || '', defaultName),
+        filters: [{ name: "Markdown", extensions: ["md"] }],
+        title: i18n.t('dialog_save')
+      });
+      if (!file) return false;
+      try {
+        fs.writeFileSync(file, tab.content, 'utf8');
+        tab.filePath = file;
+        tab.title = path.basename(file);
+        tab.isDirty = false;
+        if (tab.id === activeTabId) {
+          currentFilePath = file;
+          isDirty = false;
+        }
+        renderTabs();
+        if (currentFolderPath && file.startsWith(currentFolderPath)) {
+          openFolder(currentFolderPath);
+        }
+        return true;
+      } catch (err) {
+        dialog.showErrorBox('Error saving file', err.message);
+        return false;
+      }
+    }
+  }
+
+  function saveCurrentFile() {
+    const activeTab = getActiveTab();
+    if (!activeTab) return false;
+    return saveSpecificTab(activeTab);
+  }
+
+  function createNewFile() {
+    createNewTab();
+  }
+
+  function closeTab(tabId) {
+    const tabIndex = tabs.findIndex(t => t.id === tabId);
+    if (tabIndex === -1) return true;
+    const tab = tabs[tabIndex];
+
+    if (tab.id === activeTabId && editor) {
+      tab.content = editor.value;
+      if (isDirty) tab.isDirty = true;
+    }
+
+    // Safety check: if unsaved, prompt user
+    if (tab.isDirty) {
+      if (tab.id !== activeTabId) {
+        switchToTab(tab.id);
+      }
+
+      const messageText = i18n.t('dialog_unsaved_tab_message', { name: tab.title }) ||
+        `Do you want to save the changes you made to "${tab.title}"?`;
+
+      const answer = dialog.showMessageBoxSync({
+        type: 'question',
+        buttons: [i18n.t('dialog_save'), i18n.t('dialog_dont_save'), i18n.t('dialog_cancel')],
+        defaultId: 0,
+        cancelId: 2,
+        title: i18n.t('dialog_unsaved_title'),
+        message: messageText
+      });
+
+      if (answer === 0) { // Save
+        const saved = saveSpecificTab(tab);
+        if (!saved) return false;
+      } else if (answer === 1) { // Don't Save
+        tab.isDirty = false;
+      } else { // Cancel
+        return false;
+      }
+    }
+
+    if (getCollabState().isActive && tab.filePath === currentFilePath) {
+      leaveCollaboration();
+      const bCollab = document.getElementById("btn-collab");
+      bCollab?.classList.remove("active-collab");
+      const sContainer = document.getElementById("collab-status-container");
+      sContainer?.classList.add("hidden");
+      if (typeof updateCollabModalView === 'function') updateCollabModalView();
+    }
+
+    tabs.splice(tabIndex, 1);
+
+    if (tab.id === activeTabId) {
+      if (tabs.length > 0) {
+        const nextIdx = Math.min(tabIndex, tabs.length - 1);
+        activeTabId = null;
+        switchToTab(tabs[nextIdx].id);
+      } else {
+        activeTabId = null;
+        currentFilePath = null;
+        isDirty = false;
+        if (editor) editor.value = '';
+        if (preview) preview.innerHTML = '';
+        renderTabs();
+      }
+    } else {
+      renderTabs();
+    }
+
+    return true;
+  }
+
+  // ====== EXPLORER SELECTION, ACTIONS & CONTEXT MENU ======
+  let selectedExplorerPath = null;
+  let selectedExplorerElement = null;
+  let isRenamingInExplorer = false;
+
+  function clearExplorerSelection() {
+    if (selectedExplorerElement) {
+      selectedExplorerElement.classList.remove('selected');
+    }
+    selectedExplorerPath = null;
+    selectedExplorerElement = null;
+  }
+
+  function selectExplorerItem(itemPath, element) {
+    if (selectedExplorerElement && selectedExplorerElement !== element) {
+      selectedExplorerElement.classList.remove('selected');
+    }
+    selectedExplorerPath = itemPath;
+    selectedExplorerElement = element;
+    if (element) {
+      element.classList.add('selected');
+      if (element.tabIndex < 0) {
+        element.tabIndex = -1;
+      }
+      try {
+        element.focus();
+      } catch (_) {}
+    }
+  }
+
+  function showFileContextMenu(filePath, fileElement) {
+    const { Menu, MenuItem } = require('@electron/remote');
+    const menu = new Menu();
+    const fileName = path.basename(filePath);
+    const isDarwin = platform === 'darwin';
+
+    menu.append(new MenuItem({
+      label: i18n.t('ctx_open') || 'Open',
+      click: () => {
+        openFileInTab(filePath);
+      }
+    }));
+
+    menu.append(new MenuItem({ type: 'separator' }));
+
+    menu.append(new MenuItem({
+      label: isDarwin ? (i18n.t('ctx_reveal_mac') || 'Reveal in Finder') : (i18n.t('ctx_reveal_win') || 'Reveal in File Explorer'),
+      click: () => {
+        shell.showItemInFolder(filePath);
+      }
+    }));
+
+    menu.append(new MenuItem({
+      label: i18n.t('ctx_copy_content') || 'Copy Content',
+      click: () => {
+        try {
+          let content = '';
+          const openTab = tabs.find(t => t.filePath && path.resolve(t.filePath) === path.resolve(filePath));
+          if (openTab && openTab.id === activeTabId && editor) {
+            content = editor.value;
+          } else if (openTab) {
+            content = openTab.content;
+          } else {
+            content = fs.readFileSync(filePath, 'utf8');
+          }
+          clipboard.writeText(content);
+          showNotification(i18n.t('notif_content_copied') || 'File content copied to clipboard', 'success');
+        } catch (err) {
+          dialog.showErrorBox('Error', err.message);
+        }
+      }
+    }));
+
+    menu.append(new MenuItem({
+      label: i18n.t('ctx_copy_path') || 'Copy Path',
+      click: () => {
+        clipboard.writeText(filePath);
+        showNotification(i18n.t('notif_path_copied') || 'Path copied to clipboard', 'info');
+      }
+    }));
+
+    menu.append(new MenuItem({
+      label: i18n.t('ctx_copy_rel_path') || 'Copy Relative Path',
+      click: () => {
+        const relPath = currentFolderPath ? path.relative(currentFolderPath, filePath) : fileName;
+        clipboard.writeText(relPath);
+        showNotification(i18n.t('notif_path_copied') || 'Path copied to clipboard', 'info');
+      }
+    }));
+
+    menu.append(new MenuItem({ type: 'separator' }));
+
+    menu.append(new MenuItem({
+      label: i18n.t('ctx_rename') || 'Rename',
+      accelerator: 'Enter',
+      click: () => {
+        startInlineRename(filePath, fileElement);
+      }
+    }));
+
+    menu.append(new MenuItem({ type: 'separator' }));
+
+    menu.append(new MenuItem({
+      label: i18n.t('ctx_delete') || 'Move to Trash',
+      accelerator: isDarwin ? 'Cmd+Backspace' : 'Delete',
+      click: () => {
+        deleteExplorerFile(filePath);
+      }
+    }));
+
+    menu.popup();
+  }
+
+  function showFolderContextMenu(folderPath) {
+    const { Menu, MenuItem } = require('@electron/remote');
+    const menu = new Menu();
+    const isDarwin = platform === 'darwin';
+
+    menu.append(new MenuItem({
+      label: isDarwin ? (i18n.t('ctx_reveal_mac') || 'Reveal in Finder') : (i18n.t('ctx_reveal_win') || 'Reveal in File Explorer'),
+      click: () => {
+        shell.showItemInFolder(folderPath);
+      }
+    }));
+
+    menu.append(new MenuItem({
+      label: i18n.t('ctx_copy_path') || 'Copy Path',
+      click: () => {
+        clipboard.writeText(folderPath);
+        showNotification(i18n.t('notif_path_copied') || 'Path copied to clipboard', 'info');
+      }
+    }));
+
+    menu.popup();
+  }
+
+  function startInlineRename(filePath, fileElement) {
+    if (!filePath || !fileElement) return;
+    if (isRenamingInExplorer) return;
+
+    const labelEl = fileElement.querySelector('.tree-label');
+    if (!labelEl) return;
+
+    isRenamingInExplorer = true;
+
+    const currentName = path.basename(filePath);
+    const ext = path.extname(currentName);
+    const stem = path.basename(currentName, ext);
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'tree-inline-input';
+    input.value = currentName;
+    input.spellcheck = false;
+
+    labelEl.style.display = 'none';
+    fileElement.appendChild(input);
+    input.focus();
+
+    try {
+      input.setSelectionRange(0, stem.length);
+    } catch (_) {}
+
+    let isFinished = false;
+
+    const cancel = () => {
+      if (isFinished) return;
+      isFinished = true;
+      isRenamingInExplorer = false;
+      input.remove();
+      labelEl.style.display = '';
+      if (fileElement) {
+        try { fileElement.focus(); } catch (_) {}
+      }
+    };
+
+    const commit = () => {
+      if (isFinished) return;
+      isFinished = true;
+      isRenamingInExplorer = false;
+
+      let newName = input.value.trim();
+      if (!newName || newName === currentName) {
+        cancel();
+        return;
+      }
+
+      if (!newName.toLowerCase().endsWith('.md') && currentName.toLowerCase().endsWith('.md')) {
+        newName += '.md';
+      }
+
+      if (newName === currentName) {
+        cancel();
+        return;
+      }
+
+      if (/[\/\\:\*\?"<>\|]/.test(newName)) {
+        dialog.showErrorBox(i18n.t('ctx_rename') || 'Rename', 'Invalid file name.');
+        cancel();
+        return;
+      }
+
+      const dir = path.dirname(filePath);
+      const newPath = path.join(dir, newName);
+
+      if (fs.existsSync(newPath) && path.resolve(newPath).toLowerCase() !== path.resolve(filePath).toLowerCase()) {
+        dialog.showErrorBox(i18n.t('ctx_rename') || 'Rename', i18n.t('dialog_file_exists') || 'A file with this name already exists.');
+        cancel();
+        return;
+      }
+
+      try {
+        fs.renameSync(filePath, newPath);
+      } catch (err) {
+        dialog.showErrorBox(i18n.t('ctx_rename') || 'Rename', err.message);
+        cancel();
+        return;
+      }
+
+      tabs.forEach(t => {
+        if (t.filePath && path.resolve(t.filePath) === path.resolve(filePath)) {
+          t.filePath = newPath;
+          t.title = newName;
+          if (t.id === activeTabId) {
+            currentFilePath = newPath;
+          }
+        }
+      });
+      renderTabs();
+
+      if (currentFolderPath) {
+        openFolder(currentFolderPath);
+        setTimeout(() => {
+          const newEl = document.querySelector(`.tree-item[data-path="${CSS.escape(newPath)}"]`);
+          if (newEl) {
+            selectExplorerItem(newPath, newEl);
+          }
+        }, 60);
+      } else {
+        input.remove();
+        labelEl.textContent = newName;
+        labelEl.style.display = '';
+        fileElement.title = newName;
+        fileElement.dataset.path = newPath;
+        selectExplorerItem(newPath, fileElement);
+      }
+    };
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        commit();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        cancel();
+      }
+    });
+
+    input.addEventListener('blur', () => {
+      commit();
+    });
+  }
+
+  async function deleteExplorerFile(filePath) {
+    if (!filePath || !fs.existsSync(filePath)) return;
+    const fileName = path.basename(filePath);
+
+    const answer = dialog.showMessageBoxSync({
+      type: 'warning',
+      buttons: [i18n.t('dialog_move_to_trash') || 'Move to Trash', i18n.t('dialog_cancel') || 'Cancel'],
+      defaultId: 0,
+      cancelId: 1,
+      title: i18n.t('dialog_delete_title') || 'Move to Trash',
+      message: i18n.t('dialog_delete_confirm', { name: fileName }) || `Are you sure you want to move "${fileName}" to Trash?`
+    });
+
+    if (answer !== 0) return;
+
+    try {
+      if (shell && typeof shell.trashItem === 'function') {
+        await shell.trashItem(filePath);
+      } else if (shell && typeof shell.moveItemToTrash === 'function') {
+        shell.moveItemToTrash(filePath);
+      } else {
+        fs.unlinkSync(filePath);
+      }
+    } catch (err) {
+      dialog.showErrorBox(i18n.t('dialog_delete_title') || 'Error', err.message);
+      return;
+    }
+
+    const openTabs = tabs.filter(t => t.filePath && path.resolve(t.filePath) === path.resolve(filePath));
+    for (const t of openTabs) {
+      t.isDirty = false;
+      closeTab(t.id);
+    }
+
+    clearExplorerSelection();
+    showNotification(i18n.t('notif_item_deleted', { name: fileName }) || `"${fileName}" moved to Trash`, 'info');
+
+    if (currentFolderPath) {
+      openFolder(currentFolderPath);
+    }
+  }
+
   function isMarkdownFile(filePath) { return filePath.toLowerCase().endsWith('.md'); }
   function createFileTree(folderPath, parentElement) {
     if (!parentElement) return;
@@ -2167,6 +3118,11 @@ window.addEventListener("DOMContentLoaded", () => {
               folderElement.dataset.loaded = 'true';
             }
           });
+          folderHeader.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            showFolderContextMenu(itemPath);
+          });
         });
       // Files (.md)
       items
@@ -2181,36 +3137,20 @@ window.addEventListener("DOMContentLoaded", () => {
           fileElement.className = 'tree-item tree-file';
           fileElement.title = item;
           fileElement.dataset.path = itemPath;
+          fileElement.tabIndex = -1;
           fileElement.innerHTML = `
             <span class="tree-file-icon">${FILE_SVG}</span>
             <span class="tree-label">${item}</span>
           `;
-          fileElement.addEventListener('click', () => {
-            if (currentFilePath === itemPath) return;
-
-            if (!confirmLeaveCollabIfActive('action_open_file', { name: item })) {
-              return;
-            }
-
-            if (isDirty) {
-              const answer = dialog.showMessageBoxSync({
-                type: 'question', buttons: [i18n.t('dialog_save'), i18n.t('dialog_dont_save'), i18n.t('dialog_cancel')], defaultId: 0,
-                title: i18n.t('dialog_unsaved_title'), message: i18n.t('dialog_unsaved_message')
-              });
-              if (answer === 0) saveCurrentFile();
-              else if (answer === 2) return;
-            }
-            document.querySelectorAll('.tree-item').forEach(item => item.classList.remove('active'));
-            fileElement.classList.add('active');
-            const content = fs.readFileSync(itemPath, 'utf8');
-
-            currentFilePath = itemPath;
-            editor.value = content; 
-            lastKnownEditorValue = content;
-            updatePreview(); 
-            updateWordCount(); 
-            setDirty(false); 
-            updateEditorOverlay();
+          fileElement.addEventListener('click', (e) => {
+            selectExplorerItem(itemPath, fileElement);
+            openFileInTab(itemPath);
+          });
+          fileElement.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            selectExplorerItem(itemPath, fileElement);
+            showFileContextMenu(itemPath, fileElement);
           });
           parentElement.appendChild(fileElement);
         });
@@ -2735,13 +3675,37 @@ window.addEventListener("DOMContentLoaded", () => {
     showNotification(i18n.t('notif_session_ended'), "info");
   });
 
-  window.addEventListener('beforeunload', () => {
-    if (getCollabState().isActive) {
-      if (currentFilePath && isDirty && typeof saveCurrentFile === 'function') {
-        try {
-          saveCurrentFile();
-        } catch (_) {}
+  window.addEventListener('beforeunload', (e) => {
+    if (typeof saveStateForActiveTab === 'function') {
+      saveStateForActiveTab();
+    }
+    const dirtyTabs = tabs.filter(t => t.isDirty);
+    if (dirtyTabs.length > 0) {
+      for (const t of dirtyTabs) {
+        switchToTab(t.id);
+        const choice = dialog.showMessageBoxSync({
+          type: 'question',
+          buttons: [i18n.t('dialog_save'), i18n.t('dialog_dont_save'), i18n.t('dialog_cancel')],
+          defaultId: 0,
+          cancelId: 2,
+          title: i18n.t('dialog_unsaved_title'),
+          message: i18n.t('dialog_unsaved_tab_message', { name: t.title }) || `Do you want to save the changes you made to "${t.title}"?`
+        });
+        if (choice === 0) {
+          const saved = saveSpecificTab(t);
+          if (!saved) {
+            e.preventDefault();
+            e.returnValue = false;
+            return false;
+          }
+        } else if (choice === 2) {
+          e.preventDefault();
+          e.returnValue = false;
+          return false;
+        }
       }
+    }
+    if (getCollabState().isActive) {
       leaveCollaboration();
     }
   });
@@ -2792,6 +3756,11 @@ window.addEventListener("DOMContentLoaded", () => {
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+      if (currentCalloutPicker) {
+        closeCalloutColorPicker();
+        e.preventDefault();
+        return;
+      }
       const settingsModal = document.getElementById('settings-modal');
       
       // Se il modal delle impostazioni è aperto, lo chiude
@@ -2880,6 +3849,100 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+
+  // ===== EMPTY STATE & SHORTCUTS SETUP =====
+  const isMac = platform === 'darwin';
+  const kbdNew = document.getElementById('kbd-new-file');
+  const kbdOpen = document.getElementById('kbd-open-file');
+  const kbdFolder = document.getElementById('kbd-open-folder');
+  if (kbdNew) kbdNew.textContent = isMac ? '⌘N' : 'Ctrl+N';
+  if (kbdOpen) kbdOpen.textContent = isMac ? '⌘O' : 'Ctrl+O';
+  if (kbdFolder) kbdFolder.textContent = isMac ? '⇧⌘O' : 'Ctrl+Shift+O';
+
+  btnNewTab && btnNewTab.addEventListener("click", () => createNewTab());
+  emptyBtnNewFile && emptyBtnNewFile.addEventListener("click", () => createNewTab());
+  emptyBtnOpenFile && emptyBtnOpenFile.addEventListener("click", async () => {
+    const result = await dialog.showOpenDialog({
+      filters: [{ name: "Markdown", extensions: ["md"] }],
+      properties: ["openFile", "multiSelections"]
+    });
+    if (!result.canceled && result.filePaths.length > 0) {
+      for (const fp of result.filePaths) {
+        openFileInTab(fp);
+      }
+    }
+  });
+  emptyBtnOpenFolder && emptyBtnOpenFolder.addEventListener("click", async () => {
+    const result = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+    if (!result.canceled && result.filePaths.length > 0) openFolder(result.filePaths[0]);
+  });
+
+  // Keyboard shortcut Cmd+W / Ctrl+W to close active tab
+  document.addEventListener('keydown', (e) => {
+    const isCmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
+    if (isCmdOrCtrl && e.key.toLowerCase() === 'w' && !e.shiftKey && !e.altKey) {
+      e.preventDefault();
+      if (activeTabId && typeof closeTab === 'function') {
+        closeTab(activeTabId);
+      }
+    }
+  });
+
+  // Explorer keyboard shortcuts: Rename (Enter / F2) and Delete (Cmd+Backspace on Mac, Delete on Win/Linux)
+  document.addEventListener('keydown', (e) => {
+    if (isRenamingInExplorer) return;
+
+    const activeEl = document.activeElement;
+    const tag = activeEl ? activeEl.tagName : '';
+    if (['TEXTAREA', 'INPUT', 'BUTTON', 'SELECT'].includes(tag) || activeEl?.isContentEditable) {
+      return;
+    }
+
+    if (document.querySelector('.modal:not(.hidden)')) {
+      return;
+    }
+
+    if (!selectedExplorerPath || !selectedExplorerElement) {
+      return;
+    }
+
+    const isExplorerFocused =
+      document.activeElement === selectedExplorerElement ||
+      document.getElementById('explorer-panel')?.contains(document.activeElement) ||
+      document.activeElement === document.body;
+
+    if (!isExplorerFocused) {
+      return;
+    }
+
+    // Rename (Enter or F2)
+    if ((e.key === 'Enter' || e.key === 'F2') && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      e.preventDefault();
+      startInlineRename(selectedExplorerPath, selectedExplorerElement);
+      return;
+    }
+
+    // Delete (Cmd+Backspace/Cmd+Delete on Mac, Delete/Canc on Win/Linux)
+    const isDarwin = platform === 'darwin';
+    const isDelete = isDarwin
+      ? (e.metaKey && (e.key === 'Backspace' || e.key === 'Delete'))
+      : (!e.metaKey && !e.ctrlKey && !e.altKey && e.key === 'Delete');
+
+    if (isDelete) {
+      e.preventDefault();
+      deleteExplorerFile(selectedExplorerPath);
+      return;
+    }
+  });
+
+  // Initial startup: if no file or folder has been opened after brief delay, create initial tab
+  setTimeout(() => {
+    if (tabs.length === 0 && !currentFolderPath) {
+      createNewTab();
+    } else if (tabs.length === 0) {
+      renderTabs();
+    }
+  }, 120);
 
   // ===== PRIMO RENDER + link esterni =====
   setupExternalLinks();

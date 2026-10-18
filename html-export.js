@@ -599,9 +599,70 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
       border-top: 1px solid var(--border);
       border-right: 1px solid var(--border);
       border-bottom: 1px solid var(--border);
+      font-style: normal;
     }
 
     .markdown-body blockquote p:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Callout / Alert Blockquotes */
+    .markdown-body blockquote.callout-alert {
+      position: relative;
+      background-color: var(--callout-bg, rgba(16, 185, 129, 0.06));
+      border-left: 4px solid var(--callout-color, #10b981) !important;
+      border-top: 1px solid var(--callout-border, rgba(16, 185, 129, 0.22));
+      border-right: 1px solid var(--callout-border, rgba(16, 185, 129, 0.22));
+      border-bottom: 1px solid var(--callout-border, rgba(16, 185, 129, 0.22));
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      padding: 14px 18px;
+      margin: 18px 0 22px 0;
+      color: var(--text-primary);
+      font-style: normal;
+    }
+
+    .markdown-body .callout-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 0.92rem;
+      letter-spacing: 0.3px;
+      margin-bottom: 8px;
+      color: var(--callout-color, #10b981);
+    }
+
+    .markdown-body .callout-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    .markdown-body .callout-icon svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .markdown-body .callout-title {
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      font-size: 0.88rem;
+    }
+
+    .markdown-body .callout-content {
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .markdown-body .callout-content p {
+      margin: 0 0 8px 0;
+    }
+
+    .markdown-body .callout-content p:last-child {
       margin-bottom: 0;
     }
 

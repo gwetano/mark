@@ -25,6 +25,32 @@ if (targetArg) {
   }
 }
 
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, argv, workingDirectory) => {
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.focus();
+      const instanceArgs = argv.slice(process.defaultApp ? 2 : 1);
+      const target = instanceArgs.find(arg => !arg.startsWith('--'));
+      if (target) {
+        const absPath = path.resolve(workingDirectory, target);
+        if (fs.existsSync(absPath)) {
+          const stat = fs.statSync(absPath);
+          if (stat.isFile() && absPath.endsWith('.md')) {
+            const content = fs.readFileSync(absPath, 'utf8');
+            win.webContents.send('load-md', absPath, content);
+          } else if (stat.isDirectory()) {
+            win.webContents.send('open-folder', absPath);
+          }
+        }
+      }
+    }
+  });
+}
+
 function initializeRemote() {
   if (!remoteMain.isInitialized()) {
     remoteMain.initialize();
@@ -99,14 +125,22 @@ function buildApplicationMenu() {
           click: async () => {
             const result = await dialog.showOpenDialog(win, {
               filters: [{ name: "Markdown", extensions: ["md"] }],
-              properties: ["openFile"]
+              properties: ["openFile", "multiSelections"]
             });
 
             if (!result.canceled && result.filePaths.length > 0) {
-              const filePath = result.filePaths[0];
-              const content = fs.readFileSync(filePath, "utf8");
-              win.webContents.send("load-md", filePath, content);
+              for (const filePath of result.filePaths) {
+                const content = fs.readFileSync(filePath, "utf8");
+                win.webContents.send("load-md", filePath, content);
+              }
             }
+          }
+        },
+        {
+          label: i18n.t("menu_close_tab"),
+          accelerator: "CmdOrCtrl+W",
+          click: () => {
+            win.webContents.send("close-active-tab");
           }
         },
         {
