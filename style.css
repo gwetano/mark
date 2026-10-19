@@ -510,7 +510,7 @@ body.dark .empty-item-shortcut kbd {
 #editor-overlay {
   flex: 1;
   padding: 20px;
-  padding-bottom: 200px;
+  padding-bottom: 60vh;
   
   background-color: var(--editor-bg);
   color: var(--fg);
@@ -525,11 +525,17 @@ body.dark .empty-item-shortcut kbd {
 #preview {
   flex: 1;
   padding: 20px;
-  padding-bottom: 200px;
+  padding-bottom: 60vh;
   background-color: var(--preview-bg);
   overflow-y: auto;
   overflow-x: hidden;
   height: 100%;
+  line-height: 1.6;
+}
+
+#preview > :first-child,
+.markdown-body > :first-child {
+  margin-top: 0 !important;
 }
 
 
@@ -792,15 +798,26 @@ body.dark .empty-item-shortcut kbd {
 
 .tree-inline-input {
   flex: 1;
-  background: var(--editor-bg);
+  background: transparent;
   color: var(--fg);
-  border: 1px solid #007acc;
-  border-radius: 4px;
+  border: none;
+  border-radius: 0;
   outline: none;
-  padding: 2px 6px;
+  padding: 0;
+  margin: 0;
   font-family: inherit;
-  font-size: 12px;
-  box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+  font-size: 12.5px;
+  line-height: inherit;
+  box-shadow: none;
+  min-width: 0;
+}
+
+.tree-inline-input:focus,
+.tree-inline-input:focus-visible,
+.tree-inline-input:active {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
 }
 
 .md-line:hover {
@@ -1881,7 +1898,8 @@ body.dark #preview tr:hover {
   flex: 1;
   max-width: 100%;
   transition: width 0.3s ease;
-  padding-bottom: 200px;
+  padding: 20px;
+  padding-bottom: 60vh;
   /* assicurarsi che anche questa regola non rimuova lo spazio */
   background-color: transparent;
   color: transparent;
@@ -1896,6 +1914,8 @@ body.dark #preview tr:hover {
   height: 100%;
   box-sizing: border-box;
   transition: width 0.3s ease;
+  padding: 20px;
+  padding-bottom: 60vh;
 }
 #editor,
 #editor-overlay {
@@ -1904,7 +1924,7 @@ body.dark #preview tr:hover {
   line-height: 1.6;
 
   padding: 20px;
-  padding-bottom: 200px;
+  padding-bottom: 60vh;
 
   box-sizing: border-box;
   white-space: pre-wrap;
@@ -1944,6 +1964,7 @@ body.dark #preview tr:hover {
   overflow-y: auto;
   background-color: var(--preview-bg);
   padding: 20px;
+  padding-bottom: 60vh;
 }
 
 #editor ,
@@ -1957,12 +1978,23 @@ body.dark #preview tr:hover {
   color: var(--fg);
   caret-color: var(--fg);
   padding: 20px;
-  padding-bottom: 200px;
+  padding-bottom: 60vh;
 
   overflow-y: auto;
   font-size: 16px;
   z-index: 10;
   position: relative;
+}
+
+#caret-mirror {
+  position: absolute;
+  top: 0;
+  left: -9999px;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 button:focus-visible,

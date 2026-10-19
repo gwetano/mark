@@ -83,8 +83,11 @@ const translations = {
     collab_leave_session: "End session",
 
     // Notifications
-    notif_update_available: "Update available! It will be downloaded in the background.",
+    notif_update_available: "Update available!",
+    notif_update_downloading: "Downloading update...",
+    notif_update_progress: "Downloading update: {percent}%",
     notif_update_downloaded: "Update downloaded! Restart to apply.",
+    notif_update_downloaded_restarting: "Update ready! Restarting application...",
     notif_groq_key_missing: "Groq API key missing.",
     notif_error: "Error: {msg}",
     notif_undo_error: "Unable to undo action: the text was modified too much.",
@@ -104,6 +107,14 @@ const translations = {
     notif_collab_webrtc_error: "WebRTC connection error: {msg}",
 
     // Dialogs
+    dialog_update_available_title: "Update Available",
+    dialog_update_available_message: "A new update{version} is available!",
+    dialog_update_available_detail: "Do you want to download the update and restart the application to install it, or discard?",
+    dialog_update_download_restart: "Download and Restart",
+    dialog_update_discard: "Discard",
+    dialog_update_error_title: "Update Failed",
+    dialog_update_error_message: "Could not automatically download or apply the update: {msg}\n\nDo you want to open GitHub to download it manually?",
+    dialog_update_open_github: "Download from GitHub",
     dialog_unsaved_title: "Unsaved changes",
     dialog_unsaved_message: "There are unsaved changes. Do you want to save before proceeding?",
     dialog_save: "Save",
@@ -272,8 +283,11 @@ const translations = {
     collab_leave_session: "Termina sessione",
 
     // Notifications
-    notif_update_available: "Aggiornamento disponibile! Verrà scaricato in background.",
+    notif_update_available: "Aggiornamento disponibile!",
+    notif_update_downloading: "Download dell'aggiornamento in corso...",
+    notif_update_progress: "Download aggiornamento: {percent}%",
     notif_update_downloaded: "Aggiornamento scaricato! Riavvia per applicare.",
+    notif_update_downloaded_restarting: "Aggiornamento pronto! Riavvio dell'applicazione in corso...",
     notif_groq_key_missing: "Chiave API Groq mancante.",
     notif_error: "Errore: {msg}",
     notif_undo_error: "Impossibile annullare l'azione: il testo è stato modificato troppo.",
@@ -293,6 +307,14 @@ const translations = {
     notif_collab_webrtc_error: "Errore di connessione WebRTC: {msg}",
 
     // Dialogs
+    dialog_update_available_title: "Aggiornamento disponibile",
+    dialog_update_available_message: "È disponibile un nuovo aggiornamento{version}!",
+    dialog_update_available_detail: "Vuoi scaricare l'aggiornamento e riavviare l'applicazione per installarlo o scartare?",
+    dialog_update_download_restart: "Scarica e riavvia",
+    dialog_update_discard: "Scarta",
+    dialog_update_error_title: "Aggiornamento non riuscito",
+    dialog_update_error_message: "Non è stato possibile completare l'aggiornamento automatico: {msg}\n\nVuoi aprire GitHub per scaricarlo manualmente?",
+    dialog_update_open_github: "Scarica da GitHub",
     dialog_unsaved_title: "Modifiche non salvate",
     dialog_unsaved_message: "Ci sono modifiche non salvate. Vuoi salvare prima di procedere?",
     dialog_save: "Salva",

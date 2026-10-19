@@ -111,18 +111,94 @@ let currentFilePath = null;
 let isDirty = false;
 let currentFolderPath = null;
 let isSyncingScroll = false;
+let isRenderingPreview = false;
+let activeScrollPane = null;
+let activeScrollTimer = null;
 let userIsScrollingEditor = false;
 let userIsScrollingPreview = false;
 let scrollTimeoutEditor = null;
 let scrollTimeoutPreview = null;
 let currentTabSize = 4;
 
-// ====== AUTO-UPDATE NOTIFICATIONS ===========================================
-ipcRenderer.on('update-available', () => {
-  showNotification(i18n.t('notif_update_available'), 'info');
+// ====== AUTO-UPDATE =========================================================
+let updateProgressNotification = null;
+
+function showOrUpdateDownloadNotification(message) {
+  if (updateProgressNotification && document.body.contains(updateProgressNotification)) {
+    const textEl = updateProgressNotification.querySelector('.cloud-notification-text');
+    if (textEl) {
+      textEl.textContent = message;
+      return;
+    }
+  }
+  const container = getOrCreateNotificationContainer();
+  const notification = document.createElement('div');
+  notification.className = 'cloud-notification info';
+  const iconSvg = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
+  notification.innerHTML = `
+    <div class="cloud-notification-icon">${iconSvg}</div>
+    <div class="cloud-notification-text">${escapeHtml(message)}</div>
+  `;
+  container.appendChild(notification);
+  updateProgressNotification = notification;
+}
+
+ipcRenderer.on('update-available', (event, info) => {
+  const versionStr = info?.version ? ` (v${info.version})` : '';
+  const choice = dialog.showMessageBoxSync({
+    type: 'question',
+    title: i18n.t('dialog_update_available_title'),
+    message: i18n.t('dialog_update_available_message', { version: versionStr }),
+    detail: i18n.t('dialog_update_available_detail'),
+    buttons: [
+      i18n.t('dialog_update_download_restart'),
+      i18n.t('dialog_update_discard')
+    ],
+    defaultId: 0,
+    cancelId: 1
+  });
+
+  if (choice === 0) {
+    showOrUpdateDownloadNotification(i18n.t('notif_update_downloading'));
+    ipcRenderer.send('start-download-update');
+  }
 });
+
+ipcRenderer.on('update-download-progress', (event, percent) => {
+  showOrUpdateDownloadNotification(i18n.t('notif_update_progress', { percent }));
+});
+
 ipcRenderer.on('update-downloaded', () => {
-  showNotification(i18n.t('notif_update_downloaded'), 'success');
+  if (updateProgressNotification) {
+    try { updateProgressNotification.remove(); } catch (_) {}
+    updateProgressNotification = null;
+  }
+  showNotification(i18n.t('notif_update_downloaded_restarting'), 'success');
+  setTimeout(() => {
+    ipcRenderer.send('quit-and-install-update');
+  }, 1000);
+});
+
+ipcRenderer.on('update-error', (event, errorMsg) => {
+  if (updateProgressNotification) {
+    try { updateProgressNotification.remove(); } catch (_) {}
+    updateProgressNotification = null;
+  }
+  const choice = dialog.showMessageBoxSync({
+    type: 'warning',
+    title: i18n.t('dialog_update_error_title'),
+    message: i18n.t('dialog_update_error_message', { msg: errorMsg }),
+    buttons: [
+      i18n.t('dialog_update_open_github'),
+      i18n.t('dialog_cancel')
+    ],
+    defaultId: 0,
+    cancelId: 1
+  });
+
+  if (choice === 0) {
+    shell.openExternal('https://github.com/gwetano/mark/releases/latest');
+  }
 });
 
 // ====== PLATFORM DETECTION & WINDOW CONTROLS ================================
@@ -236,10 +312,31 @@ function toggleTaskInMarkdown(markdown, targetIndex, isChecked) {
 
 let checkboxCount = 0;
 if (typeof marked !== 'undefined' && marked.use) {
+  const defaultRenderer = new marked.Renderer();
+
+  function wrapWithSourceLine(fn) {
+    return function(token) {
+      const html = fn.call(this, token);
+      if (token && token.sourceLine) {
+        return html.replace(/^<([a-zA-Z0-9]+)/, `<$1 data-source-line="${token.sourceLine}"`);
+      }
+      return html;
+    };
+  }
+
   marked.use({
     breaks: true,
     gfm: true,
     renderer: {
+      heading: wrapWithSourceLine(defaultRenderer.heading),
+      paragraph: wrapWithSourceLine(defaultRenderer.paragraph),
+      code: wrapWithSourceLine(defaultRenderer.code),
+      blockquote: wrapWithSourceLine(defaultRenderer.blockquote),
+      list: wrapWithSourceLine(defaultRenderer.list),
+      listitem: wrapWithSourceLine(defaultRenderer.listitem),
+      table: wrapWithSourceLine(defaultRenderer.table),
+      hr: wrapWithSourceLine(defaultRenderer.hr),
+      html: wrapWithSourceLine(defaultRenderer.html),
       checkbox({ checked }) {
         const index = checkboxCount++;
         return `<input type="checkbox" class="task-list-item-checkbox" data-index="${index}" ${checked ? 'checked' : ''}>`;
@@ -1465,7 +1562,6 @@ window.addEventListener("DOMContentLoaded", () => {
     });
 
     const colorMsg = newColorHex ? (newColorHex.startsWith('#') ? newColorHex : '#' + newColorHex) : (i18n.t('callout_default') || 'Default');
-    showNotification(i18n.t('notif_callout_color_updated', { color: colorMsg }) || `Callout: ${colorMsg}`, 'info');
   }
 
   function attachCalloutInteractivity(container) {
@@ -1513,21 +1609,23 @@ window.addEventListener("DOMContentLoaded", () => {
 
     // Capture current scroll state
     const currentScrollTop = preview.scrollTop;
-    const maxScrollTop = preview.scrollHeight - preview.clientHeight;
-    // Consider "at bottom" if within 20px of the bottom
-    const isAtBottom = (maxScrollTop - currentScrollTop) <= 20;
+    isRenderingPreview = true;
 
-    let html = marked.parse(raw, {
-      breaks: true,
-      gfm: true,
-      highlight: (code, lang) => {
-        if (window.hljs) {
-          try { return hljs.highlight(code, { language: lang || 'plaintext' }).value; }
-          catch { return hljs.highlightAuto(code).value; }
+    const tokens = marked.lexer(raw);
+    let currentLine = 1;
+    for (const t of tokens) {
+      t.sourceLine = currentLine;
+      if (t.items) {
+        let itemLine = currentLine;
+        for (const item of t.items) {
+          item.sourceLine = itemLine;
+          itemLine += (item.raw.match(/\n/g) || []).length;
         }
-        return code;
       }
-    });
+      currentLine += (t.raw.match(/\n/g) || []).length;
+    }
+
+    let html = marked.parser(tokens);
 
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = html;
@@ -1575,7 +1673,7 @@ window.addEventListener("DOMContentLoaded", () => {
     });
 
     let outHtml = tempDiv.innerHTML;
-    outHtml = outHtml.replace(/<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/g, (_, code) => `<div class="mermaid">${code}</div>`);
+    outHtml = outHtml.replace(/<pre([^>]*)><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/g, (_, attrs, code) => `<div class="mermaid"${attrs}>${code}</div>`);
     preview.innerHTML = outHtml;
 
     if (window.hljs) {
@@ -1586,12 +1684,26 @@ window.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // Restore scroll position
-    if (isAtBottom) {
-      preview.scrollTop = preview.scrollHeight - preview.clientHeight;
-    } else {
-      preview.scrollTop = currentScrollTop;
-    }
+    // Restore preview scroll position steadily without jumping
+    preview.scrollTop = currentScrollTop;
+
+    // Keep scroll map updated in background for when the user scrolls
+    requestAnimationFrame(() => {
+      isRenderingPreview = false;
+      if (typeof buildScrollMap === 'function') {
+        buildScrollMap();
+      }
+    });
+
+    preview.querySelectorAll('img').forEach(img => {
+      if (!img.complete) {
+        img.addEventListener('load', () => {
+          if (typeof buildScrollMap === 'function') {
+            buildScrollMap();
+          }
+        }, { once: true });
+      }
+    });
 
     const CODE_COPY_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
     const CODE_CHECK_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`;
@@ -1844,6 +1956,205 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // ===== Caret Coordinates & Obsidian-Style Centered Writing =====
+  let caretMirror = null;
+
+  function getCaretCoordinates(element, position) {
+    if (!caretMirror) {
+      caretMirror = document.getElementById('caret-mirror');
+      if (!caretMirror) {
+        caretMirror = document.createElement('div');
+        caretMirror.id = 'caret-mirror';
+        document.body.appendChild(caretMirror);
+      }
+    }
+
+    const styles = window.getComputedStyle(element);
+    caretMirror.style.width = element.clientWidth + 'px';
+    caretMirror.style.boxSizing = styles.boxSizing;
+    caretMirror.style.fontFamily = styles.fontFamily;
+    caretMirror.style.fontSize = styles.fontSize;
+    caretMirror.style.fontWeight = styles.fontWeight;
+    caretMirror.style.fontStyle = styles.fontStyle;
+    caretMirror.style.letterSpacing = styles.letterSpacing;
+    caretMirror.style.lineHeight = styles.lineHeight;
+    caretMirror.style.paddingTop = styles.paddingTop;
+    caretMirror.style.paddingBottom = styles.paddingBottom;
+    caretMirror.style.paddingLeft = styles.paddingLeft;
+    caretMirror.style.paddingRight = styles.paddingRight;
+    caretMirror.style.borderTopWidth = styles.borderTopWidth;
+    caretMirror.style.borderLeftWidth = styles.borderLeftWidth;
+    caretMirror.style.tabSize = styles.tabSize || '4';
+
+    const safePos = Math.max(0, Math.min(position, element.value.length));
+    const text = element.value.substring(0, safePos);
+    caretMirror.textContent = text;
+
+    const marker = document.createElement('span');
+    marker.textContent = '\u200b';
+    caretMirror.appendChild(marker);
+
+    const top = marker.offsetTop;
+    const height = marker.offsetHeight || parseFloat(styles.lineHeight) || 25.6;
+
+    return { top, height };
+  }
+
+  // ===== Synchronized Scroll Map (Block by Block & Line by Line) =====
+  let syncBlocks = [];
+
+  function buildScrollMap() {
+    if (!editor || !preview) return;
+
+    const elements = preview.querySelectorAll('[data-source-line]');
+    if (elements.length === 0) {
+      syncBlocks = [];
+      return;
+    }
+
+    const text = editor.value;
+    const lineStarts = [0];
+    for (let i = 0; i < text.length; i++) {
+      if (text[i] === '\n') {
+        lineStarts.push(i + 1);
+      }
+    }
+
+    const blocks = [];
+    const previewRect = preview.getBoundingClientRect();
+    const previewScrollTop = preview.scrollTop;
+
+    elements.forEach(el => {
+      const lineAttr = el.getAttribute('data-source-line');
+      if (!lineAttr) return;
+      const line = parseInt(lineAttr, 10);
+      if (isNaN(line) || line < 1) return;
+
+      const charIndex = lineStarts[line - 1] !== undefined ? lineStarts[line - 1] : text.length;
+      const coord = getCaretCoordinates(editor, charIndex);
+      const elRect = el.getBoundingClientRect();
+      const pTop = elRect.top - previewRect.top + previewScrollTop;
+
+      blocks.push({
+        line,
+        editorTop: coord.top,
+        previewTop: pTop
+      });
+    });
+
+    blocks.sort((a, b) => a.editorTop - b.editorTop);
+
+    // Filter to ensure strict monotonic increase
+    const cleaned = [];
+    let lastEditorTop = -1;
+    let lastPreviewTop = -1;
+    for (const b of blocks) {
+      if (b.editorTop > lastEditorTop && b.previewTop >= lastPreviewTop) {
+        cleaned.push(b);
+        lastEditorTop = b.editorTop;
+        lastPreviewTop = b.previewTop;
+      }
+    }
+
+    syncBlocks = cleaned;
+  }
+
+  function getPreviewScrollForEditor(editorScrollTop) {
+    if (!editor || !preview) return 0;
+    const editorMax = editor.scrollHeight - editor.clientHeight;
+    const previewMax = preview.scrollHeight - preview.clientHeight;
+    if (editorMax <= 0 || previewMax <= 0) return 0;
+
+    if (syncBlocks.length === 0) {
+      return (editorScrollTop / editorMax) * previewMax;
+    }
+
+    const first = syncBlocks[0];
+    if (editorScrollTop <= first.editorTop) {
+      if (first.editorTop <= 0) return 0;
+      const progress = Math.max(0, editorScrollTop) / first.editorTop;
+      return progress * first.previewTop;
+    }
+
+    const last = syncBlocks[syncBlocks.length - 1];
+    if (editorScrollTop >= last.editorTop) {
+      const remainingEditor = editorMax - last.editorTop;
+      const remainingPreview = previewMax - last.previewTop;
+      if (remainingEditor <= 0 || remainingPreview <= 0) return last.previewTop;
+      const progress = Math.min(1, Math.max(0, (editorScrollTop - last.editorTop) / remainingEditor));
+      return last.previewTop + progress * remainingPreview;
+    }
+
+    let low = 0;
+    let high = syncBlocks.length - 1;
+    while (low <= high) {
+      const mid = (low + high) >> 1;
+      if (syncBlocks[mid].editorTop <= editorScrollTop) {
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+
+    const prev = syncBlocks[high];
+    const next = syncBlocks[low];
+    if (!prev || !next) return prev ? prev.previewTop : 0;
+
+    const range = next.editorTop - prev.editorTop;
+    if (range <= 0) return prev.previewTop;
+
+    const progress = (editorScrollTop - prev.editorTop) / range;
+    return prev.previewTop + progress * (next.previewTop - prev.previewTop);
+  }
+
+  function getEditorScrollForPreview(previewScrollTop) {
+    if (!editor || !preview) return 0;
+    const editorMax = editor.scrollHeight - editor.clientHeight;
+    const previewMax = preview.scrollHeight - preview.clientHeight;
+    if (editorMax <= 0 || previewMax <= 0) return 0;
+
+    if (syncBlocks.length === 0) {
+      return (previewScrollTop / previewMax) * editorMax;
+    }
+
+    const first = syncBlocks[0];
+    if (previewScrollTop <= first.previewTop) {
+      if (first.previewTop <= 0) return 0;
+      const progress = Math.max(0, previewScrollTop) / first.previewTop;
+      return progress * first.editorTop;
+    }
+
+    const last = syncBlocks[syncBlocks.length - 1];
+    if (previewScrollTop >= last.previewTop) {
+      const remainingEditor = editorMax - last.editorTop;
+      const remainingPreview = previewMax - last.previewTop;
+      if (remainingEditor <= 0 || remainingPreview <= 0) return last.editorTop;
+      const progress = Math.min(1, Math.max(0, (previewScrollTop - last.previewTop) / remainingPreview));
+      return last.editorTop + progress * remainingEditor;
+    }
+
+    let low = 0;
+    let high = syncBlocks.length - 1;
+    while (low <= high) {
+      const mid = (low + high) >> 1;
+      if (syncBlocks[mid].previewTop <= previewScrollTop) {
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+
+    const prev = syncBlocks[high];
+    const next = syncBlocks[low];
+    if (!prev || !next) return prev ? prev.editorTop : 0;
+
+    const range = next.previewTop - prev.previewTop;
+    if (range <= 0) return prev.editorTop;
+
+    const progress = (previewScrollTop - prev.previewTop) / range;
+    return prev.editorTop + progress * (next.editorTop - prev.editorTop);
+  }
+
   // ===== Autoscroll Sync =====
   let autoscrollEnabled = true;
   const savedAutoscroll = localStorage.getItem('autoscrollEnabled');
@@ -1852,32 +2163,67 @@ window.addEventListener("DOMContentLoaded", () => {
     autoscrollSwitch && (autoscrollSwitch.checked = autoscrollEnabled);
   }
   autoscrollSwitch && autoscrollSwitch.addEventListener("change", function () {
-    autoscrollEnabled = this.checked; localStorage.setItem('autoscrollEnabled', autoscrollEnabled);
+    autoscrollEnabled = this.checked;
+    localStorage.setItem('autoscrollEnabled', autoscrollEnabled);
+    if (autoscrollEnabled) {
+      buildScrollMap();
+      if (editor && preview) {
+        preview.scrollTop = getPreviewScrollForEditor(editor.scrollTop);
+      }
+    }
   });
+
+  function markUserScrolling(pane) {
+    activeScrollPane = pane;
+    clearTimeout(activeScrollTimer);
+    activeScrollTimer = setTimeout(() => {
+      activeScrollPane = null;
+    }, 200);
+  }
+
+  if (editor) {
+    editor.addEventListener('wheel', () => markUserScrolling('editor'), { passive: true });
+    editor.addEventListener('touchstart', () => markUserScrolling('editor'), { passive: true });
+    editor.addEventListener('touchmove', () => markUserScrolling('editor'), { passive: true });
+    editor.addEventListener('pointerdown', () => markUserScrolling('editor'), { passive: true });
+  }
+
+  if (preview) {
+    preview.addEventListener('wheel', () => markUserScrolling('preview'), { passive: true });
+    preview.addEventListener('touchstart', () => markUserScrolling('preview'), { passive: true });
+    preview.addEventListener('touchmove', () => markUserScrolling('preview'), { passive: true });
+    preview.addEventListener('pointerdown', () => markUserScrolling('preview'), { passive: true });
+  }
+
   editor && editor.addEventListener('scroll', () => {
-    if (!autoscrollEnabled || isSyncingScroll) return;
-    userIsScrollingEditor = true;
-    clearTimeout(scrollTimeoutEditor);
-    scrollTimeoutEditor = setTimeout(() => { userIsScrollingEditor = false; }, SCROLL_DEBOUNCE_DELAY);
-    if (!userIsScrollingPreview && preview) {
-      isSyncingScroll = true;
-      const scrollPercent = editor.scrollTop / (editor.scrollHeight - editor.clientHeight);
-      preview.scrollTop = scrollPercent * (preview.scrollHeight - preview.clientHeight);
-      setTimeout(() => { isSyncingScroll = false; }, 50);
-    }
+    if (!autoscrollEnabled || isSyncingScroll || isRenderingPreview) return;
+    if (activeScrollPane !== 'editor') return;
+
+    isSyncingScroll = true;
+    preview.scrollTop = getPreviewScrollForEditor(editor.scrollTop);
+    requestAnimationFrame(() => { isSyncingScroll = false; });
   });
+
   preview && preview.addEventListener('scroll', () => {
-    if (!autoscrollEnabled || isSyncingScroll || !editor) return;
-    userIsScrollingPreview = true;
-    clearTimeout(scrollTimeoutPreview);
-    scrollTimeoutPreview = setTimeout(() => { userIsScrollingPreview = false; }, SCROLL_DEBOUNCE_DELAY);
-    if (!userIsScrollingEditor) {
-      isSyncingScroll = true;
-      const scrollPercent = preview.scrollTop / (preview.scrollHeight - preview.clientHeight);
-      editor.scrollTop = scrollPercent * (editor.scrollHeight - editor.clientHeight);
-      setTimeout(() => { isSyncingScroll = false; }, 50);
-    }
+    if (!autoscrollEnabled || isSyncingScroll || isRenderingPreview || !editor) return;
+    if (activeScrollPane !== 'preview') return;
+
+    isSyncingScroll = true;
+    editor.scrollTop = getEditorScrollForPreview(preview.scrollTop);
+    requestAnimationFrame(() => { isSyncingScroll = false; });
   });
+
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(() => {
+      buildScrollMap();
+    });
+    if (editor) ro.observe(editor);
+    if (preview) ro.observe(preview);
+  } else {
+    window.addEventListener('resize', () => {
+      buildScrollMap();
+    });
+  }
 
   const debouncedUpdate = debounce(() => {
     updatePreview();
@@ -1889,6 +2235,7 @@ window.addEventListener("DOMContentLoaded", () => {
       updateEditorOverlay();
     }
   }, 300);
+
   editor && editor.addEventListener("input", () => {
     if (isProgrammaticEdit) {
       debouncedUpdate();
@@ -2545,6 +2892,12 @@ window.addEventListener("DOMContentLoaded", () => {
       try {
         editor.setSelectionRange(sStart, sEnd);
       } catch (_) {}
+      requestAnimationFrame(() => {
+        buildScrollMap();
+        if (autoscrollEnabled && preview) {
+          preview.scrollTop = getPreviewScrollForEditor(editor.scrollTop);
+        }
+      });
     }
 
     renderTabs();
@@ -2916,7 +3269,17 @@ window.addEventListener("DOMContentLoaded", () => {
 
   function startInlineRename(filePath, fileElement) {
     if (!filePath || !fileElement) return;
-    if (isRenamingInExplorer) return;
+
+    // Se c'è già un input di rinomina aperto nel tree, ripuliscilo
+    document.querySelectorAll('.tree-inline-input').forEach(existingInput => {
+      const parent = existingInput.parentElement;
+      existingInput.remove();
+      if (parent) {
+        const lbl = parent.querySelector('.tree-label');
+        if (lbl) lbl.style.display = '';
+      }
+    });
+    isRenamingInExplorer = false;
 
     const labelEl = fileElement.querySelector('.tree-label');
     if (!labelEl) return;
@@ -2942,6 +3305,7 @@ window.addEventListener("DOMContentLoaded", () => {
     } catch (_) {}
 
     let isFinished = false;
+    let isCommitting = false;
 
     const cancel = () => {
       if (isFinished) return;
@@ -2955,76 +3319,92 @@ window.addEventListener("DOMContentLoaded", () => {
     };
 
     const commit = () => {
-      if (isFinished) return;
-      isFinished = true;
-      isRenamingInExplorer = false;
-
-      let newName = input.value.trim();
-      if (!newName || newName === currentName) {
-        cancel();
-        return;
-      }
-
-      if (!newName.toLowerCase().endsWith('.md') && currentName.toLowerCase().endsWith('.md')) {
-        newName += '.md';
-      }
-
-      if (newName === currentName) {
-        cancel();
-        return;
-      }
-
-      if (/[\/\\:\*\?"<>\|]/.test(newName)) {
-        dialog.showErrorBox(i18n.t('ctx_rename') || 'Rename', 'Invalid file name.');
-        cancel();
-        return;
-      }
-
-      const dir = path.dirname(filePath);
-      const newPath = path.join(dir, newName);
-
-      if (fs.existsSync(newPath) && path.resolve(newPath).toLowerCase() !== path.resolve(filePath).toLowerCase()) {
-        dialog.showErrorBox(i18n.t('ctx_rename') || 'Rename', i18n.t('dialog_file_exists') || 'A file with this name already exists.');
-        cancel();
-        return;
-      }
+      if (isFinished || isCommitting) return;
+      isCommitting = true;
 
       try {
-        fs.renameSync(filePath, newPath);
-      } catch (err) {
-        dialog.showErrorBox(i18n.t('ctx_rename') || 'Rename', err.message);
-        cancel();
-        return;
-      }
-
-      tabs.forEach(t => {
-        if (t.filePath && path.resolve(t.filePath) === path.resolve(filePath)) {
-          t.filePath = newPath;
-          t.title = newName;
-          if (t.id === activeTabId) {
-            currentFilePath = newPath;
-          }
+        let newName = input.value.trim();
+        if (!newName || newName === currentName) {
+          cancel();
+          return;
         }
-      });
-      renderTabs();
 
-      if (currentFolderPath) {
-        openFolder(currentFolderPath);
-        setTimeout(() => {
-          const newEl = document.querySelector(`.tree-item[data-path="${CSS.escape(newPath)}"]`);
-          if (newEl) {
-            selectExplorerItem(newPath, newEl);
+        if (!newName.toLowerCase().endsWith('.md') && currentName.toLowerCase().endsWith('.md')) {
+          if (newName.endsWith('.')) {
+            newName = newName.slice(0, -1);
           }
-        }, 60);
-      } else {
+          newName += '.md';
+        }
+
+        if (newName === currentName) {
+          cancel();
+          return;
+        }
+
+        if (/[\/\\:\*\?"<>\|]/.test(newName)) {
+          dialog.showErrorBox(i18n.t('ctx_rename') || 'Rename', 'Invalid file name.');
+          cancel();
+          return;
+        }
+
+        const dir = path.dirname(filePath);
+        const newPath = path.join(dir, newName);
+
+        if (fs.existsSync(newPath) && path.resolve(newPath).toLowerCase() !== path.resolve(filePath).toLowerCase()) {
+          dialog.showErrorBox(i18n.t('ctx_rename') || 'Rename', i18n.t('dialog_file_exists') || 'A file with this name already exists.');
+          cancel();
+          return;
+        }
+
+        try {
+          fs.renameSync(filePath, newPath);
+        } catch (err) {
+          dialog.showErrorBox(i18n.t('ctx_rename') || 'Rename', err.message);
+          cancel();
+          return;
+        }
+
+        isFinished = true;
+        isRenamingInExplorer = false;
         input.remove();
-        labelEl.textContent = newName;
-        labelEl.style.display = '';
-        fileElement.title = newName;
-        fileElement.dataset.path = newPath;
-        selectExplorerItem(newPath, fileElement);
+
+        tabs.forEach(t => {
+          if (t.filePath && path.resolve(t.filePath) === path.resolve(filePath)) {
+            t.filePath = newPath;
+            t.title = newName;
+            if (t.id === activeTabId) {
+              currentFilePath = newPath;
+            }
+          }
+        });
+        renderTabs();
+
+        if (currentFolderPath) {
+          openFolder(currentFolderPath);
+          setTimeout(() => {
+            const newEl = document.querySelector(`.tree-item[data-path="${CSS.escape(newPath)}"]`);
+            if (newEl) {
+              selectExplorerItem(newPath, newEl);
+            }
+          }, 60);
+        } else {
+          labelEl.textContent = newName;
+          labelEl.style.display = '';
+          fileElement.title = newName;
+          fileElement.dataset.path = newPath;
+          selectExplorerItem(newPath, fileElement);
+        }
+      } finally {
+        isCommitting = false;
       }
     };
+
+    // Blocca la propagazione degli eventi del mouse affinché non interferiscano col fileElement genitore
+    input.addEventListener('click', (e) => e.stopPropagation());
+    input.addEventListener('mousedown', (e) => e.stopPropagation());
+    input.addEventListener('mouseup', (e) => e.stopPropagation());
+    input.addEventListener('dblclick', (e) => e.stopPropagation());
+    input.addEventListener('contextmenu', (e) => e.stopPropagation());
 
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
@@ -3039,7 +3419,9 @@ window.addEventListener("DOMContentLoaded", () => {
     });
 
     input.addEventListener('blur', () => {
-      commit();
+      if (!isFinished) {
+        commit();
+      }
     });
   }
 
@@ -3820,6 +4202,14 @@ window.addEventListener("DOMContentLoaded", () => {
   btnViewSplit && btnViewSplit.addEventListener("click", () => {
     if (container) container.className = "split-view";
     refreshSearchIfOpen();
+    setTimeout(() => {
+      if (typeof buildScrollMap === 'function') {
+        buildScrollMap();
+        if (autoscrollEnabled && preview && editor) {
+          preview.scrollTop = getPreviewScrollForEditor(editor.scrollTop);
+        }
+      }
+    }, 350);
   });
 
   btnViewPreview && btnViewPreview.addEventListener("click", () => {
