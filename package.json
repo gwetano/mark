@@ -12,7 +12,7 @@
     "license": "ISC",
     "devDependencies": {
         "electron": "^44.9.1",
-        "electron-builder": "^24.13.3"
+        "electron-builder": "^26.15.3"
     },
     "dependencies": {
         "@electron/remote": "^2.1.2",
