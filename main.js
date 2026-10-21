@@ -145,7 +145,7 @@ function buildApplicationMenu() {
         },
         {
           label: i18n.t("menu_import"),
-          accelerator: "CmdOrCtrl+I",
+          accelerator: "CmdOrCtrl+Alt+I",
           click: async () => {
             const result = await dialog.showOpenDialog(win, {
               filters: [{ name: "Documenti supportati", extensions: ["pdf", "docx", "pptx", "html", "xlsx"] }],
@@ -192,7 +192,7 @@ function buildApplicationMenu() {
         },
         {
           label: i18n.t("menu_export_pdf"),
-          accelerator: "CmdOrCtrl+E",
+          accelerator: "CmdOrCtrl+Alt+E",
           click: () => {
             win.webContents.send("export-pdf");
           }
@@ -245,6 +245,13 @@ function buildApplicationMenu() {
             win.webContents.send("open-search");
           }
         },
+        {
+          label: i18n.t("menu_insert_link"),
+          accelerator: "CmdOrCtrl+L",
+          click: () => {
+            win.webContents.send("insert-link");
+          }
+        },
         { type: "separator" },
         {
           label: i18n.t("menu_insert_image"),
@@ -282,16 +289,16 @@ function buildApplicationMenu() {
         },
         {
           label: i18n.t("menu_editor"),
-          accelerator: "CmdOrCtrl+L",
+          accelerator: "CmdOrCtrl+Shift+L",
           click: () => {
-            win.webContents.send("toggle-preview");
+            win.webContents.send("toggle-editor-view");
           }
         },
         {
           label: i18n.t("menu_preview"),
-          accelerator: "CmdOrCtrl+P",
+          accelerator: "CmdOrCtrl+Shift+P",
           click: () => {
-            win.webContents.send("toggle-editor");
+            win.webContents.send("toggle-preview-view");
           }
         },
         { type: "separator" },

@@ -41,6 +41,7 @@ const translations = {
     open_folder: "Open folder",
     refresh: "Refresh",
     close_explorer: "Close Explorer",
+    collapse_folders: "Collapse all folders",
 
     // Editor & Preview
     editor_placeholder: "Write markdown here...",
@@ -146,8 +147,15 @@ const translations = {
     empty_open_file: "Open File",
     empty_open_folder: "Open Folder",
     empty_subtitle: "Markdown Editor",
-    untitled_file: "Untitled",
+    untitled_file: "untitled",
     tab_close_btn: "Close",
+
+    // File Drop Overlay
+    drop_file_title: "Drop file to insert",
+    drop_file_subtitle: "Images and code files will be inserted directly into your document",
+    drop_pill_images: "Images (.png, .jpg, .webp, .svg...)",
+    drop_pill_code: "Code (.js, .py, .ts, .html, .css...)",
+    notif_binary_file_skip: "Cannot import binary file: {name}",
 
     // Explorer Context Menu & File Actions
     ctx_open: "Open",
@@ -192,6 +200,7 @@ const translations = {
     menu_paste: "Paste",
     menu_select_all: "Select All",
     menu_find: "Find",
+    menu_insert_link: "Insert Link",
     menu_insert_image: "Insert Image from File",
     menu_paste_image: "Paste Image from Clipboard",
     menu_view: "View",
@@ -241,6 +250,7 @@ const translations = {
     open_folder: "Apri cartella",
     refresh: "Aggiorna",
     close_explorer: "Chiudi explorer",
+    collapse_folders: "Chiudi tutte le cartelle",
 
     // Editor & Preview
     editor_placeholder: "Scrivi markdown qui...",
@@ -346,8 +356,15 @@ const translations = {
     empty_open_file: "Apri file",
     empty_open_folder: "Apri cartella",
     empty_subtitle: "Editor Markdown",
-    untitled_file: "Senza titolo",
+    untitled_file: "untitled",
     tab_close_btn: "Chiudi",
+
+    // File Drop Overlay
+    drop_file_title: "Rilascia il file da inserire",
+    drop_file_subtitle: "Immagini e file di codice verranno inseriti direttamente nel documento",
+    drop_pill_images: "Immagini (.png, .jpg, .webp, .svg...)",
+    drop_pill_code: "Codice (.js, .py, .ts, .html, .css...)",
+    notif_binary_file_skip: "Impossibile importare file binario: {name}",
 
     // Explorer Context Menu & File Actions
     ctx_open: "Apri",
@@ -392,6 +409,7 @@ const translations = {
     menu_paste: "Incolla",
     menu_select_all: "Seleziona tutto",
     menu_find: "Trova",
+    menu_insert_link: "Inserisci link",
     menu_insert_image: "Inserisci immagine da file",
     menu_paste_image: "Incolla immagine dagli appunti",
     menu_view: "Vista",

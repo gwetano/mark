@@ -221,6 +221,7 @@ body.dark #logo {
   overflow: hidden;
   user-select: none;
   z-index: 10;
+  position: relative;
 }
 
 #tabs-bar.hidden {
@@ -284,7 +285,7 @@ body.dark #logo {
   min-width: 70px;
   flex-shrink: 0;
   position: relative;
-  transition: background-color 0.12s ease, opacity 0.12s ease;
+  transition: background-color 0.08s ease;
 }
 
 .editor-tab:hover {
@@ -346,12 +347,74 @@ body.dark #logo {
   padding: 0;
   flex-shrink: 0;
   margin-left: 2px;
-  transition: all 0.15s ease;
+  transition: background-color 0.08s ease, opacity 0.08s ease;
 }
 
 .tab-close-btn:hover {
   opacity: 1;
   background-color: rgba(128, 128, 128, 0.25);
+}
+
+/* --- TAB DRAG & DROP REORDERING --- */
+.editor-tab.is-dragging {
+  opacity: 0.94;
+  background-color: var(--editor-bg) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22), 0 1px 4px rgba(0, 0, 0, 0.12);
+  z-index: 100 !important;
+  cursor: grabbing !important;
+  border-radius: 4px;
+  transition: none !important;
+}
+
+.editor-tab.tab-sliding {
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1) !important;
+}
+
+/* Glowing drop indicator line showing the target insertion point */
+#tab-drop-indicator {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  width: 2px;
+  background-color: #007acc;
+  box-shadow: 0 0 6px rgba(0, 122, 204, 0.75);
+  border-radius: 2px;
+  z-index: 50;
+  pointer-events: none;
+  display: none;
+  transition: left 0.12s cubic-bezier(0.2, 0, 0, 1);
+}
+
+#tab-drop-indicator::before,
+#tab-drop-indicator::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #007acc;
+  box-shadow: 0 0 4px rgba(0, 122, 204, 0.85);
+}
+
+#tab-drop-indicator::before {
+  top: -2px;
+}
+
+#tab-drop-indicator::after {
+  bottom: -2px;
+}
+
+body.dark #tab-drop-indicator {
+  background-color: #388bfd;
+  box-shadow: 0 0 8px rgba(56, 139, 253, 0.85);
+}
+
+body.dark #tab-drop-indicator::before,
+body.dark #tab-drop-indicator::after {
+  background-color: #388bfd;
+  box-shadow: 0 0 6px rgba(56, 139, 253, 0.95);
 }
 
 /* --- EMPTY STATE (VS Code / WhatsApp Web style) --- */
@@ -364,7 +427,7 @@ body.dark #logo {
   height: 100%;
   background-color: var(--editor-bg);
   user-select: none;
-  animation: emptyFadeIn 0.2s ease-out;
+  animation: emptyFadeIn 0.08s ease-out;
 }
 
 #empty-state.hidden {
@@ -510,7 +573,7 @@ body.dark .empty-item-shortcut kbd {
 #editor-overlay {
   flex: 1;
   padding: 20px;
-  padding-bottom: 60vh;
+  padding-bottom: 80vh;
   
   background-color: var(--editor-bg);
   color: var(--fg);
@@ -525,7 +588,7 @@ body.dark .empty-item-shortcut kbd {
 #preview {
   flex: 1;
   padding: 20px;
-  padding-bottom: 60vh;
+  padding-bottom: 80vh;
   background-color: var(--preview-bg);
   overflow-y: auto;
   overflow-x: hidden;
@@ -562,7 +625,7 @@ body.dark .empty-item-shortcut kbd {
   overflow-wrap: normal;
 }
 
-/* Titoli stile GitHub: allineamento a sinistra di default */
+/* Titoli stile GitHub: allineamento a sinistra di default e line-height ottimizzata */
 #preview h1,
 #preview h2,
 #preview h3,
@@ -576,6 +639,7 @@ body.dark .empty-item-shortcut kbd {
 .markdown-body h5,
 .markdown-body h6 {
   text-align: left;
+  line-height: 1.25;
 }
 
 /* Gestione allineamento generico e titoli stile GitHub (align="center", align="right", align="left", align="justify") */
@@ -665,7 +729,7 @@ body.dark .empty-item-shortcut kbd {
 #folder-path {
   padding: 4px 12px 6px 12px;
   font-size: 11px;
-  font-family: var(--code-font-family);
+  font-family: var(--font-family);
   border: none;
   border-top: none;
   border-bottom: none;
@@ -1899,7 +1963,7 @@ body.dark #preview tr:hover {
   max-width: 100%;
   transition: width 0.3s ease;
   padding: 20px;
-  padding-bottom: 60vh;
+  padding-bottom: 80vh;
   /* assicurarsi che anche questa regola non rimuova lo spazio */
   background-color: transparent;
   color: transparent;
@@ -1915,7 +1979,7 @@ body.dark #preview tr:hover {
   box-sizing: border-box;
   transition: width 0.3s ease;
   padding: 20px;
-  padding-bottom: 60vh;
+  padding-bottom: 80vh;
 }
 #editor,
 #editor-overlay {
@@ -1924,7 +1988,7 @@ body.dark #preview tr:hover {
   line-height: 1.6;
 
   padding: 20px;
-  padding-bottom: 60vh;
+  padding-bottom: 80vh;
 
   box-sizing: border-box;
   white-space: pre-wrap;
@@ -1964,7 +2028,7 @@ body.dark #preview tr:hover {
   overflow-y: auto;
   background-color: var(--preview-bg);
   padding: 20px;
-  padding-bottom: 60vh;
+  padding-bottom: 80vh;
 }
 
 #editor ,
@@ -1978,7 +2042,7 @@ body.dark #preview tr:hover {
   color: var(--fg);
   caret-color: var(--fg);
   padding: 20px;
-  padding-bottom: 60vh;
+  padding-bottom: 80vh;
 
   overflow-y: auto;
   font-size: 16px;
@@ -2433,6 +2497,7 @@ body.dark #preview pre code {
 /* Hide scrollbars for editor and preview */
 #editor, 
 #editor-overlay, 
+#typewriter-placeholder,
 #preview,
 #editor-container {
   scrollbar-width: none;
@@ -2441,6 +2506,7 @@ body.dark #preview pre code {
 
 #editor::-webkit-scrollbar,
 #editor-overlay::-webkit-scrollbar,
+#typewriter-placeholder::-webkit-scrollbar,
 #preview::-webkit-scrollbar,
 #editor-container::-webkit-scrollbar {
   display: none;
@@ -2534,6 +2600,66 @@ body.dark #preview pre code {
   color: transparent !important; /* il testo base è invisibile */
   z-index: 1 !important; /* overlay dietro */
   pointer-events: none !important; /* i click passano all'editor */
+}
+
+/* TYPEWRITER OVERLAY PLACEHOLDER */
+#typewriter-placeholder {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 20px !important;
+  padding-bottom: 80vh !important;
+  box-sizing: border-box !important;
+  font-family: var(--font-family) !important;
+  font-size: 16px !important;
+  line-height: 1.6 !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  tab-size: 4 !important;
+  color: var(--fg) !important;
+  pointer-events: none !important;
+  z-index: 1 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  display: none;
+  user-select: none !important;
+  transition: opacity 0.15s ease;
+}
+
+#typewriter-placeholder.active {
+  display: block !important;
+}
+
+.typewriter-text {
+  opacity: 0.38;
+}
+
+.typewriter-start-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.18em;
+  background-color: var(--fg);
+  vertical-align: -0.18em;
+  margin-right: -2px;
+  border-radius: 1px;
+  animation: typewriterBlink 0.9s infinite ease-in-out;
+  pointer-events: none;
+}
+
+#editor:focus ~ #typewriter-placeholder .typewriter-start-caret {
+  display: none !important;
+}
+
+@keyframes typewriterBlink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 /* ANIMAZIONE EXPLORER */
@@ -2984,4 +3110,172 @@ body.dark .cloud-notification:hover {
 .cloud-notification.cloud-dismiss {
   animation: cloudDissolveOut 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
   pointer-events: none !important;
+}
+
+/* --- FULLSCREEN FILE DRAG & DROP OVERLAY --- */
+.file-drop-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.22s ease;
+}
+
+.file-drop-overlay.active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: all;
+}
+
+/* Dim & blur backdrop */
+.drop-overlay-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 20, 25, 0.65);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+body:not(.dark) .drop-overlay-backdrop {
+  background: rgba(235, 240, 245, 0.75);
+}
+
+/* Central Card */
+.drop-card {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 36px 42px;
+  background: var(--explorer-bg);
+  border: 2px dashed #007acc;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35), 0 0 40px rgba(0, 122, 204, 0.18);
+  transform: scale(0.92) translateY(8px);
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  max-width: 480px;
+  width: 88%;
+  box-sizing: border-box;
+  user-select: none;
+}
+
+body.dark .drop-card {
+  border-color: #388bfd;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6), 0 0 50px rgba(56, 139, 253, 0.22);
+}
+
+.file-drop-overlay.active .drop-card {
+  transform: scale(1) translateY(0);
+}
+
+/* Icon pulse and styling */
+.drop-icon-wrapper {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(0, 122, 204, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #007acc;
+  margin-bottom: 18px;
+}
+
+body.dark .drop-icon-wrapper {
+  background: rgba(56, 139, 253, 0.15);
+  color: #58a6ff;
+}
+
+.drop-icon {
+  animation: dropIconBounce 1.6s ease-in-out infinite;
+}
+
+@keyframes dropIconBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.drop-icon-pulse {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  right: -6px;
+  bottom: -6px;
+  border-radius: 50%;
+  border: 2px solid #007acc;
+  opacity: 0.4;
+  animation: dropPulseRing 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+body.dark .drop-icon-pulse {
+  border-color: #388bfd;
+}
+
+@keyframes dropPulseRing {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+.drop-card-title {
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 8px;
+  letter-spacing: -0.2px;
+}
+
+.drop-card-subtitle {
+  font-size: 13.5px;
+  color: var(--fg);
+  opacity: 0.72;
+  line-height: 1.45;
+  margin-bottom: 22px;
+}
+
+.drop-pills {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.drop-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  background: rgba(128, 128, 128, 0.12);
+  color: var(--fg);
+  opacity: 0.88;
+}
+
+body.dark .drop-pill {
+  background: rgba(255, 255, 255, 0.08);
 }
