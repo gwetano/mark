@@ -334,6 +334,31 @@ function getCachedHighlightedCode(code, lang) {
   return res;
 }
 
+// Helper per identificare se un'immagine o URL è un badge (stile shields.io, github workflows, ecc.)
+function isBadgeImage(url, alt) {
+  const u = String(url || '');
+  const a = String(alt || '');
+  if (/shields\.io/i.test(u)) return true;
+  if (/badgen\.net/i.test(u)) return true;
+  if (/(?:^|\/)badge(?:\.svg|\.png)?(?:$|\?)/i.test(u)) return true;
+  if (/\/badge\//i.test(u)) return true;
+  if (/github\.com\/.*\/workflows\/.*badge/i.test(u)) return true;
+  if (/github\.com\/.*\/actions\/workflows\/.*badge/i.test(u)) return true;
+  if (/codecov\.io|coveralls\.io|travis-ci\.(org|com)|circleci\.com|sonarcloud\.io/i.test(u)) return true;
+  if (/badge\.fury\.io/i.test(u)) return true;
+  if (/img\.shields/i.test(u)) return true;
+  if (/style=(?:flat|flat-square|for-the-badge|plastic|social)/i.test(u)) return true;
+  if (/\b(?:badge|badges)\b/i.test(a)) return true;
+  return false;
+}
+
+function isBadgeToken(t) {
+  if (!t) return false;
+  if (t.type === 'image') return isBadgeImage(t.href, t.text);
+  if (t.type === 'link' && t.tokens) return t.tokens.some(sub => isBadgeToken(sub));
+  return false;
+}
+
 if (typeof marked !== 'undefined' && marked.use) {
   const defaultRenderer = new marked.Renderer();
 
@@ -355,6 +380,31 @@ if (typeof marked !== 'undefined' && marked.use) {
   marked.use({
     breaks: true,
     gfm: true,
+    walkTokens(token) {
+      if (token.type === 'paragraph' && token.tokens) {
+        for (let i = 0; i < token.tokens.length; i++) {
+          if (token.tokens[i].type === 'br') {
+            let prev = null;
+            for (let p = i - 1; p >= 0; p--) {
+              if (token.tokens[p].type !== 'space' && token.tokens[p].text !== ' ') {
+                prev = token.tokens[p];
+                break;
+              }
+            }
+            let next = null;
+            for (let n = i + 1; n < token.tokens.length; n++) {
+              if (token.tokens[n].type !== 'space' && token.tokens[n].text !== ' ') {
+                next = token.tokens[n];
+                break;
+              }
+            }
+            if (isBadgeToken(prev) && isBadgeToken(next)) {
+              token.tokens[i] = { type: 'text', raw: ' ', text: ' ' };
+            }
+          }
+        }
+      }
+    },
     renderer: {
       heading: wrapWithSourceLine(defaultRenderer.heading, 'heading'),
       paragraph: wrapWithSourceLine(defaultRenderer.paragraph, 'paragraph'),
@@ -380,8 +430,10 @@ if (typeof marked !== 'undefined' && marked.use) {
       html: wrapWithSourceLine(defaultRenderer.html, 'html'),
       image(token) {
         const html = defaultRenderer.image.call(this, token);
+        const isBadge = isBadgeImage(token.href, token.text);
+        const badgeClass = isBadge ? ' class="badge-img"' : '';
         const line = token && token.sourceLine ? ` data-source-line="${token.sourceLine}" data-checkpoint="image"` : '';
-        return html.replace(/^<img/, `<img${line}`);
+        return html.replace(/^<img/, `<img${badgeClass}${line}`);
       },
       checkbox({ checked }) {
         const index = checkboxCount++;
@@ -1722,28 +1774,56 @@ window.addEventListener("DOMContentLoaded", () => {
         let alt = img.getAttribute('alt') || '';
         const originalAlt = alt.replace(/\u00A0/g, ' ').trim();
 
-        let widthPercent = null;
-        let cleanedAlt = originalAlt;
-
-        if (/\[small\]/i.test(originalAlt)) {
-          widthPercent = 25;
-          cleanedAlt = originalAlt.replace(/\[small\]/ig, '').trim();
-        } else if (/\[medium\]/i.test(originalAlt)) {
-          widthPercent = 50;
-          cleanedAlt = originalAlt.replace(/\[medium\]/ig, '').trim();
-        } else if (/\[large\]/i.test(originalAlt)) {
-          widthPercent = 75;
-          cleanedAlt = originalAlt.replace(/\[large\]/ig, '').trim();
-        } else if (/\[full\]/i.test(originalAlt)) {
-          widthPercent = 100;
-          cleanedAlt = originalAlt.replace(/\[full\]/ig, '').trim();
-        }
-
-        if (widthPercent !== null) {
-          img.style.maxWidth = widthPercent + '%';
-          img.setAttribute('alt', cleanedAlt);
+        const isBadge = img.classList.contains('badge-img') || isBadgeImage(src, originalAlt);
+        if (isBadge) {
+          img.classList.add('badge-img');
+          img.style.display = 'inline-block';
+          img.style.margin = '2px 3px';
+          img.style.verticalAlign = 'middle';
+          img.style.maxWidth = '100%';
+          if (img.parentElement && img.parentElement.tagName === 'A') {
+            img.parentElement.classList.add('badge-link');
+          }
+          const p = img.closest('p');
+          if (p && !p.classList.contains('badge-paragraph')) {
+            const hasNarrativeText = Array.from(p.childNodes).some(node => {
+              if (node.nodeType === Node.TEXT_NODE) return node.textContent.trim().length > 0;
+              if (node.nodeType === Node.ELEMENT_NODE) {
+                if (node.tagName === 'BR') return false;
+                if (node.classList.contains('badge-img')) return false;
+                if (node.tagName === 'A' && (node.classList.contains('badge-link') || node.querySelector('.badge-img'))) return false;
+                return true;
+              }
+              return false;
+            });
+            if (!hasNarrativeText) {
+              p.classList.add('badge-paragraph');
+            }
+          }
         } else {
-          img.style.maxWidth = '70%';
+          let widthPercent = null;
+          let cleanedAlt = originalAlt;
+
+          if (/\[small\]/i.test(originalAlt)) {
+            widthPercent = 25;
+            cleanedAlt = originalAlt.replace(/\[small\]/ig, '').trim();
+          } else if (/\[medium\]/i.test(originalAlt)) {
+            widthPercent = 50;
+            cleanedAlt = originalAlt.replace(/\[medium\]/ig, '').trim();
+          } else if (/\[large\]/i.test(originalAlt)) {
+            widthPercent = 75;
+            cleanedAlt = originalAlt.replace(/\[large\]/ig, '').trim();
+          } else if (/\[full\]/i.test(originalAlt)) {
+            widthPercent = 100;
+            cleanedAlt = originalAlt.replace(/\[full\]/ig, '').trim();
+          }
+
+          if (widthPercent !== null) {
+            img.style.maxWidth = widthPercent + '%';
+            img.setAttribute('alt', cleanedAlt);
+          } else {
+            img.style.maxWidth = '70%';
+          }
         }
 
         if (src && !src.match(/^(?:[a-z]+:)?\/\//i) && currentFilePath) {
@@ -1757,6 +1837,17 @@ window.addEventListener("DOMContentLoaded", () => {
           img.addEventListener('load', () => {
             scrollMapNeedsRebuild = true;
           }, { once: true });
+        }
+      });
+
+      // Rimuove eventuali tag <br> tra badge adiacenti per garantire allineamento inline come su GitHub
+      preview.querySelectorAll('br').forEach(br => {
+        const prev = br.previousElementSibling;
+        const next = br.nextElementSibling;
+        const isPrevBadge = prev && (prev.classList.contains('badge-img') || prev.classList.contains('badge-link') || prev.querySelector?.('.badge-img'));
+        const isNextBadge = next && (next.classList.contains('badge-img') || next.classList.contains('badge-link') || next.querySelector?.('.badge-img'));
+        if (isPrevBadge && isNextBadge) {
+          br.remove();
         }
       });
     }
@@ -1842,8 +1933,476 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // ====== PATH & CODE AUTOCOMPLETE ============================================
+  function getCaretCoordinates(element, position) {
+    const properties = [
+      'direction', 'boxSizing', 'width', 'height', 'overflowX', 'overflowY',
+      'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+      'borderStyle', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+      'fontStyle', 'fontVariant', 'fontWeight', 'fontStretch', 'fontSize',
+      'fontSizeAdjust', 'lineHeight', 'fontFamily', 'textAlign', 'textTransform',
+      'textIndent', 'textDecoration', 'letterSpacing', 'wordSpacing', 'tabSize',
+      'whiteSpace', 'wordBreak', 'overflowWrap'
+    ];
+
+    const div = document.createElement('div');
+    div.id = 'input-textarea-caret-position-mirror-div';
+    document.body.appendChild(div);
+
+    const style = div.style;
+    const computed = window.getComputedStyle(element);
+
+    style.whiteSpace = 'pre-wrap';
+    style.wordWrap = 'break-word';
+    style.position = 'absolute';
+    style.visibility = 'hidden';
+    style.top = '-9999px';
+    style.left = '-9999px';
+
+    properties.forEach(prop => {
+      style[prop] = computed[prop];
+    });
+
+    style.overflow = 'hidden';
+
+    div.textContent = element.value.substring(0, position);
+
+    const span = document.createElement('span');
+    span.textContent = element.value.substring(position) || '.';
+    div.appendChild(span);
+
+    const coordinates = {
+      top: span.offsetTop + parseInt(computed.borderTopWidth || '0', 10),
+      left: span.offsetLeft + parseInt(computed.borderLeftWidth || '0', 10),
+      height: parseInt(computed.lineHeight || '0', 10) || parseInt(computed.fontSize || '0', 10) || 20
+    };
+
+    document.body.removeChild(div);
+    return coordinates;
+  }
+
+  function detectPathContext(textBeforeCursor) {
+    // 1. Markdown image: ![alt](typedPath
+    const imgMd = textBeforeCursor.match(/!\[([^\]]*)\]\(([^)]*)$/);
+    if (imgMd) {
+      return {
+        type: 'image',
+        alt: imgMd[1],
+        typedPath: imgMd[2],
+        triggerStart: textBeforeCursor.length - imgMd[2].length,
+        syntax: 'md-img'
+      };
+    }
+
+    // 2. Mark code include: !(alt)[typedPath
+    const codeInc = textBeforeCursor.match(/!\(([^)]*)\)\[([^\]]*)$/);
+    if (codeInc) {
+      return {
+        type: 'code',
+        alt: codeInc[1],
+        typedPath: codeInc[2],
+        triggerStart: textBeforeCursor.length - codeInc[2].length,
+        syntax: 'mark-code'
+      };
+    }
+
+    // 3. Markdown link or general include: [text](typedPath
+    const linkMd = textBeforeCursor.match(/(?:^|[^!])\[([^\]]*)\]\(([^)]*)$/);
+    if (linkMd) {
+      return {
+        type: 'all',
+        alt: linkMd[1],
+        typedPath: linkMd[2],
+        triggerStart: textBeforeCursor.length - linkMd[2].length,
+        syntax: 'md-link'
+      };
+    }
+
+    // 4. HTML media / link tags: <img src="typedPath, <video src=, <a href=, etc.
+    const htmlTag = textBeforeCursor.match(/<(img|source|video|audio|a|link|script)\s+[^>]*?(src|href)=["']([^"']*)$/i);
+    if (htmlTag) {
+      const isMedia = /^(img|source|video|audio)$/i.test(htmlTag[1]);
+      return {
+        type: isMedia ? 'image' : 'all',
+        alt: '',
+        typedPath: htmlTag[3],
+        triggerStart: textBeforeCursor.length - htmlTag[3].length,
+        syntax: 'html'
+      };
+    }
+
+    // 5. Explicit relative or local path typed anywhere: ./path or ../path
+    const relPath = textBeforeCursor.match(/(?:^|[\s"'\(])(\.{1,2}\/[^\s"'\)]*)$/);
+    if (relPath) {
+      return {
+        type: 'all',
+        alt: '',
+        typedPath: relPath[1],
+        triggerStart: textBeforeCursor.length - relPath[1].length,
+        syntax: 'rel-path'
+      };
+    }
+
+    return null;
+  }
+
+  const AUTOCOMPLETE_IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', 'bmp', 'avif']);
+  const AUTOCOMPLETE_CODE_EXTS = new Set(['js', 'ts', 'jsx', 'tsx', 'c', 'cpp', 'h', 'hpp', 'py', 'java', 'html', 'css', 'json', 'sh', 'rs', 'go', 'php', 'rb', 'sql', 'md', 'txt', 'xml', 'yaml', 'yml']);
+
+  function getPathSuggestions(typedPath, contextType) {
+    const baseDir = currentFilePath ? path.dirname(currentFilePath) : (currentFolderPath || process.cwd());
+    let searchDir = baseDir;
+    let filePrefix = typedPath || '';
+
+    const lastSlashIndex = Math.max(typedPath.lastIndexOf('/'), typedPath.lastIndexOf('\\'));
+    let dirPrefix = '';
+    if (lastSlashIndex !== -1) {
+      dirPrefix = typedPath.slice(0, lastSlashIndex + 1);
+      const subDir = typedPath.slice(0, lastSlashIndex);
+      filePrefix = typedPath.slice(lastSlashIndex + 1);
+      searchDir = path.resolve(baseDir, subDir);
+
+      // Se non esiste nella cartella del file ma abbiamo currentFolderPath, prova rispetto al workspace root
+      if (!fs.existsSync(searchDir) && currentFolderPath && currentFolderPath !== baseDir) {
+        const altDir = path.resolve(currentFolderPath, subDir);
+        if (fs.existsSync(altDir)) {
+          searchDir = altDir;
+        }
+      }
+    }
+
+    if (!fs.existsSync(searchDir)) return [];
+
+    try {
+      const stat = fs.statSync(searchDir);
+      if (!stat.isDirectory()) return [];
+
+      const entries = fs.readdirSync(searchDir, { withFileTypes: true });
+      const results = [];
+      const query = filePrefix.toLowerCase();
+
+      for (const entry of entries) {
+        const name = entry.name;
+        if (name.startsWith('.') && !query.startsWith('.')) continue;
+        if (name === 'node_modules' || name === '.git') continue;
+
+        const isDir = entry.isDirectory();
+        const ext = isDir ? '' : path.extname(name).slice(1).toLowerCase();
+
+        let category = 'file';
+        if (isDir) category = 'folder';
+        else if (AUTOCOMPLETE_IMAGE_EXTS.has(ext)) category = 'image';
+        else if (AUTOCOMPLETE_CODE_EXTS.has(ext)) category = (ext === 'md' ? 'markdown' : 'code');
+
+        if (query && !name.toLowerCase().includes(query)) continue;
+
+        const insertionPath = dirPrefix + name + (isDir ? '/' : '');
+
+        results.push({
+          name: name + (isDir ? '/' : ''),
+          insertionPath,
+          isDir,
+          category,
+          ext
+        });
+      }
+
+      // Ordinamento prioritario: cartelle in cima, poi file corrispondenti al contesto
+      results.sort((a, b) => {
+        if (a.isDir && !b.isDir) return -1;
+        if (!a.isDir && b.isDir) return 1;
+
+        if (contextType === 'image') {
+          const aIsImg = a.category === 'image';
+          const bIsImg = b.category === 'image';
+          if (aIsImg && !bIsImg) return -1;
+          if (!aIsImg && bIsImg) return 1;
+        } else if (contextType === 'code') {
+          const aIsCode = a.category === 'code';
+          const bIsCode = b.category === 'code';
+          if (aIsCode && !bIsCode) return -1;
+          if (!aIsCode && bIsCode) return 1;
+        }
+
+        const aStarts = a.name.toLowerCase().startsWith(query);
+        const bStarts = b.name.toLowerCase().startsWith(query);
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+
+        return a.name.localeCompare(b.name);
+      });
+
+      return results.slice(0, 50);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  const AUTOCOMPLETE_ICONS = {
+    folder: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>`,
+    image: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`,
+    code: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`,
+    markdown: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 14H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>`,
+    file: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 14H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>`
+  };
+
+  const AUTOCOMPLETE_BADGES = {
+    folder: 'cartella',
+    image: 'immagine',
+    code: 'codice',
+    markdown: 'markdown',
+    file: 'file'
+  };
+
+  let isAutocompleteActive = false;
+  let autocompleteItems = [];
+  let autocompleteSelectedIndex = 0;
+  let autocompleteTriggerStart = 0;
+  let autocompleteContext = null;
+  let autocompleteDropdownEl = null;
+
+  function ensureAutocompleteDropdown() {
+    if (autocompleteDropdownEl) return autocompleteDropdownEl;
+
+    const el = document.createElement('div');
+    el.id = 'path-autocomplete-popover';
+    el.style.display = 'none';
+    el.innerHTML = `
+      <div class="autocomplete-header">
+        <span class="autocomplete-header-icon">${AUTOCOMPLETE_ICONS.folder}</span>
+        <span class="autocomplete-header-title">Suggerimenti percorsi file</span>
+      </div>
+      <ul class="autocomplete-list" id="autocomplete-list"></ul>
+      <div class="autocomplete-footer">
+        <span><kbd>↑</kbd><kbd>↓</kbd> Naviga</span>
+        <span><kbd>↵</kbd> Seleziona</span>
+        <span><kbd>Esc</kbd> Chiudi</span>
+      </div>
+    `;
+
+    // Evita che il click tolga il focus dall'editor
+    el.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+    });
+
+    document.body.appendChild(el);
+    autocompleteDropdownEl = el;
+    return el;
+  }
+
+  function renderAutocompleteList() {
+    if (!autocompleteDropdownEl) return;
+    const listEl = autocompleteDropdownEl.querySelector('.autocomplete-list');
+    const titleEl = autocompleteDropdownEl.querySelector('.autocomplete-header-title');
+    const iconEl = autocompleteDropdownEl.querySelector('.autocomplete-header-icon');
+
+    if (autocompleteContext && autocompleteContext.type === 'image') {
+      titleEl.textContent = 'Importa immagine / percorsi';
+      iconEl.innerHTML = AUTOCOMPLETE_ICONS.image;
+    } else if (autocompleteContext && autocompleteContext.type === 'code') {
+      titleEl.textContent = 'Includi codice / percorsi';
+      iconEl.innerHTML = AUTOCOMPLETE_ICONS.code;
+    } else {
+      titleEl.textContent = 'Suggerimenti percorsi file';
+      iconEl.innerHTML = AUTOCOMPLETE_ICONS.folder;
+    }
+
+    if (autocompleteItems.length === 0) {
+      listEl.innerHTML = '<li class="autocomplete-empty">Nessun file o cartella corrispondente</li>';
+      return;
+    }
+
+    let html = '';
+    autocompleteItems.forEach((item, index) => {
+      const isSelected = index === autocompleteSelectedIndex;
+      const icon = AUTOCOMPLETE_ICONS[item.category] || AUTOCOMPLETE_ICONS.file;
+      const badge = AUTOCOMPLETE_BADGES[item.category] || item.ext || 'file';
+      html += `
+        <li class="autocomplete-item ${isSelected ? 'selected' : ''}" data-index="${index}">
+          <span class="autocomplete-item-icon">${icon}</span>
+          <span class="autocomplete-item-name" title="${escapeHtml(item.insertionPath)}">${escapeHtml(item.name)}</span>
+          <span class="autocomplete-item-badge">${escapeHtml(badge)}</span>
+        </li>
+      `;
+    });
+
+    listEl.innerHTML = html;
+
+    listEl.querySelectorAll('.autocomplete-item').forEach(itemEl => {
+      itemEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(itemEl.dataset.index, 10);
+        if (!isNaN(idx)) {
+          autocompleteSelectedIndex = idx;
+          applySelectedAutocomplete();
+          editor && editor.focus();
+        }
+      });
+    });
+  }
+
+  function updateAutocompletePosition() {
+    if (!isAutocompleteActive || !autocompleteDropdownEl || !editor) return;
+
+    const coords = getCaretCoordinates(editor, editor.selectionStart);
+    const editorRect = editor.getBoundingClientRect();
+
+    const viewportTop = editorRect.top + coords.top - editor.scrollTop;
+    const viewportLeft = editorRect.left + coords.left - editor.scrollLeft;
+
+    if (viewportTop < editorRect.top - 10 || viewportTop > editorRect.bottom + 10) {
+      closeAutocomplete();
+      return;
+    }
+
+    const dropdownWidth = 320;
+    const dropdownHeight = Math.min(260, 45 + autocompleteItems.length * 32);
+
+    let top = viewportTop + coords.height + 4;
+    let left = viewportLeft;
+
+    if (top + dropdownHeight > window.innerHeight - 10) {
+      top = viewportTop - dropdownHeight - 4;
+    }
+    if (top < 10) top = 10;
+
+    if (left + dropdownWidth > window.innerWidth - 10) {
+      left = window.innerWidth - dropdownWidth - 10;
+    }
+    if (left < 10) left = 10;
+
+    autocompleteDropdownEl.style.top = `${Math.round(top)}px`;
+    autocompleteDropdownEl.style.left = `${Math.round(left)}px`;
+  }
+
+  function showAutocompleteDropdown() {
+    const dropdown = ensureAutocompleteDropdown();
+    renderAutocompleteList();
+    dropdown.style.display = 'flex';
+    isAutocompleteActive = true;
+    updateAutocompletePosition();
+
+    const selectedItemEl = dropdown.querySelector('.autocomplete-item.selected');
+    if (selectedItemEl) {
+      selectedItemEl.scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  function closeAutocomplete() {
+    isAutocompleteActive = false;
+    autocompleteItems = [];
+    autocompleteContext = null;
+    if (autocompleteDropdownEl) {
+      autocompleteDropdownEl.style.display = 'none';
+    }
+  }
+
+  function navigateAutocomplete(direction) {
+    if (!isAutocompleteActive || autocompleteItems.length === 0) return;
+    autocompleteSelectedIndex = (autocompleteSelectedIndex + direction + autocompleteItems.length) % autocompleteItems.length;
+    renderAutocompleteList();
+    if (autocompleteDropdownEl) {
+      const selectedItemEl = autocompleteDropdownEl.querySelector('.autocomplete-item.selected');
+      if (selectedItemEl) {
+        selectedItemEl.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }
+
+  function applySelectedAutocomplete() {
+    if (!isAutocompleteActive || autocompleteItems.length === 0) return;
+    const item = autocompleteItems[autocompleteSelectedIndex];
+    if (!item) return;
+
+    const cursor = editor.selectionStart;
+    const text = editor.value;
+
+    const beforeTrigger = text.slice(0, autocompleteTriggerStart);
+    const afterCursor = text.slice(cursor);
+
+    if (item.isDir) {
+      executeAction("Path completion (folder)", () => {
+        editor.value = beforeTrigger + item.insertionPath + afterCursor;
+        const newCursor = beforeTrigger.length + item.insertionPath.length;
+        editor.selectionStart = editor.selectionEnd = newCursor;
+        updateEditorOverlay();
+      });
+      checkAndTriggerAutocomplete();
+      return;
+    }
+
+    executeAction("Path completion", () => {
+      editor.value = beforeTrigger + item.insertionPath + afterCursor;
+      const newCursor = beforeTrigger.length + item.insertionPath.length;
+      editor.selectionStart = editor.selectionEnd = newCursor;
+      updatePreview();
+      setDirty(true);
+      updateEditorOverlay();
+    });
+
+    closeAutocomplete();
+  }
+
+  function checkAndTriggerAutocomplete() {
+    if (!editor) return;
+    const cursor = editor.selectionStart;
+    if (cursor !== editor.selectionEnd) {
+      closeAutocomplete();
+      return;
+    }
+
+    const text = editor.value;
+    const textBefore = text.slice(0, cursor);
+    const context = detectPathContext(textBefore);
+
+    if (!context) {
+      closeAutocomplete();
+      return;
+    }
+
+    const suggestions = getPathSuggestions(context.typedPath, context.type);
+    if (suggestions.length === 0) {
+      closeAutocomplete();
+      return;
+    }
+
+    autocompleteContext = context;
+    autocompleteTriggerStart = context.triggerStart;
+    autocompleteItems = suggestions;
+    if (autocompleteSelectedIndex >= suggestions.length) {
+      autocompleteSelectedIndex = 0;
+    }
+    showAutocompleteDropdown();
+  }
+
   // ===== Input Editor =====
   editor && editor.addEventListener('keydown', (e) => {
+    if (isAutocompleteActive) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        e.stopPropagation();
+        navigateAutocomplete(1);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        e.stopPropagation();
+        navigateAutocomplete(-1);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        e.stopPropagation();
+        applySelectedAutocomplete();
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        closeAutocomplete();
+        return;
+      }
+    }
     if (isTypewriterActive) {
       const isModifierOnly = ['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(e.key);
       if (!isModifierOnly) {
@@ -2551,6 +3110,33 @@ window.addEventListener("DOMContentLoaded", () => {
         clearSearchHighlights();
       }
     }
+
+    // Autocomplete percorsi e file (immagini, codice, link)
+    checkAndTriggerAutocomplete();
+  });
+
+  if (editor) {
+    editor.addEventListener('keyup', (e) => {
+      if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
+        checkAndTriggerAutocomplete();
+      }
+    });
+    editor.addEventListener('scroll', () => {
+      updateAutocompletePosition();
+    });
+    editor.addEventListener('click', () => {
+      checkAndTriggerAutocomplete();
+    });
+  }
+
+  document.addEventListener('pointerdown', (e) => {
+    if (autocompleteDropdownEl && !autocompleteDropdownEl.contains(e.target) && e.target !== editor) {
+      closeAutocomplete();
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    updateAutocompletePosition();
   });
 
   // Disattiva typewriter su composizione caratteri speciali/IME
@@ -3924,6 +4510,7 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     saveStateForActiveTab();
+    closeAutocomplete();
 
     activeTabId = targetTab.id;
     currentFilePath = targetTab.filePath;

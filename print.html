@@ -132,11 +132,42 @@
       padding: 0;
     }
 
-    img {
+    img:not(.badge-img) {
       max-width: 70%;
       height: auto;
       display: block;
       margin: 1em auto;
+    }
+
+    img.badge-img {
+      display: inline-block !important;
+      vertical-align: middle !important;
+      margin: 2px 3px !important;
+      max-width: 100% !important;
+      width: auto !important;
+      height: auto !important;
+      border: none !important;
+    }
+
+    a.badge-link,
+    a:has(> img.badge-img) {
+      display: inline-block !important;
+      vertical-align: middle !important;
+      line-height: 1 !important;
+      margin: 2px 2px !important;
+    }
+
+    p.badge-paragraph {
+      display: flex !important;
+      flex-wrap: wrap !important;
+      align-items: center !important;
+      gap: 4px 6px !important;
+      margin: 0.5rem 0 !important;
+    }
+
+    [align="center"] p.badge-paragraph,
+    div[align="center"] p.badge-paragraph {
+      justify-content: center !important;
     }
 
     img.img-small {
@@ -469,6 +500,7 @@
       const imgs = tempDiv.querySelectorAll('img');
 
       imgs.forEach(img => {
+        if (img.classList.contains('badge-img')) return;
         let alt = img.getAttribute('alt') || '';
         const originalAlt = alt.replace(/\u00A0/g, ' ').trim();
 

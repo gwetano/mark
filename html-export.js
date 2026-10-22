@@ -683,13 +683,48 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
     }
 
     /* Image styling */
-    .markdown-body img {
+    .markdown-body img:not(.badge-img) {
       max-width: 100%;
       height: auto;
       display: block;
       margin: 24px auto;
       border-radius: var(--radius-md);
       border: 1px solid var(--border);
+    }
+
+    .markdown-body img.badge-img {
+      display: inline-block !important;
+      vertical-align: middle !important;
+      margin: 2px 3px !important;
+      max-width: 100% !important;
+      width: auto !important;
+      height: auto !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+
+    .markdown-body a.badge-link,
+    .markdown-body a:has(> img.badge-img) {
+      display: inline-block !important;
+      vertical-align: middle !important;
+      line-height: 1 !important;
+      text-decoration: none !important;
+      margin: 2px 2px !important;
+    }
+
+    .markdown-body p.badge-paragraph {
+      display: flex !important;
+      flex-wrap: wrap !important;
+      align-items: center !important;
+      gap: 4px 6px !important;
+      margin: 0.5rem 0 !important;
+      line-height: normal !important;
+    }
+
+    .markdown-body [align="center"] p.badge-paragraph,
+    .markdown-body div[align="center"] p.badge-paragraph {
+      justify-content: center !important;
     }
 
     /* ====== CODE & SYNTAX HIGHLIGHTING ====== */

@@ -1,156 +1,95 @@
-# MARK
+<div align="center">
 
-**Mark** is a simple, powerful, and 100% local Markdown editor.  
+<img src="images/logo_dark.png" alt="Mark" width="140" />
 
-*I didn’t vibe with any of the existing editors — too bloated, not enough control.*
-I needed something that could open folders, read. md files, and save. Nothing more.
+### Write. Preview. Export. All offline.
 
-***
+A fast, minimal Markdown editor for notes, docs and studying<br/>
+No account. No cloud. No bloat.
+
+[![Release](https://img.shields.io/github/v/release/gwetano/mark?style=flat-square&color=1e2327&label=release)](https://github.com/gwetano/mark/releases/latest)
+[![License](https://img.shields.io/github/license/gwetano/mark?style=flat-square&color=1e2327)](LICENSE)
+[![Platforms](https://img.shields.io/badge/platforms-Windows%20·%20macOS%20·%20Linux-1e2327?style=flat-square)](https://github.com/gwetano/mark/releases/latest)
+
+[![Download for Windows](https://img.shields.io/badge/Windows-Download-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/gwetano/mark/releases/latest)
+[![Download for macOS](https://img.shields.io/badge/macOS-Download-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/gwetano/mark/releases/latest)
+[![Download for Linux](https://img.shields.io/badge/Linux-Download-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/gwetano/mark/releases/latest)
+
+[**Website**](https://gwetano.vercel.app/mark/) · [**Releases**](https://github.com/gwetano/mark/releases)
+
+<br/>
+
+<img src="build/preview.gif" alt="Mark preview" width="800" />
+
+</div>
+
+<br/>
+
+## Why Mark
+
+Most editors are too heavy and want your data in their cloud. Mark opens folders, edits `.md` files and saves them. That's it.
 
 ## Features
 
-- Live Markdown editor with real-time preview
-- Open full folders with ease
-- Quick save with Cmd/Ctrl + S
-- Word count at a glance
-- Math formula support (KaTeX)
-- Minimal UI, zero distractions
-- Fully local – no uploads, no cloud
-- Custom image sizing for PDF export via caption tags
+- **Live preview**: split, editor-only or preview-only
+- **Folder explorer**: open a whole folder and jump between notes
+- **Export to PDF**: with clickable table of contents and custom image sizes
+- **Export to HTML**: turn your docs into a ready-to-publish page
+- **Math**: LaTeX formulas with KaTeX
+- **100% local**: no uploads, no tracking, works offline
+- **Light & dark theme**
 
-***
+## Quick start
 
-## Installation 
+1. Download the build for your system from the [latest release](https://github.com/gwetano/mark/releases/latest)
+2. Open a folder (`Ctrl/Cmd + Shift + O`)
+3. Write. Export when done.
+
+### Build from source
 
 ```bash
 git clone https://github.com/gwetano/mark.git
 cd mark
 ```
 
-### Linux
-
 ```bash
-bash lin-install.sh
+bash lin-install.sh     # Linux
+bash mac-install.sh     # macOS
+./win-install.bat       # Windows
 ```
 
-### Windows
+## Tips
 
-```bash
-./win-install.bat
+**Image size in PDF**: add a tag to the alt text.
+
+```md
+![Diagram[small]](img.png)    <!-- 25% -->
+![Diagram[medium]](img.png)   <!-- 50% -->
+![Diagram[large]](img.png)    <!-- 75% -->
+![Diagram[full]](img.png)     <!-- 100% -->
 ```
 
-### macOS
+## Shortcuts
 
-```bash
-bash mac-install.sh
-```
+| Action | Shortcut |
+|---|---|
+| Save | `Ctrl/Cmd + S` |
+| New file | `Ctrl/Cmd + N` |
+| Open file / folder | `Ctrl/Cmd + O` / `Shift + O` |
+| Toggle theme | `Ctrl/Cmd + M` |
+| Toggle explorer | `Ctrl/Cmd + R` |
+| Find | `Ctrl/Cmd + F` |
+| Bold / Italic / Link | `Ctrl/Cmd + B` / `I` / `L` |
 
-***
+More in the [Documentation & Syntax Guide](https://gwetano.vercel.app/mark/docs/).
 
-## Preview
-
-![Screenshot Mark](./build/preview.gif)
-
-***
-
-## Usage
-
-### Editor e Preview
-
-Mark lets you edit Markdown and instantly preview the result. You can switch between:
-
-- Split view (editor + preview)
-- Editor-only mode for focused writing
-- Preview-only mode
-
-### File Explorer
-
-The file explorer helps you:
-- Navigate through your folders
-- Open Markdown files
-- Quickly access all your docs
-
-To open a folder:
-1. Click"Explorer" on the top bar
-2. Hit the"📁" icon or go to File -> Open Folder...
-3. Pick your folder and you’re in
-
-### Image Size in PDF Export
-
-You can control the size of images in the exported PDF by adding a size tag in square brackets at the end of the alt text:
-
-```
-![Some image[small]](path/to/image.jpg)
-
-![Another one[medium]](path/to/image.jpg)
-
-![Bigger please[large]](path/to/image.jpg)
-
-![Full width[full]](path/to/image.jpg)
-```
-
-Supported **size tags**:
-- `[small]` -> 25% width
-- `[medium]` → 50% width
-- `[large]` → 75% width
-- `[full]` → 100% width
-
-If no tag is included, the default size will be used -> 70%.
-
-### Keyboard Shortcuts
-
-* **Ctrl+M**: Toggle light/dark theme
-* **Ctrl+E**: Show/hide preview
-* **Ctrl+N**: New file
-* **Ctrl+O**: Open file
-* **Ctrl+Shift+O**: Open folder
-* **Ctrl+E**: Export as PDF
-* **Ctrl+S**: Save file
-* **Ctrl+F**: Find text
-* **Ctrl+R**: Show/hide explorer
-
-### Table of Contents
-
-To add a Table of Contents (TOC) to your PDF export, simply add the following comment at the top of your markdown file:
-
-```
-<!-- TOC -->
-```
-
-This will generate a first page in the PDF with an index of all headings and subheadings, with clickable links that navigate to the respective section in the document.
-
-***
-
-## New to Markdown? No worries!
-
-You can still get the most out of Mark even if you don’t know Markdown syntax. Here are some handy shortcuts that let you format your text instantly:
-
-* **Ctrl+B**: Bold
-* **Ctrl+I**: Italic
-* **Ctrl+U**: Underline
-* **Ctrl+1**: Heading 1
-* **Ctrl+2**: Heading 2
-* **Ctrl+3**: Heading 3
-* **Ctrl+ H**: Code (inline for selected text, multiline if not selected)
-* **Ctrl+L**: Link
-
-Stay focused on writing — Mark will take care of the formatting.
-
-***
-
-## Things to Improve
+## Contributing
 
 Wanna help out? Here’s what still needs love:
 
 * **Custom styling**  
 The UI is intentionally minimal, but if you’ve got specific style needs, feel free to tweak it. Themes, fonts, or whatever makes it yours.
 
-* **Synchronized scrolling**    
-Editor and preview should scroll together, especially in split view. This needs to be improved.
+## License 
 
-***
-
-## 📜 License
-
-Do whatever you want with it.    
-If you improve it, fork it. If it helps you, let me know.
+Do whatever you want with it. If you improve it, fork it. If it helps you, let me know.

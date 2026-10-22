@@ -1045,7 +1045,7 @@ body.dark {
 
 
 
-#preview img {
+#preview img:not(.badge-img) {
   max-width: 100%;
   height: auto;
   display: block;
@@ -2327,11 +2327,53 @@ body.dark .modal-content {
   margin: 0 !important;
 }
 
-/* Mantiene le immagini centrate */
-#preview img {
+/* Mantiene le immagini centrate (esclusi badge) */
+#preview img:not(.badge-img) {
   max-width: 100% !important;
   display: block !important;
   margin: 1.5rem auto !important; 
+}
+
+/* Badge styling identico a GitHub */
+#preview img.badge-img,
+.markdown-body img.badge-img {
+  display: inline-block !important;
+  vertical-align: middle !important;
+  margin: 2px 3px !important;
+  max-width: 100% !important;
+  width: auto !important;
+  height: auto !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+#preview a.badge-link,
+#preview a:has(> img.badge-img),
+.markdown-body a.badge-link,
+.markdown-body a:has(> img.badge-img) {
+  display: inline-block !important;
+  vertical-align: middle !important;
+  line-height: 1 !important;
+  text-decoration: none !important;
+  margin: 2px 2px !important;
+}
+
+#preview p.badge-paragraph,
+.markdown-body p.badge-paragraph {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 4px 6px !important;
+  margin: 0.5rem 0 !important;
+  line-height: normal !important;
+}
+
+#preview [align="center"] p.badge-paragraph,
+.markdown-body [align="center"] p.badge-paragraph,
+#preview div[align="center"] p.badge-paragraph,
+.markdown-body div[align="center"] p.badge-paragraph {
+  justify-content: center !important;
 }
 
 /* Pulsante navbar */
@@ -3278,4 +3320,149 @@ body.dark .drop-icon-pulse {
 
 body.dark .drop-pill {
   background: rgba(255, 255, 255, 0.08);
+}
+
+/* ====== PATH & CODE AUTOCOMPLETE POPOVER ====== */
+#path-autocomplete-popover {
+  position: fixed;
+  z-index: 10000;
+  width: 320px;
+  max-width: 90vw;
+  background-color: var(--editor-bg);
+  color: var(--fg);
+  border-radius: 8px;
+  border: 1px solid var(--explorer-border);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  font-family: var(--font-family);
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: pickerPopIn 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body.dark #path-autocomplete-popover {
+  background-color: #252526;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+}
+
+.autocomplete-header {
+  padding: 7px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--explorer-fg);
+  opacity: 0.75;
+  border-bottom: 1px solid var(--explorer-border);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.autocomplete-list {
+  max-height: 220px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 0;
+  margin: 0;
+  list-style: none;
+}
+
+.autocomplete-list::-webkit-scrollbar {
+  width: 6px;
+}
+.autocomplete-list::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.4);
+  border-radius: 3px;
+}
+
+.autocomplete-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  cursor: pointer;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--fg);
+  transition: background-color 0.05s ease;
+  user-select: none;
+}
+
+.autocomplete-item:hover {
+  background-color: var(--explorer-hover);
+}
+
+.autocomplete-item.selected {
+  background-color: var(--explorer-active);
+  color: #ffffff;
+}
+
+.autocomplete-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: var(--explorer-fg);
+}
+
+.autocomplete-item.selected .autocomplete-item-icon {
+  color: #ffffff;
+}
+
+.autocomplete-item-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.autocomplete-item-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background-color: rgba(128, 128, 128, 0.15);
+  color: var(--explorer-fg);
+  opacity: 0.8;
+  flex-shrink: 0;
+  text-transform: lowercase;
+}
+
+.autocomplete-item.selected .autocomplete-item-badge {
+  background-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  opacity: 1;
+}
+
+.autocomplete-empty {
+  padding: 12px;
+  font-size: 12px;
+  color: var(--explorer-fg);
+  opacity: 0.6;
+  text-align: center;
+  font-style: italic;
+}
+
+.autocomplete-footer {
+  padding: 5px 12px;
+  font-size: 11px;
+  color: var(--explorer-fg);
+  opacity: 0.6;
+  border-top: 1px solid var(--explorer-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+}
+
+.autocomplete-footer kbd {
+  background-color: rgba(128, 128, 128, 0.2);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-family: inherit;
+  font-size: 10px;
 }
