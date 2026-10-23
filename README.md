@@ -7,6 +7,7 @@
 A fast, minimal Markdown editor for notes, docs and studying<br/>
 No account. No cloud. No bloat.
 
+[![Version](https://img.shields.io/badge/version-v3.1.0-1e2327?style=flat-square)](https://github.com/gwetano/mark/releases/latest)
 [![Release](https://img.shields.io/github/v/release/gwetano/mark?style=flat-square&color=1e2327&label=release)](https://github.com/gwetano/mark/releases/latest)
 [![License](https://img.shields.io/github/license/gwetano/mark?style=flat-square&color=1e2327)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20·%20macOS%20·%20Linux-1e2327?style=flat-square)](https://github.com/gwetano/mark/releases/latest)
@@ -33,6 +34,7 @@ Most editors are too heavy and want your data in their cloud. Mark opens folders
 
 - **Live preview**: split, editor-only or preview-only
 - **Folder explorer**: open a whole folder and jump between notes
+- **Real-time collaboration (Beta)**: peer-to-peer live editing via WebRTC with no account required
 - **Export to PDF**: with clickable table of contents and custom image sizes
 - **Export to HTML**: turn your docs into a ready-to-publish page
 - **Math**: LaTeX formulas with KaTeX
@@ -89,6 +91,9 @@ Wanna help out? Here’s what still needs love:
 
 * **Custom styling**  
 The UI is intentionally minimal, but if you’ve got specific style needs, feel free to tweak it. Themes, fonts, or whatever makes it yours.
+
+* **Real-time Collaboration & Shared Documents (Beta)**  
+Collaboration via P2P WebRTC is in active beta. We are continually refining how shared documents sync, state persistence on session files, and multi-user edge cases when participants connect or edit concurrently. Testing collaborative sessions, reporting sync quirks, or opening pull requests to improve the sharing flow is super welcome!
 
 ## License 
 

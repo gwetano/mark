@@ -67,6 +67,8 @@ for i in "${!steps[@]}"; do
       sudo mkdir -p "$INSTALL_DIR"
       sudo rm -rf "$INSTALL_DIR"/*
       sudo cp -r "$DIST_DIR"/* "$INSTALL_DIR/"
+      sudo chown root:root "$INSTALL_DIR/chrome-sandbox"
+      sudo chmod 4755 "$INSTALL_DIR/chrome-sandbox"
       # Se il binario generato si chiama Mark (maiuscolo), crea symlink a mark (minuscolo)
       if [ -f "$INSTALL_DIR/Mark" ] && [ ! -f "$INSTALL_DIR/mark" ]; then
         sudo ln -sf "$INSTALL_DIR/Mark" "$INSTALL_DIR/mark"
@@ -75,11 +77,16 @@ for i in "${!steps[@]}"; do
       [ -f "$INSTALL_DIR/Mark" ] && sudo chmod +x "$INSTALL_DIR/Mark" 2>/dev/null || true
       ;;
     "Compilazione mark.c")
-      if gcc -o mark mark.c; then
+      if gcc -O2 -o mark mark.c; then
         sudo cp mark "$BIN_DIR/mark"
         sudo chmod +x "$BIN_DIR/mark"
       else
-        echo "Avviso: compilazione mark.c fallita. Puoi comunque avviare Mark da $INSTALL_DIR/mark"
+        echo "Avviso: compilazione mark.c fallita. Creazione script wrapper di avvio..."
+        sudo tee "$BIN_DIR/mark" > /dev/null << 'EOF'
+#!/usr/bin/env bash
+nohup /opt/mark/mark "$@" >/dev/null 2>&1 &
+EOF
+        sudo chmod +x "$BIN_DIR/mark"
       fi
       ;;
     "Installazione completata")

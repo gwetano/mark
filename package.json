@@ -1,6 +1,6 @@
 {
     "name": "Mark",
-    "version": "3.0.0",
+    "version": "3.1.0",
     "description": "Editor Markdown",
     "main": "main.js",
     "scripts": {
@@ -8,7 +8,10 @@
         "build": "electron-builder"
     },
     "keywords": [],
-    "author": "Giovanni",
+    "author": {
+        "name": "Gaetano",
+        "email": "gaetanocarbone2004@gmail.com"
+    },
     "license": "ISC",
     "devDependencies": {
         "electron": "^44.9.1",
@@ -58,10 +61,8 @@
             ]
         },
         "linux": {
-            "target": [
-                "AppImage",
-                "deb"
-            ]
+            "icon": "build/mark.png",
+            "target": ["dir"]
         },
         "publish": [
             {

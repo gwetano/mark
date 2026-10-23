@@ -5567,12 +5567,24 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    if (typeof stopTypewriterEffect === 'function') {
+      stopTypewriterEffect();
+    }
+
     const session = startCollaboration({
       roomId: roomId,
       editor: editor,
       isJoining: isJoining,
       onRemoteUpdate: () => {
+        if (typeof stopTypewriterEffect === 'function') {
+          stopTypewriterEffect();
+        }
         if (editor) lastKnownEditorValue = editor.value;
+        const activeTab = typeof getActiveTab === 'function' ? getActiveTab() : null;
+        if (activeTab && editor) {
+          activeTab.content = editor.value;
+          activeTab.lastKnownEditorValue = editor.value;
+        }
         updatePreview();
         updateWordCount();
         updateEditorOverlay();
@@ -5642,18 +5654,34 @@ window.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
+      const fileContent = editor?.value || '';
+      const normalSavedPath = path.resolve(savedPath);
       try {
-        fs.writeFileSync(savedPath, editor?.value || '', 'utf8');
-        currentFilePath = savedPath;
-        lastKnownEditorValue = editor?.value || '';
-        setDirty(false);
-        if (currentFolderPath && savedPath.startsWith(currentFolderPath)) {
-          openFolder(currentFolderPath);
-        }
+        fs.writeFileSync(normalSavedPath, fileContent, 'utf8');
       } catch (err) {
         console.error('[Collab] Errore salvataggio:', err);
         showNotification(i18n.t('notif_save_error', { msg: err.message }), 'error');
         return;
+      }
+
+      // Assicura che la tab attiva apra e rappresenti il file appena salvato
+      const activeTab = getActiveTab();
+      if (activeTab && (!activeTab.filePath || !fs.existsSync(activeTab.filePath))) {
+        activeTab.filePath = normalSavedPath;
+        activeTab.title = path.basename(normalSavedPath);
+        activeTab.content = fileContent;
+        activeTab.lastKnownEditorValue = fileContent;
+        activeTab.isDirty = false;
+        currentFilePath = normalSavedPath;
+        lastKnownEditorValue = fileContent;
+        setDirty(false);
+        renderTabs();
+      } else {
+        openFileInTab(normalSavedPath, fileContent);
+      }
+
+      if (currentFolderPath && normalSavedPath.startsWith(currentFolderPath)) {
+        openFolder(currentFolderPath);
       }
     } else {
       if (isDirty && typeof saveCurrentFile === 'function') {
@@ -5708,24 +5736,44 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    const normalSavePath = path.resolve(savePath);
     try {
-      fs.writeFileSync(savePath, '', 'utf8');
-      currentFilePath = savePath;
+      fs.writeFileSync(normalSavePath, '', 'utf8');
+    } catch (err) {
+      console.error('[Collab] Errore creazione file sessione:', err);
+      showNotification(i18n.t('notif_file_create_error', { msg: err.message }), 'error');
+      return;
+    }
+
+    // Assicura che il file salvato/creato venga aperto e rappresenti la sessione
+    const activeTab = getActiveTab();
+    if (activeTab && (!activeTab.filePath || !fs.existsSync(activeTab.filePath)) && (!activeTab.content || activeTab.content === '')) {
+      activeTab.filePath = normalSavePath;
+      activeTab.title = path.basename(normalSavePath);
+      activeTab.content = '';
+      activeTab.lastKnownEditorValue = '';
+      activeTab.isDirty = false;
+      currentFilePath = normalSavePath;
       if (editor) {
         editor.value = '';
         lastKnownEditorValue = '';
       }
       setDirty(false);
-      updatePreview();
-      if (typeof updateWordCount === 'function') updateWordCount();
-      if (typeof updateEditorOverlay === 'function') updateEditorOverlay();
-      if (currentFolderPath && savePath.startsWith(currentFolderPath)) {
-        openFolder(currentFolderPath);
-      }
-    } catch (err) {
-      console.error('[Collab] Errore creazione file sessione:', err);
-      showNotification(i18n.t('notif_file_create_error', { msg: err.message }), 'error');
-      return;
+      renderTabs();
+    } else {
+      openFileInTab(normalSavePath, '');
+    }
+
+    if (editor) {
+      editor.value = '';
+      lastKnownEditorValue = '';
+    }
+    setDirty(false);
+    updatePreview();
+    if (typeof updateWordCount === 'function') updateWordCount();
+    if (typeof updateEditorOverlay === 'function') updateEditorOverlay();
+    if (currentFolderPath && normalSavePath.startsWith(currentFolderPath)) {
+      openFolder(currentFolderPath);
     }
 
     handleConnectCollab(roomId, true);

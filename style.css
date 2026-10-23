@@ -2856,6 +2856,34 @@ body.dark .collab-modal-content {
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75);
 }
 
+.collab-header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.collab-beta-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background-color: rgba(245, 158, 11, 0.14);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  line-height: 1.2;
+}
+
+body.dark .collab-beta-badge {
+  background-color: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
 .collab-close-btn {
   background: none;
   border: none;
