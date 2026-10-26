@@ -838,7 +838,8 @@ body.dark .empty-item-shortcut kbd {
 
 .tree-item.selected {
   background-color: var(--explorer-hover);
-  box-shadow: inset 0 0 0 1px rgba(0, 122, 204, 0.45);
+  box-shadow: none;
+  outline: none;
 }
 
 .tree-item.active {
@@ -848,16 +849,14 @@ body.dark .empty-item-shortcut kbd {
 }
 
 .tree-item.active.selected {
-  box-shadow: inset 0 0 0 1px rgba(0, 122, 204, 0.75);
-}
-
-.tree-item:focus {
+  box-shadow: none;
   outline: none;
 }
 
+.tree-item:focus,
 .tree-item:focus-visible {
   outline: none;
-  box-shadow: inset 0 0 0 1.5px #007acc;
+  box-shadow: none;
 }
 
 .tree-inline-input {

@@ -380,6 +380,11 @@ if (typeof marked !== 'undefined' && marked.use) {
   marked.use({
     breaks: true,
     gfm: true,
+    tokenizer: {
+      lheading() {
+        return undefined;
+      }
+    },
     walkTokens(token) {
       if (token.type === 'paragraph' && token.tokens) {
         for (let i = 0; i < token.tokens.length; i++) {
@@ -427,7 +432,21 @@ if (typeof marked !== 'undefined' && marked.use) {
       listitem: wrapWithSourceLine(defaultRenderer.listitem, 'listitem'),
       table: wrapWithSourceLine(defaultRenderer.table, 'table'),
       hr: wrapWithSourceLine(defaultRenderer.hr, 'hr'),
-      html: wrapWithSourceLine(defaultRenderer.html, 'html'),
+      html(token) {
+        const raw = defaultRenderer.html.call(this, token);
+        if (!token || !token.sourceLine) return raw;
+        const trimmed = (raw || '').trim();
+        // Non marcare tag inline, KaTeX, MathML o tag di chiusura
+        if (/^<\/?(span|math|semantics|mrow|annotation|mo|mi|mn|mtext|msub|msubsup|svg|path|code|a|strong|em|b|i|br|font)\b/i.test(trimmed)) {
+          return raw;
+        }
+        // Solo per veri blocchi HTML di livello superiore (es. <div>, <section>, <table>, ecc.)
+        const lineCount = (token.raw && typeof token.raw === 'string')
+          ? (token.raw.match(/\n/g) || []).length
+          : 0;
+        const endLine = token.sourceLine + Math.max(0, lineCount);
+        return raw.replace(/^<([a-zA-Z0-9]+)/, `<$1 data-source-line="${token.sourceLine}" data-source-line-end="${endLine}" data-checkpoint="html"`);
+      },
       image(token) {
         const html = defaultRenderer.image.call(this, token);
         const isBadge = isBadgeImage(token.href, token.text);
@@ -530,6 +549,7 @@ function processMath(markdown) {
         displayMode: true,
         throwOnError: false,
         trust: true,
+        output: 'html',
         macros: { "\\eqref": "\\href{#1}{}" }
       });
       html = `<div class="katex-display-container">${rendered}</div>`;
@@ -550,6 +570,7 @@ function processMath(markdown) {
         displayMode: false,
         throwOnError: false,
         trust: true,
+        output: 'html',
         macros: { "\\eqref": "\\href{#1}{}" }
       });
       html = `<span class="katex-inline-container">${rendered}</span>`;
@@ -2438,33 +2459,87 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     if (e.key === "Tab") {
+      e.preventDefault();
       const start = editor.selectionStart, end = editor.selectionEnd;
-      if (start === end && closingChars.includes(editor.value.charAt(start))) {
-        e.preventDefault();
+      if (!e.shiftKey && start === end && closingChars.includes(editor.value.charAt(start))) {
         editor.selectionStart = editor.selectionEnd = start + 1;
         return;
       }
 
-      e.preventDefault();
-      const before = editor.value.substring(0, start);
-      const selected = editor.value.substring(start, end);
-      const after = editor.value.substring(end);
       const tabSpaces = " ".repeat(currentTabSize);
+
+      if (e.shiftKey) {
+        executeAction("Unindent", () => {
+          const lineStart = editor.value.lastIndexOf('\n', start - 1) + 1;
+          let lineEnd = editor.value.indexOf('\n', end);
+          if (lineEnd === -1) lineEnd = editor.value.length;
+
+          const block = editor.value.substring(lineStart, lineEnd);
+          const unindentRegex = new RegExp(`^(?: {1,${currentTabSize}}|\\t)`, 'gm');
+          const unindentedBlock = block.replace(unindentRegex, '');
+
+          editor.value = editor.value.substring(0, lineStart) + unindentedBlock + editor.value.substring(lineEnd);
+
+          if (start === end) {
+            const removed = block.length - unindentedBlock.length;
+            const newCursor = Math.max(lineStart, start - removed);
+            editor.selectionStart = editor.selectionEnd = newCursor;
+          } else {
+            editor.selectionStart = lineStart;
+            editor.selectionEnd = lineStart + unindentedBlock.length;
+          }
+          updatePreview(); setDirty(true); updateEditorOverlay();
+        });
+        return;
+      }
 
       executeAction("Indentation", () => {
         if (start === end) {
-          editor.value = before + tabSpaces + after;
-          editor.selectionStart = editor.selectionEnd = start + currentTabSize;
-        } else if (selected.includes('\n')) {
-          const regex = new RegExp('^', 'gm');
-          const indented = selected.replace(regex, tabSpaces);
-          editor.value = before + indented + after;
-          editor.selectionStart = start; editor.selectionEnd = start + indented.length;
+          const lineStart = editor.value.lastIndexOf('\n', start - 1) + 1;
+          let lineEnd = editor.value.indexOf('\n', start);
+          if (lineEnd === -1) lineEnd = editor.value.length;
+          const currentLine = editor.value.substring(lineStart, lineEnd);
+
+          const hrRegex = /^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/;
+          const emptyListRegex = /^(\s*)([-*+]|\d+[.)]|(?:[-*+]|\d+[.)])\s+\[[ xX\-]\])\s*$/;
+          const listWithTextRegex = /^(\s*)([-*+]|\d+[.)]|(?:[-*+]|\d+[.)])\s+\[[ xX\-]\])\s+/;
+          const textMatch = currentLine.match(listWithTextRegex);
+
+          const isHr = hrRegex.test(currentLine);
+          const shouldIndentBeforeMarker = !isHr && (
+            emptyListRegex.test(currentLine) ||
+            (textMatch && start <= lineStart + textMatch[0].length)
+          );
+
+          if (shouldIndentBeforeMarker) {
+            const beforeLine = editor.value.substring(0, lineStart);
+            const rest = editor.value.substring(lineStart);
+            editor.value = beforeLine + tabSpaces + rest;
+            editor.selectionStart = editor.selectionEnd = start + currentTabSize;
+          } else {
+            const before = editor.value.substring(0, start);
+            const after = editor.value.substring(end);
+            editor.value = before + tabSpaces + after;
+            editor.selectionStart = editor.selectionEnd = start + currentTabSize;
+          }
+        } else if (editor.value.substring(start, end).includes('\n')) {
+          const lineStart = editor.value.lastIndexOf('\n', start - 1) + 1;
+          let lineEnd = editor.value.indexOf('\n', end);
+          if (lineEnd === -1) lineEnd = editor.value.length;
+          const block = editor.value.substring(lineStart, lineEnd);
+          const indentedBlock = block.replace(/^/gm, tabSpaces);
+          editor.value = editor.value.substring(0, lineStart) + indentedBlock + editor.value.substring(lineEnd);
+          editor.selectionStart = lineStart;
+          editor.selectionEnd = lineStart + indentedBlock.length;
         } else {
+          const before = editor.value.substring(0, start);
+          const selected = editor.value.substring(start, end);
+          const after = editor.value.substring(end);
           editor.value = before + tabSpaces + selected + after;
-          editor.selectionStart = start + currentTabSize; editor.selectionEnd = end + currentTabSize;
+          editor.selectionStart = start + currentTabSize;
+          editor.selectionEnd = end + currentTabSize;
         }
-        updateEditorOverlay();
+        updatePreview(); setDirty(true); updateEditorOverlay();
       }); return;
     }
     const isMod = isMac ? (e.metaKey || e.ctrlKey) : e.ctrlKey;
@@ -2569,8 +2644,15 @@ window.addEventListener("DOMContentLoaded", () => {
           e.preventDefault();
           executeAction("Remove List", () => {
             const lineStart = cursorPos - currentLine.length;
-            editor.value = editor.value.substring(0, lineStart) + indent + editor.value.substring(cursorPos);
-            editor.selectionStart = editor.selectionEnd = lineStart + indent.length;
+            if (indent.length >= currentTabSize) {
+              const newIndent = indent.slice(0, -currentTabSize);
+              const newLine = `${newIndent}${number}. [ ] `;
+              editor.value = editor.value.substring(0, lineStart) + newLine + editor.value.substring(cursorPos);
+              editor.selectionStart = editor.selectionEnd = lineStart + newLine.length;
+            } else {
+              editor.value = editor.value.substring(0, lineStart) + editor.value.substring(cursorPos);
+              editor.selectionStart = editor.selectionEnd = lineStart;
+            }
             updatePreview(); setDirty(true); updateEditorOverlay();
           });
           return;
@@ -2594,8 +2676,15 @@ window.addEventListener("DOMContentLoaded", () => {
           e.preventDefault();
           executeAction("Remove List", () => {
             const lineStart = cursorPos - currentLine.length;
-            editor.value = editor.value.substring(0, lineStart) + indent + editor.value.substring(cursorPos);
-            editor.selectionStart = editor.selectionEnd = lineStart + indent.length;
+            if (indent.length >= currentTabSize) {
+              const newIndent = indent.slice(0, -currentTabSize);
+              const newLine = `${newIndent}${marker} [ ] `;
+              editor.value = editor.value.substring(0, lineStart) + newLine + editor.value.substring(cursorPos);
+              editor.selectionStart = editor.selectionEnd = lineStart + newLine.length;
+            } else {
+              editor.value = editor.value.substring(0, lineStart) + editor.value.substring(cursorPos);
+              editor.selectionStart = editor.selectionEnd = lineStart;
+            }
             updatePreview(); setDirty(true); updateEditorOverlay();
           });
           return;
@@ -2617,8 +2706,15 @@ window.addEventListener("DOMContentLoaded", () => {
           e.preventDefault();
           executeAction("Remove List", () => {
             const lineStart = cursorPos - currentLine.length;
-            editor.value = editor.value.substring(0, lineStart) + indent + editor.value.substring(cursorPos);
-            editor.selectionStart = editor.selectionEnd = lineStart + indent.length;
+            if (indent.length >= currentTabSize) {
+              const newIndent = indent.slice(0, -currentTabSize);
+              const newLine = `${newIndent}${number}. `;
+              editor.value = editor.value.substring(0, lineStart) + newLine + editor.value.substring(cursorPos);
+              editor.selectionStart = editor.selectionEnd = lineStart + newLine.length;
+            } else {
+              editor.value = editor.value.substring(0, lineStart) + editor.value.substring(cursorPos);
+              editor.selectionStart = editor.selectionEnd = lineStart;
+            }
             updatePreview(); setDirty(true); updateEditorOverlay();
           }); return;
         }
@@ -2631,15 +2727,25 @@ window.addEventListener("DOMContentLoaded", () => {
           updatePreview(); setDirty(true); updateEditorOverlay();
         }); return;
       }
-      const listMatch = currentLine.match(/^(\s*)([*+-])\s(.*)$/);
+      const hrRegex = /^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/;
+      const listMatch = !hrRegex.test(currentLine) && currentLine.match(/^(\s*)([*+-])(?:\s+(.*)|\s*)$/);
       if (listMatch) {
-        const [, indent, marker, content] = listMatch;
-        if (content.trim() === '') {
+        const indent = listMatch[1];
+        const marker = listMatch[2];
+        const content = (listMatch[3] || '').trim();
+        if (content === '') {
           e.preventDefault();
           executeAction("Remove List", () => {
             const lineStart = cursorPos - currentLine.length;
-            editor.value = editor.value.substring(0, lineStart) + indent + editor.value.substring(cursorPos);
-            editor.selectionStart = editor.selectionEnd = lineStart + indent.length;
+            if (indent.length >= currentTabSize) {
+              const newIndent = indent.slice(0, -currentTabSize);
+              const newLine = `${newIndent}${marker} `;
+              editor.value = editor.value.substring(0, lineStart) + newLine + editor.value.substring(cursorPos);
+              editor.selectionStart = editor.selectionEnd = lineStart + newLine.length;
+            } else {
+              editor.value = editor.value.substring(0, lineStart) + editor.value.substring(cursorPos);
+              editor.selectionStart = editor.selectionEnd = lineStart;
+            }
             updatePreview(); setDirty(true); updateEditorOverlay();
           }); return;
         }
@@ -2731,7 +2837,14 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const elements = preview.querySelectorAll('[data-source-line], img, .katex-display-container');
+    const blockSelector = [
+      'h1[data-source-line]', 'h2[data-source-line]', 'h3[data-source-line]', 'h4[data-source-line]',
+      'h5[data-source-line]', 'h6[data-source-line]', 'p[data-source-line]', 'ul[data-source-line]',
+      'ol[data-source-line]', 'li[data-source-line]', 'pre[data-source-line]', 'blockquote[data-source-line]',
+      'table[data-source-line]', 'hr[data-source-line]', 'div[data-source-line]',
+      '.katex-display-container', 'img:not(.badge-img)'
+    ].join(', ');
+    const elements = preview.querySelectorAll(blockSelector);
     const text = editor.value;
     const lineStarts = [0];
     for (let i = 0; i < text.length; i++) {
@@ -2768,16 +2881,17 @@ window.addEventListener("DOMContentLoaded", () => {
       previewTop: 0
     });
 
-    // Campiona gli elementi su documenti molto lunghi mantenendo sempre i checkpoint significativi
+    // Campiona gli elementi solo su documenti eccezionalmente lunghi mantenendo sempre i tipi di blocco primari
     let sampledElements = elements;
-    if (elements.length > 60) {
-      const step = Math.ceil(elements.length / 45);
+    if (elements.length > 250) {
+      const step = Math.ceil(elements.length / 150);
       sampledElements = [];
       elements.forEach((el, idx) => {
         const cp = el.getAttribute('data-checkpoint');
-        if (cp === 'heading' || cp === 'image' || cp === 'table' || el.tagName.toLowerCase() === 'img' || el.classList.contains('katex-display-container')) {
-          sampledElements.push(el);
-        } else if (idx % step === 0 || idx === elements.length - 1) {
+        const isVital = cp === 'heading' || cp === 'code' || cp === 'table' ||
+                        cp === 'image' || cp === 'blockquote' || cp === 'list' || cp === 'hr' ||
+                        el.tagName.toLowerCase() === 'img' || el.classList.contains('katex-display-container');
+        if (isVital || idx % step === 0 || idx === elements.length - 1) {
           sampledElements.push(el);
         }
       });
@@ -2800,8 +2914,12 @@ window.addEventListener("DOMContentLoaded", () => {
       const charIndex = lineStarts[lineStart - 1] !== undefined ? lineStarts[lineStart - 1] : text.length;
       const coord = getCaretCoordinates(editor, charIndex, defaultLineHeight);
       const elRect = el.getBoundingClientRect();
+      if (elRect.width === 0 && elRect.height === 0) return;
+
       const pTop = elRect.top - previewRect.top + previewScrollTop;
       const pBottom = elRect.bottom - previewRect.top + previewScrollTop;
+
+      if (isNaN(pTop) || pTop < -50) return;
 
       const ye = Math.max(0, coord.top - paddingTop);
       const yp = Math.max(0, pTop - paddingTop);
@@ -4297,10 +4415,14 @@ window.addEventListener("DOMContentLoaded", () => {
     if (activeTab && activeTab.filePath) {
       document.querySelectorAll('.tree-item').forEach(item => {
         item.classList.remove('active');
+        item.classList.remove('selected');
         if (item.dataset.path === activeTab.filePath) item.classList.add('active');
       });
     } else {
-      document.querySelectorAll('.tree-item').forEach(item => item.classList.remove('active'));
+      document.querySelectorAll('.tree-item').forEach(item => {
+        item.classList.remove('active');
+        item.classList.remove('selected');
+      });
     }
   }
 
@@ -5207,7 +5329,7 @@ window.addEventListener("DOMContentLoaded", () => {
             <span class="tree-label">${item}</span>
           `;
           fileElement.addEventListener('click', (e) => {
-            selectExplorerItem(itemPath, fileElement);
+            clearExplorerSelection();
             openFileInTab(itemPath);
           });
           fileElement.addEventListener('contextmenu', (e) => {
