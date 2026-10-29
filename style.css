@@ -99,10 +99,9 @@ body.platform-darwin #navbar {
   padding-left: 80px;
 }
 
-/* Windows/Linux: extra space for window controls on the right */
-body.platform-win32 #navbar,
-body.platform-linux #navbar {
-  padding-right: 140px;
+/* Windows: caption buttons reach right edge */
+body.platform-win32 #navbar {
+  padding-right: 0;
 }
 
 /* Ensure buttons are clickable */
@@ -113,22 +112,30 @@ body.platform-linux #navbar {
 /* --- Custom window controls (Windows/Linux) --- */
 #window-controls {
   display: none; /* hidden by default, shown via platform class */
-  position: absolute;
-  top: 0;
-  right: 0;
-  height: 55px;
   -webkit-app-region: no-drag;
 }
 
 body.platform-win32 #window-controls {
   display: flex;
+  align-items: center;
+  height: 100%;
+  margin-left: 10px;
 }
 
 body.platform-linux #window-controls {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  padding-right: 10px;
-  gap: 6px;
+  gap: 3px;
+  margin-left: 12px;
+  background-color: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.09);
+  border-radius: 8px;
+  padding: 3px 5px;
+}
+
+body.dark.platform-linux #window-controls {
+  background-color: rgba(0, 0, 0, 0.32);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .win-ctrl-btn {
@@ -138,16 +145,34 @@ body.platform-linux #window-controls {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.15s, color 0.15s;
+  transition: background-color 0.15s, color 0.15s, transform 0.1s;
   -webkit-app-region: no-drag;
   cursor: pointer;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.win-ctrl-btn svg {
+  display: block;
+  pointer-events: none;
+}
+
+.win-ctrl-btn .icon-restore {
+  display: none;
+}
+
+body.window-maximized .win-ctrl-btn .icon-maximize {
+  display: none;
+}
+
+body.window-maximized .win-ctrl-btn .icon-restore {
+  display: block;
 }
 
 /* --- WINDOWS STYLES --- */
 body.platform-win32 .win-ctrl-btn {
   width: 46px;
   height: 100%;
-  font-size: 14px;
 }
 
 body.platform-win32 .win-ctrl-btn:hover {
@@ -161,20 +186,27 @@ body.platform-win32 .win-close-btn:hover {
 
 /* --- LINUX STYLES --- */
 body.platform-linux .win-ctrl-btn {
-  width: 28px;
-  height: 28px;
-  font-size: 12px;
-  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
   background-color: transparent;
 }
 
 body.platform-linux .win-ctrl-btn:hover {
-  background-color: rgba(128, 128, 128, 0.3);
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+body.dark.platform-linux .win-ctrl-btn:hover {
+  background-color: rgba(255, 255, 255, 0.14);
 }
 
 body.platform-linux .win-close-btn:hover {
-  background-color: #e81123;
-  color: white;
+  background-color: #e81123 !important;
+  color: #ffffff !important;
+}
+
+body.platform-linux .win-ctrl-btn:active {
+  transform: scale(0.94);
 }
 
 .navbar-left {
@@ -1224,12 +1256,16 @@ body.dark {
 }
 
 #toolbar {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   display: flex;
   gap: 4px; /* Reduced gap to fit more on one line */
   align-items: center;
   justify-content: center;
-  flex: 1 1 auto;
-  min-width: 0;
+  z-index: 10;
+  -webkit-app-region: no-drag;
 }
 
 #toolbar button {
@@ -1257,9 +1293,11 @@ body.dark {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  height: 100%;
   flex: 0 0 auto;
   min-width: 0;
   padding-right: 0px;
+  -webkit-app-region: no-drag;
 }
 
 #btn-view-editor,
@@ -1281,6 +1319,19 @@ body.dark {
 #btn-view-split:hover,
 #btn-view-preview:hover {
   background: var(--explorer-hover);
+}
+
+#btn-view-editor:disabled,
+#btn-view-split:disabled,
+#btn-view-preview:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+#btn-view-editor:disabled:hover,
+#btn-view-split:disabled:hover,
+#btn-view-preview:disabled:hover {
+  background: none;
 }
 
 #dropdown-options input[type="range"] {
@@ -1943,11 +1994,17 @@ body.dark #preview tr:hover {
 @media (max-width: 900px) {
 
   .dropdown .dropdown-content,
-  #dropdown-options .dropdown-content,
+  #dropdown-options .dropdown-content {
+    left: 0 !important;
+    right: 0 !important;
+    min-width: 120px;
+    max-width: 95vw;
+  }
+
   #dropdown-extra .dropdown-content,
   #dropdown-title .dropdown-content {
     left: 0 !important;
-    right: 0 !important;
+    right: auto !important;
     min-width: 120px;
     max-width: 95vw;
   }

@@ -208,9 +208,33 @@ const isMac = platform === 'darwin' || (typeof process !== 'undefined' && proces
 document.body.classList.add(`platform-${platform}`);
 
 if (platform !== 'darwin') {
-  document.getElementById('win-minimize')?.addEventListener('click', () => ipcRenderer.send('window-minimize'));
-  document.getElementById('win-maximize')?.addEventListener('click', () => ipcRenderer.send('window-maximize'));
-  document.getElementById('win-close')?.addEventListener('click', () => ipcRenderer.send('window-close'));
+  const minBtn = document.getElementById('win-minimize');
+  const maxBtn = document.getElementById('win-maximize');
+  const closeBtn = document.getElementById('win-close');
+
+  minBtn?.addEventListener('click', () => ipcRenderer.send('window-minimize'));
+  maxBtn?.addEventListener('click', () => ipcRenderer.send('window-maximize'));
+  closeBtn?.addEventListener('click', () => ipcRenderer.send('window-close'));
+
+  const setMaximizeState = (isMax) => {
+    document.body.classList.toggle('window-maximized', isMax);
+    if (maxBtn) {
+      const key = isMax ? 'win_restore' : 'win_maximize';
+      maxBtn.setAttribute('data-i18n-title', key);
+      maxBtn.title = i18n.t(key) || (isMax ? 'Restore' : 'Maximize');
+    }
+  };
+
+  ipcRenderer.on('window-maximize-changed', (_event, isMax) => {
+    setMaximizeState(isMax);
+  });
+
+  try {
+    const isInitiallyMaximized = ipcRenderer.sendSync('is-window-maximized');
+    if (isInitiallyMaximized) {
+      setMaximizeState(true);
+    }
+  } catch (err) { /* noop */ }
 }
 
 // ====== GROQ AI (facoltativo) ===============================================
@@ -913,6 +937,7 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   function executeAction(actionName, fn) {
+    if (typeof tabs !== 'undefined' && tabs.length === 0) return;
     if (typingStartValue !== null) {
       clearTimeout(typingTimeout);
       recordAction("Typing", typingStartValue, editor.value);
@@ -3535,6 +3560,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   ipcRenderer.on("toggle-explorer", () => { const p = document.getElementById("explorer-panel"); p && p.classList.toggle("hidden"); });
   const toggleViewMode = (targetMode) => {
+    if (typeof tabs !== 'undefined' && tabs.length === 0) return;
     const container = document.getElementById("container");
     if (!container) return;
     if (container.classList.contains(targetMode)) {
@@ -4343,6 +4369,14 @@ window.addEventListener("DOMContentLoaded", () => {
   function renderTabs() {
     if (!tabsScrollArea) return;
     tabsScrollArea.innerHTML = '';
+
+    const hasTabs = tabs.length > 0;
+    const btnViewEditorEl = document.getElementById("btn-view-editor");
+    const btnViewSplitEl = document.getElementById("btn-view-split");
+    const btnViewPreviewEl = document.getElementById("btn-view-preview");
+    if (btnViewEditorEl) btnViewEditorEl.disabled = !hasTabs;
+    if (btnViewSplitEl) btnViewSplitEl.disabled = !hasTabs;
+    if (btnViewPreviewEl) btnViewPreviewEl.disabled = !hasTabs;
 
     if (tabs.length === 0) {
       if (tabsBar) tabsBar.classList.add('hidden');
@@ -6054,6 +6088,7 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   btnViewEditor && btnViewEditor.addEventListener("click", () => {
+    if (!tabs || tabs.length === 0) return;
     if (container) container.className = "solo-editor";
     refreshSearchIfOpen();
     if (editor && editor.value.length === 0 && typeof startTypewriterEffect === 'function') {
@@ -6062,6 +6097,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   btnViewSplit && btnViewSplit.addEventListener("click", () => {
+    if (!tabs || tabs.length === 0) return;
     if (container) container.className = "split-view";
     refreshSearchIfOpen();
     if (editor && editor.value.length === 0 && typeof startTypewriterEffect === 'function') {
@@ -6078,6 +6114,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   btnViewPreview && btnViewPreview.addEventListener("click", () => {
+    if (!tabs || tabs.length === 0) return;
     if (container) container.className = "solo-preview";
     refreshSearchIfOpen();
     if (typeof stopTypewriterEffect === 'function') {

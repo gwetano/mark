@@ -85,17 +85,32 @@ function createWindow() {
   win.loadFile("index.html");
 
   // Window control IPC handlers (for Windows/Linux custom buttons)
-  ipcMain.on('window-minimize', () => win.minimize());
+  ipcMain.on('window-minimize', () => win?.minimize());
   ipcMain.on('window-maximize', () => {
+    if (!win) return;
     if (win.isMaximized()) {
       win.unmaximize();
     } else {
       win.maximize();
     }
   });
-  ipcMain.on('window-close', () => win.close());
+  ipcMain.on('window-close', () => win?.close());
   ipcMain.on('get-platform', (event) => {
     event.returnValue = process.platform;
+  });
+  ipcMain.on('is-window-maximized', (event) => {
+    event.returnValue = win ? win.isMaximized() : false;
+  });
+
+  win.on('maximize', () => {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('window-maximize-changed', true);
+    }
+  });
+  win.on('unmaximize', () => {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('window-maximize-changed', false);
+    }
   });
 
   buildApplicationMenu();

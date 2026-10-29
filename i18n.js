@@ -26,6 +26,7 @@ const translations = {
     view_preview: "Preview Only",
     win_minimize: "Minimize",
     win_maximize: "Maximize",
+    win_restore: "Restore",
     win_close: "Close",
 
     // Search
@@ -235,6 +236,7 @@ const translations = {
     view_preview: "Solo Anteprima",
     win_minimize: "Riduci a icona",
     win_maximize: "Ingrandisci",
+    win_restore: "Ripristina",
     win_close: "Chiudi",
 
     // Search
