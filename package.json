@@ -62,7 +62,10 @@
         },
         "linux": {
             "icon": "build/mark.png",
-            "target": ["dir"]
+            "target": [
+                "AppImage",
+                "dir"
+            ]
         },
         "publish": [
             {
