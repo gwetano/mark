@@ -269,6 +269,7 @@ const translations = {
     menu_quit: "Quit",
     menu_edit: "Edit",
     menu_undo: "Undo",
+    menu_redo: "Redo",
     menu_cut: "Cut",
     menu_copy: "Copy",
     menu_paste: "Paste",
@@ -281,6 +282,7 @@ const translations = {
     menu_explorer: "Explorer",
     menu_editor: "Editor",
     menu_preview: "Preview",
+    view_reading_mode: "Reading Mode",
     menu_dark_mode: "Dark Mode"
   },
   it: {
@@ -552,6 +554,7 @@ const translations = {
     menu_quit: "Esci",
     menu_edit: "Modifica",
     menu_undo: "Annulla",
+    menu_redo: "Ripristina",
     menu_cut: "Taglia",
     menu_copy: "Copia",
     menu_paste: "Incolla",
@@ -564,6 +567,7 @@ const translations = {
     menu_explorer: "Explorer",
     menu_editor: "Editor",
     menu_preview: "Anteprima",
+    view_reading_mode: "Modalità lettura",
     menu_dark_mode: "Modalità scura"
   }
 };

@@ -30,23 +30,35 @@ if (!gotTheLock) {
   app.quit();
 } else {
   app.on('second-instance', (event, argv, workingDirectory) => {
-    if (win) {
-      if (win.isMinimized()) win.restore();
-      win.focus();
-      const instanceArgs = argv.slice(process.defaultApp ? 2 : 1);
-      const target = instanceArgs.find(arg => !arg.startsWith('--'));
-      if (target) {
-        const absPath = path.resolve(workingDirectory, target);
-        if (fs.existsSync(absPath)) {
-          const stat = fs.statSync(absPath);
-          if (stat.isFile() && absPath.endsWith('.md')) {
-            const content = fs.readFileSync(absPath, 'utf8');
-            win.webContents.send('load-md', absPath, content);
-          } else if (stat.isDirectory()) {
-            win.webContents.send('open-folder', absPath);
-          }
+    let targetFile = null;
+    let targetFolder = null;
+    const instanceArgs = argv.slice(process.defaultApp ? 2 : 1);
+    const target = instanceArgs.find(arg => !arg.startsWith('--'));
+    if (target) {
+      const absPath = path.resolve(workingDirectory, target);
+      if (fs.existsSync(absPath)) {
+        const stat = fs.statSync(absPath);
+        if (stat.isFile() && absPath.endsWith('.md')) {
+          targetFile = absPath;
+        } else if (stat.isDirectory()) {
+          targetFolder = absPath;
         }
       }
+    }
+
+    if (win && !win.isDestroyed()) {
+      if (win.isMinimized()) win.restore();
+      win.focus();
+      if (targetFile) {
+        const content = fs.readFileSync(targetFile, 'utf8');
+        win.webContents.send('load-md', targetFile, content);
+      } else if (targetFolder) {
+        win.webContents.send('open-folder', targetFolder);
+      }
+    } else {
+      if (targetFile) openFilePath = targetFile;
+      if (targetFolder) openFolderPath = targetFolder;
+      createWindow();
     }
   });
 }
@@ -56,6 +68,28 @@ function initializeRemote() {
     remoteMain.initialize();
   }
 }
+
+// Window control IPC handlers (for Windows/Linux custom buttons)
+ipcMain.on('window-minimize', () => {
+  if (win && !win.isDestroyed()) win.minimize();
+});
+ipcMain.on('window-maximize', () => {
+  if (!win || win.isDestroyed()) return;
+  if (win.isMaximized()) {
+    win.unmaximize();
+  } else {
+    win.maximize();
+  }
+});
+ipcMain.on('window-close', () => {
+  if (win && !win.isDestroyed()) win.close();
+});
+ipcMain.on('get-platform', (event) => {
+  event.returnValue = process.platform;
+});
+ipcMain.on('is-window-maximized', (event) => {
+  event.returnValue = (win && !win.isDestroyed()) ? win.isMaximized() : false;
+});
 
 function createWindow() {
 
@@ -84,24 +118,6 @@ function createWindow() {
 
   win.loadFile("index.html");
 
-  // Window control IPC handlers (for Windows/Linux custom buttons)
-  ipcMain.on('window-minimize', () => win?.minimize());
-  ipcMain.on('window-maximize', () => {
-    if (!win) return;
-    if (win.isMaximized()) {
-      win.unmaximize();
-    } else {
-      win.maximize();
-    }
-  });
-  ipcMain.on('window-close', () => win?.close());
-  ipcMain.on('get-platform', (event) => {
-    event.returnValue = process.platform;
-  });
-  ipcMain.on('is-window-maximized', (event) => {
-    event.returnValue = win ? win.isMaximized() : false;
-  });
-
   win.on('maximize', () => {
     if (win && !win.isDestroyed()) {
       win.webContents.send('window-maximize-changed', true);
@@ -110,6 +126,13 @@ function createWindow() {
   win.on('unmaximize', () => {
     if (win && !win.isDestroyed()) {
       win.webContents.send('window-maximize-changed', false);
+    }
+  });
+  win.on('closed', () => {
+    win = null;
+    if (printWin && !printWin.isDestroyed()) {
+      printWin.destroy();
+      printWin = null;
     }
   });
 
@@ -231,6 +254,11 @@ function buildApplicationMenu() {
           accelerator: "CmdOrCtrl+Z",
           role: "undo"
         },
+        {
+          label: i18n.t("menu_redo"),
+          accelerator: "CmdOrCtrl+Y",
+          role: "redo"
+        },
         { type: "separator" },
         {
           label: i18n.t("menu_cut"),
@@ -343,6 +371,9 @@ function createPrintWindow() {
   });
 
   printWin.loadFile("print.html");
+  printWin.on('closed', () => {
+    printWin = null;
+  });
 }
 
 ipcMain.on("print-to-pdf", async (event, content, title, exportSettings) => {

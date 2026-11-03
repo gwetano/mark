@@ -7,7 +7,6 @@
 A fast, minimal Markdown editor for notes, docs and studying<br/>
 No account. No cloud. No bloat.
 
-[![Version](https://img.shields.io/badge/version-v3.1.0-1e2327?style=flat-square)](https://github.com/gwetano/mark/releases/latest)
 [![Release](https://img.shields.io/github/v/release/gwetano/mark?style=flat-square&color=1e2327&label=release)](https://github.com/gwetano/mark/releases/latest)
 [![License](https://img.shields.io/github/license/gwetano/mark?style=flat-square&color=1e2327)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20·%20macOS%20·%20Linux-1e2327?style=flat-square)](https://github.com/gwetano/mark/releases/latest)

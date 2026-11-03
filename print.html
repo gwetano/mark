@@ -677,7 +677,7 @@
     }
 
     ipcRenderer.on('print-content', (event, content, exportSettings) => {
-      const includeToc = !exportSettings || exportSettings.toc !== false;
+      const includeToc = Boolean(exportSettings && exportSettings.toc === true);
       let processedContent = includeToc ? generateTableOfContentsForPDF(content, exportSettings) : content;
 
       processedContent = processMdImage(processedContent);

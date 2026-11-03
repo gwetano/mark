@@ -1426,6 +1426,9 @@ window.addEventListener("DOMContentLoaded", () => {
         updateTabDirtyIndicator(activeTab.id, dirty);
       }
     }
+    if (typeof updateTitlebarTitle === 'function') {
+      updateTitlebarTitle();
+    }
   };
 
   // ====== CALLOUT / ALERT BLOCKQUOTES & COLOR PICKER ======
@@ -4156,7 +4159,7 @@ window.addEventListener("DOMContentLoaded", () => {
       pageSize: localStorage.getItem('mark.exportPdfPageSize') || 'A4',
       orientation: localStorage.getItem('mark.exportPdfOrientation') || 'portrait',
       margins: localStorage.getItem('mark.exportPdfMargins') || 'normal',
-      toc: localStorage.getItem('mark.exportPdfToc') !== 'false',
+      toc: localStorage.getItem('mark.exportPdfToc') === 'true',
       pageNumbers: localStorage.getItem('mark.exportPdfPageNumbers') || 'none',
       pageNumberAlign: localStorage.getItem('mark.exportPdfPageAlign') || 'right',
       lang: localStorage.getItem('mark.lang') || 'en'
@@ -4562,6 +4565,7 @@ window.addEventListener("DOMContentLoaded", () => {
       if (emptyState) emptyState.classList.remove('hidden');
       if (wordCountEl) wordCountEl.textContent = i18n.t('word_count', { count: 0 });
       document.querySelectorAll('.tree-item').forEach(item => item.classList.remove('active'));
+      if (typeof updateTitlebarTitle === 'function') updateTitlebarTitle();
       return;
     }
 
@@ -4636,6 +4640,7 @@ window.addEventListener("DOMContentLoaded", () => {
         item.classList.remove('selected');
       });
     }
+    if (typeof updateTitlebarTitle === 'function') updateTitlebarTitle();
   }
 
   function initTabDrag(e, tabId, tabEl) {
@@ -5809,7 +5814,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const togglePdfToc = document.getElementById('toggle-pdf-toc');
   if (togglePdfToc) {
     const savedToc = localStorage.getItem('mark.exportPdfToc');
-    togglePdfToc.checked = savedToc !== 'false';
+    togglePdfToc.checked = savedToc === 'true';
     togglePdfToc.addEventListener('change', () => {
       localStorage.setItem('mark.exportPdfToc', String(togglePdfToc.checked));
     });
@@ -6580,6 +6585,260 @@ window.addEventListener("DOMContentLoaded", () => {
   requestAnimationFrame(() => {
     document.documentElement.style.visibility = 'visible';
   });
+
+  // ====== TITLEBAR MENUS & WINDOW CONTROLS (Linux & Windows) ==================
+  function updateTitlebarTitle() {
+    const titleEl = document.getElementById('titlebar-title');
+    if (!titleEl) return;
+    const activeTab = typeof getActiveTab === 'function' ? getActiveTab() : null;
+    if (activeTab && activeTab.title) {
+      const dirtyDot = activeTab.isDirty ? ' •' : '';
+      const text = `${activeTab.title}${dirtyDot} — Mark`;
+      titleEl.textContent = text;
+      document.title = text;
+    } else {
+      titleEl.textContent = 'Mark';
+      document.title = 'Mark';
+    }
+  }
+
+  function initTitlebar() {
+    const titlebar = document.getElementById('titlebar');
+    if (!titlebar) return;
+
+    const dropdowns = document.querySelectorAll('.titlebar-menu-dropdown');
+    let isAnyMenuOpen = false;
+
+    function closeAllMenus() {
+      dropdowns.forEach(d => d.classList.remove('open'));
+      isAnyMenuOpen = false;
+    }
+
+    function openMenu(dropdown) {
+      closeAllMenus();
+      dropdown.classList.add('open');
+      isAnyMenuOpen = true;
+
+      // Close toolbar dropdowns if any
+      document.getElementById('dropdown-title')?.classList.remove('open');
+      document.getElementById('dropdown-extra')?.classList.remove('open');
+      document.getElementById('dropdown-options')?.classList.remove('open');
+    }
+
+    dropdowns.forEach(dropdown => {
+      const trigger = dropdown.querySelector('.titlebar-menu-trigger');
+      if (!trigger) return;
+
+      trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (dropdown.classList.contains('open')) {
+          closeAllMenus();
+        } else {
+          openMenu(dropdown);
+        }
+      });
+
+      // Seamless hover switching between menus like VS Code/Antigravity
+      trigger.addEventListener('mouseenter', () => {
+        if (isAnyMenuOpen && !dropdown.classList.contains('open')) {
+          openMenu(dropdown);
+        }
+      });
+    });
+
+    // Close when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.titlebar-menu-dropdown')) {
+        closeAllMenus();
+      }
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isAnyMenuOpen) {
+        closeAllMenus();
+      }
+    });
+
+    // Handle menu item actions
+    document.querySelectorAll('.titlebar-menu-item').forEach(item => {
+      item.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const action = item.dataset.action;
+        closeAllMenus();
+        if (!action) return;
+
+        switch (action) {
+          // FILE ACTIONS
+          case 'new-file':
+            if (typeof createNewTab === 'function') createNewTab();
+            break;
+
+          case 'open-file':
+            try {
+              const result = await dialog.showOpenDialog({
+                filters: [{ name: "Markdown", extensions: ["md"] }],
+                properties: ["openFile", "multiSelections"]
+              });
+              if (!result.canceled && result.filePaths.length > 0) {
+                for (const fp of result.filePaths) {
+                  if (typeof openFileInTab === 'function') openFileInTab(fp);
+                }
+              }
+            } catch (err) {
+              console.error('[Titlebar] Error opening file:', err);
+            }
+            break;
+
+          case 'open-folder':
+            try {
+              const result = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+              if (!result.canceled && result.filePaths.length > 0) {
+                if (typeof openFolder === 'function') openFolder(result.filePaths[0]);
+              }
+            } catch (err) {
+              console.error('[Titlebar] Error opening folder:', err);
+            }
+            break;
+
+          case 'save-file':
+            if (typeof saveCurrentFile === 'function') saveCurrentFile();
+            break;
+
+          case 'close-tab':
+            if (activeTabId && typeof closeTab === 'function') closeTab(activeTabId);
+            break;
+
+          case 'import-doc':
+            try {
+              const result = await dialog.showOpenDialog({
+                filters: [{ name: "Documenti supportati", extensions: ["pdf", "docx", "pptx", "html", "xlsx"] }],
+                properties: ["openFile"]
+              });
+              if (!result.canceled && result.filePaths.length > 0) {
+                const filePath = result.filePaths[0];
+                const Markitdown = require("markitdown-js").default;
+                const md = new Markitdown();
+                const output = await md.convert(filePath);
+                const targetPath = filePath.replace(/\.[^/.]+$/, "") + ".md";
+                if (typeof openFileInTab === 'function') {
+                  openFileInTab(targetPath, output.textContent || output);
+                }
+              }
+            } catch (err) {
+              dialog.showErrorBox(i18n.t("dialog_import_error_title") || "Errore importazione", err.message);
+            }
+            break;
+
+          case 'export-pdf':
+            if (typeof exportToPdf === 'function') exportToPdf();
+            break;
+
+          case 'export-html':
+            if (typeof exportToHtml === 'function') exportToHtml();
+            break;
+
+          case 'open-settings':
+            document.getElementById("btn-options")?.click();
+            break;
+
+          case 'quit-app':
+            ipcRenderer.send('window-close');
+            break;
+
+          // EDIT ACTIONS
+          case 'undo':
+            if (editor) { editor.focus(); document.execCommand('undo'); }
+            break;
+
+          case 'redo':
+            if (editor) { editor.focus(); document.execCommand('redo'); }
+            break;
+
+          case 'cut':
+            if (editor) { editor.focus(); document.execCommand('cut'); }
+            break;
+
+          case 'copy':
+            if (editor) { editor.focus(); document.execCommand('copy'); }
+            break;
+
+          case 'paste':
+            if (editor) { editor.focus(); document.execCommand('paste'); }
+            break;
+
+          case 'select-all':
+            if (editor) { editor.focus(); document.execCommand('selectAll'); }
+            break;
+
+          case 'find':
+            if (typeof toggleSearchPanel === 'function') toggleSearchPanel(true);
+            break;
+
+          case 'insert-link':
+            if (typeof insertMarkdownLink === 'function') insertMarkdownLink();
+            break;
+
+          case 'insert-image':
+            try {
+              const result = await dialog.showOpenDialog({
+                filters: [{ name: "Images", extensions: ["jpg", "jpeg", "png", "gif", "webp"] }],
+                properties: ["openFile"]
+              });
+              if (!result.canceled && result.filePaths.length > 0) {
+                ipcRenderer.emit('insert-image-from-file', null, result.filePaths[0]);
+              }
+            } catch (err) {
+              console.error('[Titlebar] Error inserting image:', err);
+            }
+            break;
+
+          case 'paste-image':
+            if (typeof pasteImageFromClipboard === 'function') pasteImageFromClipboard();
+            break;
+
+          // VIEW ACTIONS
+          case 'toggle-explorer':
+            document.getElementById("btn-toggle-explorer")?.click();
+            break;
+
+          case 'view-editor':
+            document.getElementById("btn-view-editor")?.click();
+            break;
+
+          case 'view-split':
+            document.getElementById("btn-view-split")?.click();
+            break;
+
+          case 'view-preview':
+            document.getElementById("btn-view-preview")?.click();
+            break;
+
+          case 'toggle-reading-mode':
+            if (typeof setReadingMode === 'function') setReadingMode(!isReadingMode);
+            break;
+
+          case 'toggle-dark-mode':
+            if (typeof applyTheme === 'function') {
+              const isDark = document.body.classList.contains("dark");
+              applyTheme(isDark ? "light" : "dark");
+            }
+            break;
+        }
+      });
+    });
+
+    // Double-click on draggable titlebar background to maximize / restore
+    titlebar.addEventListener('dblclick', (e) => {
+      if (!e.target.closest('.titlebar-left') && !e.target.closest('.titlebar-right')) {
+        ipcRenderer.send('window-maximize');
+      }
+    });
+
+    updateTitlebarTitle();
+  }
+
+  initTitlebar();
 
   // Re-render quando cambiamo cartella (per risolvere include relativi)
   const observer = new MutationObserver(() => { /* noop, ma potresti forzare update se serve */ });

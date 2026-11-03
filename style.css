@@ -50,6 +50,15 @@ pre code {
   font-family: var(--code-font-family);
 }
 
+:root {
+  --titlebar-height: 0px;
+}
+
+body.platform-linux,
+body.platform-win32 {
+  --titlebar-height: 30px;
+}
+
 body {
   margin: 0;
   font-size: 18px;
@@ -63,9 +72,9 @@ body {
 #app-container {
   display: flex;
   flex-direction: row;
-  margin-top: 55px;
+  margin-top: calc(55px + var(--titlebar-height));
   width: 100%;
-  height: calc(100% - 55px - 35px);
+  height: calc(100% - 55px - var(--titlebar-height) - 35px);
   overflow: hidden;
   margin-bottom: 35px;
 }
@@ -79,8 +88,180 @@ body {
   position: relative;
 }
 
+/* --- TOP TITLEBAR (Linux & Windows) --- */
+#titlebar {
+  display: none; /* hidden on macOS by default */
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: var(--titlebar-height);
+  background-color: var(--explorer-bg);
+  border-bottom: 1px solid var(--explorer-border);
+  z-index: 102;
+  box-sizing: border-box;
+  -webkit-app-region: drag;
+  user-select: none;
+  font-family: var(--font-family);
+}
+
+body.platform-linux #titlebar,
+body.platform-win32 #titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+body.reading-mode-active #titlebar {
+  display: none !important;
+}
+
+.titlebar-left {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  flex: 0 0 auto;
+  padding-left: 6px;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-app-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
+  color: var(--fg);
+  opacity: 0.85;
+}
+
+.titlebar-menus {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  gap: 1px;
+}
+
+.titlebar-menu-dropdown {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.titlebar-menu-trigger {
+  background: transparent;
+  border: none;
+  color: var(--fg);
+  font-size: 12px;
+  font-weight: 400;
+  padding: 3px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  line-height: 1;
+  transition: background-color 0.12s ease;
+  outline: none;
+  font-family: var(--font-family);
+}
+
+.titlebar-menu-trigger:hover,
+.titlebar-menu-dropdown.open .titlebar-menu-trigger {
+  background-color: var(--explorer-hover);
+}
+
+.titlebar-menu-content {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 220px;
+  background-color: var(--editor-bg);
+  border: 1px solid var(--explorer-border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  border-radius: 6px;
+  padding: 4px;
+  z-index: 10000;
+  flex-direction: column;
+  animation: dropdownFadeIn 0.15s ease;
+  box-sizing: border-box;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-menu-dropdown.open .titlebar-menu-content {
+  display: flex;
+}
+
+.titlebar-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--fg);
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  outline: none;
+  box-sizing: border-box;
+  transition: background-color 0.1s ease;
+  font-family: var(--font-family);
+}
+
+.titlebar-menu-item:hover {
+  background-color: var(--explorer-hover);
+}
+
+.titlebar-menu-shortcut {
+  font-size: 11px;
+  color: var(--fg);
+  opacity: 0.5;
+  margin-left: 20px;
+  white-space: nowrap;
+}
+
+.titlebar-menu-separator {
+  height: 1px;
+  background-color: var(--explorer-border);
+  margin: 3px 4px;
+}
+
+.titlebar-center {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-width: 0;
+  pointer-events: none;
+}
+
+.titlebar-title {
+  font-size: 11.5px;
+  color: var(--fg);
+  opacity: 0.75;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 400px;
+  font-weight: 500;
+}
+
+.titlebar-right {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  flex: 0 0 auto;
+  -webkit-app-region: no-drag;
+}
+
 #navbar {
   position: fixed;
+  top: var(--titlebar-height);
+  left: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -99,11 +280,6 @@ body.platform-darwin #navbar {
   padding-left: 80px;
 }
 
-/* Windows: caption buttons reach right edge */
-body.platform-win32 #navbar {
-  padding-right: 0;
-}
-
 /* Ensure buttons are clickable */
 #navbar button, #navbar input, #navbar .dropdown {
   -webkit-app-region: no-drag;
@@ -119,23 +295,22 @@ body.platform-win32 #window-controls {
   display: flex;
   align-items: center;
   height: 100%;
-  margin-left: 10px;
+  margin: 0;
 }
 
 body.platform-linux #window-controls {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  margin-left: 12px;
-  background-color: rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(0, 0, 0, 0.09);
-  border-radius: 8px;
-  padding: 3px 5px;
+  margin: 0;
+  padding-right: 6px;
+  background: none;
+  border: none;
 }
 
 body.dark.platform-linux #window-controls {
-  background-color: rgba(0, 0, 0, 0.32);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: none;
+  border: none;
 }
 
 .win-ctrl-btn {
@@ -186,9 +361,9 @@ body.platform-win32 .win-close-btn:hover {
 
 /* --- LINUX STYLES --- */
 body.platform-linux .win-ctrl-btn {
-  width: 26px;
-  height: 26px;
-  border-radius: 5px;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
   background-color: transparent;
 }
 
@@ -1101,7 +1276,7 @@ body.dark {
 
 #reading-mode-popup {
   position: fixed;
-  top: 20px;
+  top: calc(20px + var(--titlebar-height));
   left: 50%;
   transform: translateX(-50%);
   background-color: rgba(0, 0, 0, 0.8);
@@ -1141,7 +1316,7 @@ body.dark {
 
 #search-container {
   position: fixed;
-  top: 60px;
+  top: calc(60px + var(--titlebar-height));
   right: 20px;
   background-color: var(--editor-bg);
   border: 1px solid var(--explorer-border);
@@ -3663,7 +3838,7 @@ body.dark .collab-beta-badge {
 /* ====== POP-UP NOTIFICATIONS (MINIMALIST COHERENT & CLOUD DISSOLVE ON CLICK) ====== */
 #notification-container {
   position: fixed;
-  top: 68px; /* Posizionato sotto la navbar (altezza 55px) */
+  top: calc(68px + var(--titlebar-height)); /* Posizionato sotto la navbar */
   right: 20px;
   z-index: 100000;
   display: flex;
