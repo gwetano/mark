@@ -40,6 +40,31 @@
       font-family: "Inter", sans-serif;
     }
 
+    body.font-jetbrains,
+    body.font-jetbrains button,
+    body.font-jetbrains input,
+    body.font-jetbrains textarea,
+    body.font-jetbrains select,
+    body.font-jetbrains .markdown-body,
+    body.font-jetbrains .markdown-body p,
+    body.font-jetbrains .markdown-body h1,
+    body.font-jetbrains .markdown-body h2,
+    body.font-jetbrains .markdown-body h3,
+    body.font-jetbrains .markdown-body h4,
+    body.font-jetbrains .markdown-body h5,
+    body.font-jetbrains .markdown-body h6,
+    body.font-jetbrains .markdown-body li,
+    body.font-jetbrains .markdown-body blockquote,
+    body.font-jetbrains .markdown-body td,
+    body.font-jetbrains .markdown-body th,
+    body.font-jetbrains .markdown-body span:not(.katex *):not(.katex),
+    body.font-jetbrains .toc-container,
+    body.font-jetbrains .toc-title,
+    body.font-jetbrains .toc-list,
+    body.font-jetbrains .toc-item a {
+      font-family: "JetBrains Mono", monospace !important;
+    }
+
     .katex {
       font-family: KaTeX_Main, 'Times New Roman', serif !important;
     }
@@ -104,33 +129,59 @@
     }
 
     pre {
-      background-color: #f6f8fa;
-      padding: 16px;
-      overflow: auto;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-      word-break: break-word;
-      text-align: left;
+      background-color: #f6f8fa !important;
+      border: 1px solid #e1e4e8 !important;
+      border-radius: 6px !important;
+      padding: 14px 16px !important;
+      overflow: auto !important;
+      white-space: pre-wrap !important;
+      word-wrap: break-word !important;
+      overflow-wrap: break-word !important;
+      word-break: break-word !important;
+      text-align: left !important;
       break-inside: avoid;
+      page-break-inside: avoid;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
 
     code {
       font-size: 85%;
-      font-family: "JetBrains Mono", monospace;
+      font-family: "JetBrains Mono", monospace !important;
       background-color: rgba(27, 31, 35, 0.05);
+      border-radius: 4px;
       padding: 0.2em 0.4em;
       white-space: pre-wrap;
       word-wrap: break-word;
       overflow-wrap: break-word;
       word-break: break-word;
       text-align: left;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
 
     pre code {
-      background-color: transparent;
-      padding: 0;
+      background-color: transparent !important;
+      padding: 0 !important;
+      font-size: 13px !important;
+      font-family: "JetBrains Mono", monospace !important;
     }
+
+    /* Syntax Highlighting in PDF (Always Included) */
+    .hljs {
+      color: #24292e !important;
+      background: transparent !important;
+      font-family: "JetBrains Mono", monospace !important;
+    }
+    .hljs-comment, .hljs-punctuation { color: #6a737d !important; font-style: italic !important; }
+    .hljs-keyword, .hljs-selector-tag, .hljs-subst { color: #d73a49 !important; font-weight: 600 !important; }
+    .hljs-string, .hljs-title, .hljs-section, .hljs-attribute, .hljs-attr, .hljs-literal, .hljs-template-tag, .hljs-template-variable, .hljs-type { color: #032f62 !important; }
+    .hljs-variable, .hljs-title.class_, .hljs-title.function_, .hljs-property { color: #6f42c1 !important; }
+    .hljs-number { color: #005cc5 !important; }
+    .hljs-meta, .hljs-built_in { color: #e36209 !important; }
+    .hljs-tag, .hljs-name { color: #22863a !important; }
+    .hljs-deletion { color: #b31d28 !important; background-color: #ffeef0 !important; }
+    .hljs-addition { color: #22863a !important; background-color: #f0fff4 !important; }
 
     img:not(.badge-img) {
       max-width: 70%;
@@ -170,20 +221,40 @@
       justify-content: center !important;
     }
 
-    img.img-small {
-      max-width: 25%;
+    img.img-small,
+    img[data-size="small"] {
+      width: 25% !important;
+      max-width: 25% !important;
+      height: auto !important;
+      display: block !important;
+      margin: 1em auto !important;
     }
 
-    img.img-medium {
-      max-width: 50%;
+    img.img-medium,
+    img[data-size="medium"] {
+      width: 50% !important;
+      max-width: 50% !important;
+      height: auto !important;
+      display: block !important;
+      margin: 1em auto !important;
     }
 
-    img.img-large {
-      max-width: 75%;
+    img.img-large,
+    img[data-size="large"] {
+      width: 75% !important;
+      max-width: 75% !important;
+      height: auto !important;
+      display: block !important;
+      margin: 1em auto !important;
     }
 
-    img.img-full {
-      max-width: 100%;
+    img.img-full,
+    img[data-size="full"] {
+      width: 100% !important;
+      max-width: 100% !important;
+      height: auto !important;
+      display: block !important;
+      margin: 1em auto !important;
     }
 
     ul,
@@ -507,31 +578,23 @@
         let sizeClass = '';
         let cleanedAlt = originalAlt;
 
-        if (/\[small\]/i.test(originalAlt)) {
+        if (img.classList.contains('img-small') || img.getAttribute('data-size') === 'small' || /\[small\]/i.test(originalAlt) || /^small$/i.test(originalAlt)) {
           sizeClass = 'img-small';
-          cleanedAlt = originalAlt.replace(/\[small\]/ig, '').trim();
-        } else if (/\[medium\]/i.test(originalAlt)) {
+          cleanedAlt = originalAlt.replace(/\[small\]/ig, '').replace(/^small$/ig, '').trim();
+        } else if (img.classList.contains('img-medium') || img.getAttribute('data-size') === 'medium' || /\[medium\]/i.test(originalAlt) || /^medium$/i.test(originalAlt)) {
           sizeClass = 'img-medium';
-          cleanedAlt = originalAlt.replace(/\[medium\]/ig, '').trim();
-        } else if (/\[large\]/i.test(originalAlt)) {
+          cleanedAlt = originalAlt.replace(/\[medium\]/ig, '').replace(/^medium$/ig, '').trim();
+        } else if (img.classList.contains('img-large') || img.getAttribute('data-size') === 'large' || /\[large\]/i.test(originalAlt) || /^large$/i.test(originalAlt)) {
           sizeClass = 'img-large';
-          cleanedAlt = originalAlt.replace(/\[large\]/ig, '').trim();
-        } else if (/\[full\]/i.test(originalAlt)) {
+          cleanedAlt = originalAlt.replace(/\[large\]/ig, '').replace(/^large$/ig, '').trim();
+        } else if (img.classList.contains('img-full') || img.getAttribute('data-size') === 'full' || /\[full\]/i.test(originalAlt) || /^full$/i.test(originalAlt)) {
           sizeClass = 'img-full';
-          cleanedAlt = originalAlt.replace(/\[full\]/ig, '').trim();
+          cleanedAlt = originalAlt.replace(/\[full\]/ig, '').replace(/^full$/ig, '').trim();
         }
 
         if (sizeClass) {
-          const style = img.getAttribute('style') || '';
-          const cleanedStyle = style.replace(/max-width\s*:\s*[^;]+;?/gi, '');
-          if (cleanedStyle.trim().length > 0) {
-            img.setAttribute('style', cleanedStyle);
-          } else {
-            img.removeAttribute('style');
-          }
-
           img.classList.add(sizeClass);
-
+          img.setAttribute('data-size', sizeClass.replace('img-', ''));
           if (cleanedAlt) {
             img.setAttribute('alt', cleanedAlt);
           } else {
@@ -543,20 +606,17 @@
       return tempDiv.innerHTML;
     }
 
-    function generateTableOfContentsForPDF(content) {
+    function generateTableOfContentsForPDF(content, exportSettings) {
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = content;
 
       const firstNode = tempDiv.firstChild;
-      let hasTOCMarker = false;
-
       if (firstNode && firstNode.nodeType === Node.COMMENT_NODE &&
         firstNode.textContent.trim().match(/^\s*TOC\s*$/i)) {
-        hasTOCMarker = true;
         firstNode.remove();
       }
 
-      if (!hasTOCMarker) {
+      if (tempDiv.querySelector('.table-of-contents')) {
         return content;
       }
 
@@ -566,7 +626,9 @@
         return tempDiv.innerHTML;
       }
 
-      let tocHTML = '<div class="table-of-contents"><h2>Table of Contents</h2><ul class="toc-list">';
+      const isIt = (exportSettings && exportSettings.lang === 'it') || document.documentElement.lang === 'it';
+      const tocTitle = isIt ? 'Indice dei Contenuti' : 'Table of Contents';
+      let tocHTML = `<div class="table-of-contents"><h2 class="toc-title">${tocTitle}</h2><ul class="toc-list">`;
 
       let currentLevel = 0;
       let openLists = 0;
@@ -614,11 +676,19 @@
       return tempDiv.innerHTML;
     }
 
-    ipcRenderer.on('print-content', (event, content) => {
-      let processedContent = generateTableOfContentsForPDF(content);
+    ipcRenderer.on('print-content', (event, content, exportSettings) => {
+      const includeToc = !exportSettings || exportSettings.toc !== false;
+      let processedContent = includeToc ? generateTableOfContentsForPDF(content, exportSettings) : content;
 
       processedContent = processMdImage(processedContent);
       document.getElementById('content').innerHTML = processedContent;
+
+      const fontFamily = (exportSettings && exportSettings.font) || 'inter';
+      if (fontFamily === 'jetbrains') {
+        document.body.classList.add('font-jetbrains');
+      } else {
+        document.body.classList.remove('font-jetbrains');
+      }
 
       const sourceElements = document.querySelectorAll('span.katex-mathml');
       sourceElements.forEach(element => {

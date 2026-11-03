@@ -215,6 +215,36 @@
             <div id="typewriter-placeholder" aria-hidden="true"></div>
           </div>
           <div id="preview" class="markdown-body" lang="en"></div>
+
+          <!-- FLOATING PREVIEW EXPORT WIDGET -->
+          <div id="preview-export-widget" class="preview-export-widget">
+            <button type="button" id="btn-preview-export" class="preview-export-btn" data-i18n-title="menu_export" title="Export">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+            </button>
+            <div id="preview-export-menu" class="preview-export-menu hidden">
+              <button type="button" class="preview-export-option" id="btn-preview-export-pdf">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                  <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+                <span>PDF (.pdf)</span>
+              </button>
+              <button type="button" class="preview-export-option" id="btn-preview-export-html">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="16 18 22 12 16 6"></polyline>
+                  <polyline points="8 6 2 12 8 18"></polyline>
+                </svg>
+                <span>HTML (.html)</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -247,70 +277,359 @@
   <div id="settings-modal" class="modal hidden">
     <div class="modal-overlay" id="modal-overlay"></div>
     <div class="modal-content settings-modal-content">
-      <div class="modal-header">
-        <h2 data-i18n="settings_title">Settings</h2>
+      <div class="modal-header settings-header">
+        <div class="settings-header-left">
+          <h2 data-i18n="settings_title">Settings</h2>
+        </div>
         <button id="btn-close-settings" class="collab-close-btn" data-i18n-title="win_close" title="Close">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
           </svg>
         </button>
       </div>
-      
-      <div class="modal-body settings-modal-body">
-        <div class="settings-row">
-          <div class="settings-label-group">
-            <label for="toggle-autosave" data-i18n="settings_autosave">Autosave</label>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="toggle-autosave" />
-            <span class="slider"></span>
-          </label>
-        </div>
-        
-        <div class="settings-row">
-          <div class="settings-label-group">
-            <label for="toggle-autoscroll" data-i18n="settings_autoscroll">Autoscroll</label>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="toggle-autoscroll" checked />
-            <span class="slider"></span>
-          </label>
-        </div>
-        
-        <!-- Dark mode segmented control (stesso stile tabs di collaborazione) -->
-        <div class="settings-row">
-          <div class="settings-label-group">
-            <label data-i18n="settings_theme">Theme</label>
-          </div>
-          <div class="collab-tabs settings-tabs" id="theme-segmented">
-            <button type="button" class="collab-tab active" id="theme-btn-light" data-theme="light" data-i18n="theme_light">Light</button>
-            <button type="button" class="collab-tab" id="theme-btn-dark" data-theme="dark" data-i18n="theme_dark">Dark</button>
-          </div>
-        </div>
 
-        <!-- Selettore lingua (default inglese) con stile tabs di collaborazione -->
-        <div class="settings-row">
-          <div class="settings-label-group">
-            <label data-i18n="settings_language">Language</label>
-          </div>
-          <div class="collab-tabs settings-tabs" id="lang-segmented">
-            <button type="button" class="collab-tab active" id="lang-btn-en" data-lang="en">English</button>
-            <button type="button" class="collab-tab" id="lang-btn-it" data-lang="it">Italiano</button>
-          </div>
-        </div>
+      <div class="settings-layout">
+        <!-- SIDEBAR -->
+        <nav class="settings-sidebar" aria-label="Settings Categories">
+          <button type="button" class="settings-nav-btn active" data-settings-tab="appearance">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M12 2a7 7 0 0 0 0 14h1a3 3 0 0 1 3 3 3 3 0 0 0 3-3V12a10 10 0 0 0-7-10z"></path>
+            </svg>
+            <span data-i18n="settings_cat_appearance">Appearance</span>
+          </button>
 
-        <div class="settings-row">
-          <div class="settings-label-group">
-            <label for="input-tab-size" data-i18n="settings_tab_size">Tab Size</label>
-          </div>
-          <input type="number" id="input-tab-size" min="2" max="8" value="4" class="settings-number-input" />
-        </div>
+          <button type="button" class="settings-nav-btn" data-settings-tab="editor">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 18 22 12 16 6"></polyline>
+              <polyline points="8 6 2 12 8 18"></polyline>
+            </svg>
+            <span data-i18n="settings_cat_editor">Editor</span>
+          </button>
 
-        <div class="settings-row">
-          <div class="settings-label-group">
-            <label for="input-font-size" data-i18n="settings_font_size">Font Size (px)</label>
+          <button type="button" class="settings-nav-btn" data-settings-tab="export">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span data-i18n="settings_cat_export">Export</span>
+          </button>
+
+          <button type="button" class="settings-nav-btn" data-settings-tab="shortcuts">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect>
+              <line x1="6" y1="8" x2="6" y2="8"></line>
+              <line x1="10" y1="8" x2="10" y2="8"></line>
+              <line x1="14" y1="8" x2="14" y2="8"></line>
+              <line x1="18" y1="8" x2="18" y2="8"></line>
+              <line x1="6" y1="12" x2="6" y2="12"></line>
+              <line x1="18" y1="12" x2="18" y2="12"></line>
+              <line x1="10" y1="16" x2="14" y2="16"></line>
+            </svg>
+            <span data-i18n="settings_cat_shortcuts">Shortcuts</span>
+          </button>
+        </nav>
+
+        <!-- CONTENT PANES -->
+        <div class="settings-content-area">
+          <!-- PANEL 1: APPEARANCE -->
+          <div class="settings-tab-pane active" id="pane-settings-appearance">
+            <div class="settings-pane-header">
+              <h3 data-i18n="settings_cat_appearance">Appearance</h3>
+              <p class="settings-pane-sub" data-i18n="settings_desc_appearance">Customize the look and feel of Mark</p>
+            </div>
+
+            <div class="settings-group">
+              <!-- THEME -->
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <label data-i18n="settings_theme">Theme</label>
+                  <span class="settings-sublabel" data-i18n="settings_theme_desc">Switch between Light and Dark interface theme</span>
+                </div>
+                <div class="collab-tabs settings-tabs" id="theme-segmented">
+                  <button type="button" class="collab-tab active" id="theme-btn-light" data-theme="light" data-i18n="theme_light">Light</button>
+                  <button type="button" class="collab-tab" id="theme-btn-dark" data-theme="dark" data-i18n="theme_dark">Dark</button>
+                </div>
+              </div>
+
+              <!-- LANGUAGE -->
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <label data-i18n="settings_language">Language</label>
+                  <span class="settings-sublabel" data-i18n="settings_language_desc">Select the display language for the application</span>
+                </div>
+                <div class="collab-tabs settings-tabs" id="lang-segmented">
+                  <button type="button" class="collab-tab active" id="lang-btn-en" data-lang="en">English</button>
+                  <button type="button" class="collab-tab" id="lang-btn-it" data-lang="it">Italiano</button>
+                </div>
+              </div>
+
+              <!-- FONT SIZE -->
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <label for="input-font-size" data-i18n="settings_font_size">Font Size</label>
+                  <span class="settings-sublabel" data-i18n="settings_font_size_desc">Text size for the editor and preview in pixels</span>
+                </div>
+                <div class="settings-input-wrapper">
+                  <input type="number" id="input-font-size" min="12" max="24" value="16" class="settings-number-input" />
+                  <span class="settings-unit">px</span>
+                </div>
+              </div>
+
+              <!-- TAB SIZE -->
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <label for="input-tab-size" data-i18n="settings_tab_size">Tab Size</label>
+                  <span class="settings-sublabel" data-i18n="settings_tab_size_desc">Number of spaces inserted for tab indentation</span>
+                </div>
+                <div class="settings-input-wrapper">
+                  <input type="number" id="input-tab-size" min="2" max="8" value="4" class="settings-number-input" />
+                  <span class="settings-unit">sp</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <input type="number" id="input-font-size" min="12" max="24" value="16" class="settings-number-input" />
+
+          <!-- PANEL 2: EDITOR -->
+          <div class="settings-tab-pane" id="pane-settings-editor">
+            <div class="settings-pane-header">
+              <h3 data-i18n="settings_cat_editor">Editor</h3>
+              <p class="settings-pane-sub" data-i18n="settings_desc_editor">Configure editor preferences and behaviors</p>
+            </div>
+
+            <div class="settings-group">
+              <!-- AUTOSAVE -->
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <label for="toggle-autosave" data-i18n="settings_autosave">Autosave</label>
+                  <span class="settings-sublabel" data-i18n="settings_autosave_desc">Automatically save changes to the current file while typing</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="toggle-autosave" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+
+              <!-- AUTOSCROLL -->
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <label for="toggle-autoscroll" data-i18n="settings_autoscroll">Autoscroll</label>
+                  <span class="settings-sublabel" data-i18n="settings_autoscroll_desc">Synchronize preview scroll position with the editor</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="toggle-autoscroll" checked />
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- PANEL 3: EXPORT -->
+          <div class="settings-tab-pane" id="pane-settings-export">
+            <div class="settings-pane-header">
+              <h3 data-i18n="settings_cat_export">Export</h3>
+              <p class="settings-pane-sub" data-i18n="settings_desc_export">Customize formatting and typography for PDF export</p>
+            </div>
+
+            <div class="settings-group">
+              <!-- PDF FONT -->
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <label data-i18n="settings_export_font">PDF Font Family</label>
+                  <span class="settings-sublabel" data-i18n="settings_export_font_desc">Choose the primary typography used for PDF documents</span>
+                </div>
+                <div class="collab-tabs settings-tabs settings-export-font-tabs" id="export-font-segmented">
+                  <button type="button" class="collab-tab active" id="export-font-btn-inter" data-font="inter">Inter</button>
+                  <button type="button" class="collab-tab" id="export-font-btn-jetbrains" data-font="jetbrains">JetBrains Mono</button>
+                </div>
+              </div>
+
+              <!-- PAGE FORMAT -->
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <label for="select-pdf-pagesize" data-i18n="settings_export_pagesize">Page Format</label>
+                  <span class="settings-sublabel" data-i18n="settings_export_pagesize_desc">Select standard paper dimensions for the exported PDF</span>
+                </div>
+                <select id="select-pdf-pagesize" class="settings-select">
+                  <option value="A4">A4 (210 × 297 mm)</option>
+                  <option value="Letter">Letter (8.5 × 11 in)</option>
+                  <option value="A3">A3 (297 × 420 mm)</option>
+                  <option value="Legal">Legal (8.5 × 14 in)</option>
+                </select>
+              </div>
+
+              <!-- ORIENTATION -->
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <label data-i18n="settings_export_orientation">Orientation</label>
+                  <span class="settings-sublabel" data-i18n="settings_export_orientation_desc">Page orientation for layout</span>
+                </div>
+                <div class="collab-tabs settings-tabs" id="export-orientation-segmented">
+                  <button type="button" class="collab-tab active" id="export-orient-portrait" data-orient="portrait" data-i18n="settings_export_orientation_portrait">Portrait</button>
+                  <button type="button" class="collab-tab" id="export-orient-landscape" data-orient="landscape" data-i18n="settings_export_orientation_landscape">Landscape</button>
+                </div>
+              </div>
+
+              <!-- MARGINS -->
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <label for="select-pdf-margins" data-i18n="settings_export_margins">Page Margins</label>
+                  <span class="settings-sublabel" data-i18n="settings_export_margins_desc">Margin size around the exported pages</span>
+                </div>
+                <select id="select-pdf-margins" class="settings-select">
+                  <option value="normal" data-i18n="settings_export_margins_normal">Standard</option>
+                  <option value="minimum" data-i18n="settings_export_margins_minimum">Minimum</option>
+                  <option value="none" data-i18n="settings_export_margins_none">None</option>
+                </select>
+              </div>
+
+              <!-- TOC TOGGLE -->
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <label for="toggle-pdf-toc" data-i18n="settings_export_toc">Table of Contents</label>
+                  <span class="settings-sublabel" data-i18n="settings_export_toc_desc">Include an automatically generated table of contents at the beginning</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="toggle-pdf-toc" checked />
+                  <span class="slider"></span>
+                </label>
+              </div>
+
+              <!-- PAGE NUMBERS -->
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <label for="select-pdf-page-numbers" data-i18n="settings_export_page_numbers">Page Numbering</label>
+                  <span class="settings-sublabel" data-i18n="settings_export_page_numbers_desc">Display automatic page numbers at the bottom of each page</span>
+                </div>
+                <select id="select-pdf-page-numbers" class="settings-select">
+                  <option value="none" data-i18n="settings_export_page_nums_none" selected>None</option>
+                  <option value="single" data-i18n="settings_export_page_nums_single">Page number (1)</option>
+                  <option value="total" data-i18n="settings_export_page_nums_total">Page and total (1 / X)</option>
+                </select>
+              </div>
+
+              <!-- PAGE NUMBERS ALIGNMENT -->
+              <div class="settings-row" id="row-pdf-page-align" style="display: none;">
+                <div class="settings-label-group">
+                  <label data-i18n="settings_export_page_align">Number Position</label>
+                  <span class="settings-sublabel" data-i18n="settings_export_page_align_desc">Horizontal alignment of the page numbering footer</span>
+                </div>
+                <div class="collab-tabs settings-tabs" id="export-page-align-segmented">
+                  <button type="button" class="collab-tab" id="export-page-align-left" data-align="left" data-i18n="settings_export_align_left">Left</button>
+                  <button type="button" class="collab-tab" id="export-page-align-center" data-align="center" data-i18n="settings_export_align_center">Center</button>
+                  <button type="button" class="collab-tab active" id="export-page-align-right" data-align="right" data-i18n="settings_export_align_right">Right</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- PANEL 4: SHORTCUTS -->
+          <div class="settings-tab-pane" id="pane-settings-shortcuts">
+            <div class="settings-pane-header">
+              <h3 data-i18n="settings_cat_shortcuts">Shortcuts</h3>
+              <p class="settings-pane-sub" data-i18n="settings_desc_shortcuts">Keyboard shortcuts for quick access to actions</p>
+            </div>
+
+            <div class="shortcuts-container">
+              <!-- FILE SECTION -->
+              <div class="shortcuts-section">
+                <div class="shortcuts-section-title" data-i18n="shortcut_group_file">File & Export</div>
+                <div class="shortcut-list">
+                  <div class="shortcut-item">
+                    <span class="shortcut-action" data-i18n="shortcut_new_file">New document</span>
+                    <span class="shortcut-keys" data-shortcut="new-file"></span>
+                  </div>
+                  <div class="shortcut-item">
+                    <span class="shortcut-action" data-i18n="shortcut_open_file">Open document</span>
+                    <span class="shortcut-keys" data-shortcut="open-file"></span>
+                  </div>
+                  <div class="shortcut-item">
+                    <span class="shortcut-action" data-i18n="shortcut_open_folder">Open folder</span>
+                    <span class="shortcut-keys" data-shortcut="open-folder"></span>
+                  </div>
+                  <div class="shortcut-item">
+                    <span class="shortcut-action" data-i18n="shortcut_save">Save file</span>
+                    <span class="shortcut-keys" data-shortcut="save-file"></span>
+                  </div>
+                  <div class="shortcut-item">
+                    <span class="shortcut-action" data-i18n="shortcut_close_tab">Close active tab</span>
+                    <span class="shortcut-keys" data-shortcut="close-tab"></span>
+                  </div>
+                  <div class="shortcut-item">
+                    <span class="shortcut-action" data-i18n="shortcut_import">Import document</span>
+                    <span class="shortcut-keys" data-shortcut="import-file"></span>
+                  </div>
+                  <div class="shortcut-item">
+                    <span class="shortcut-action" data-i18n="shortcut_export_pdf">Export PDF</span>
+                    <span class="shortcut-keys" data-shortcut="export-pdf"></span>
+                  </div>
+                  <div class="shortcut-item">
+                    <span class="shortcut-action" data-i18n="shortcut_export_html">Export HTML</span>
+                    <span class="shortcut-keys" data-shortcut="export-html"></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- EDITING SECTION -->
+              <div class="shortcuts-section">
+                <div class="shortcuts-section-title" data-i18n="shortcut_group_editing">Editing & Formatting</div>
+                <div class="shortcut-list">
+                  <div class="shortcut-item">
+                    <span class="shortcut-action" data-i18n="shortcut_undo">Undo</span>
+                    <span class="shortcut-keys" data-shortcut="undo"></span>
+                  </div>
+                  <div class="shortcut-item">
+                    <span class="shortcut-action" data-i18n="shortcut_find">Find in document</span>
+                    <span class="shortcut-keys" data-shortcut="find"></span>
+                  </div>
+                  <div class="shortcut-item">
+                    <span class="shortcut-action" data-i18n="shortcut_format">Format Markdown</span>
+                    <span class="shortcut-keys" data-shortcut="format-markdown"></span>
+                  </div>
+                  <div class="shortcut-item">
+                    <span class="shortcut-action" data-i18n="shortcut_insert_link">Insert link</span>
+                    <span class="shortcut-keys" data-shortcut="insert-link"></span>
+                  </div>
+                  <div class="shortcut-item">
+                    <span class="shortcut-action" data-i18n="shortcut_insert_image">Insert image</span>
+                    <span class="shortcut-keys" data-shortcut="insert-image"></span>
+                  </div>
+                  <div class="shortcut-item">
+                    <span class="shortcut-action" data-i18n="shortcut_paste_image">Paste image from clipboard</span>
+                    <span class="shortcut-keys" data-shortcut="paste-image"></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- VIEW SECTION -->
+              <div class="shortcuts-section">
+                <div class="shortcuts-section-title" data-i18n="shortcut_group_view">View & Interface</div>
+                <div class="shortcut-list">
+                  <div class="shortcut-item">
+                    <span class="shortcut-action" data-i18n="shortcut_toggle_explorer">Toggle Explorer</span>
+                    <span class="shortcut-keys" data-shortcut="toggle-explorer"></span>
+                  </div>
+                  <div class="shortcut-item">
+                    <span class="shortcut-action" data-i18n="shortcut_solo_editor">Solo Editor mode</span>
+                    <span class="shortcut-keys" data-shortcut="solo-editor"></span>
+                  </div>
+                  <div class="shortcut-item">
+                    <span class="shortcut-action" data-i18n="shortcut_solo_preview">Solo Preview mode</span>
+                    <span class="shortcut-keys" data-shortcut="solo-preview"></span>
+                  </div>
+                  <div class="shortcut-item">
+                    <span class="shortcut-action" data-i18n="shortcut_toggle_theme">Toggle Theme</span>
+                    <span class="shortcut-keys" data-shortcut="toggle-theme"></span>
+                  </div>
+                  <div class="shortcut-item">
+                    <span class="shortcut-action" data-i18n="shortcut_exit_modal">Close dialog / Exit reading mode</span>
+                    <span class="shortcut-keys" data-shortcut="exit-modal"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

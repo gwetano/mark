@@ -54,19 +54,7 @@ function showNotification(message, type = 'info') {
   const notification = document.createElement('div');
   notification.className = `cloud-notification ${type}`;
 
-  let iconSvg = '';
-  if (type === 'success') {
-    iconSvg = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
-  } else if (type === 'error') {
-    iconSvg = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
-  } else {
-    iconSvg = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
-  }
-
-  notification.innerHTML = `
-    <div class="cloud-notification-icon">${iconSvg}</div>
-    <div class="cloud-notification-text">${escapeHtml(message)}</div>
-  `;
+  notification.innerHTML = `<span class="cloud-notification-text">${escapeHtml(message)}</span>`;
 
   container.appendChild(notification);
 
@@ -1160,6 +1148,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   function setReadingMode(active) {
     isReadingMode = active;
+    document.body.classList.toggle('reading-mode-active', active);
     if (active) {
       if (typeof stopTypewriterEffect === 'function') stopTypewriterEffect();
       if (viewContainer) previousViewClass = viewContainer.className || "split-view";
@@ -1238,11 +1227,23 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   // --- LOGICA RIDIMENSIONAMENTO (RESIZER) ---
+  let isExplorerResizing = false;
+  if (explorerPanel) {
+    explorerPanel.addEventListener('transitionend', (e) => {
+      if (e.target === explorerPanel && e.propertyName === 'margin-left') {
+        if (typeof scheduleScrollMapRebuildOnResize === 'function') {
+          scheduleScrollMapRebuildOnResize();
+        }
+      }
+    });
+  }
+
   if (explorerResizer && explorerPanel) {
     let isResizing = false;
 
     explorerResizer.addEventListener('mousedown', (e) => {
       isResizing = true;
+      isExplorerResizing = true;
       document.body.style.cursor = 'ew-resize';
       explorerResizer.classList.add('is-resizing');
       e.preventDefault();
@@ -1262,8 +1263,12 @@ window.addEventListener("DOMContentLoaded", () => {
     document.addEventListener('mouseup', () => {
       if (isResizing) {
         isResizing = false;
+        isExplorerResizing = false;
         document.body.style.cursor = 'default';
         explorerResizer.classList.remove('is-resizing');
+        if (typeof scheduleScrollMapRebuildOnResize === 'function') {
+          scheduleScrollMapRebuildOnResize();
+        }
       }
     });
   }
@@ -1847,28 +1852,55 @@ window.addEventListener("DOMContentLoaded", () => {
             }
           }
         } else {
-          let widthPercent = null;
-          let cleanedAlt = originalAlt;
+          let sizeInfo = null;
+          const altTrimmed = originalAlt.replace(/\u00A0/g, ' ').trim();
+          const sizeDefs = [
+            { name: 'small', percent: 25 },
+            { name: 'medium', percent: 50 },
+            { name: 'large', percent: 75 },
+            { name: 'full', percent: 100 }
+          ];
 
-          if (/\[small\]/i.test(originalAlt)) {
-            widthPercent = 25;
-            cleanedAlt = originalAlt.replace(/\[small\]/ig, '').trim();
-          } else if (/\[medium\]/i.test(originalAlt)) {
-            widthPercent = 50;
-            cleanedAlt = originalAlt.replace(/\[medium\]/ig, '').trim();
-          } else if (/\[large\]/i.test(originalAlt)) {
-            widthPercent = 75;
-            cleanedAlt = originalAlt.replace(/\[large\]/ig, '').trim();
-          } else if (/\[full\]/i.test(originalAlt)) {
-            widthPercent = 100;
-            cleanedAlt = originalAlt.replace(/\[full\]/ig, '').trim();
+          for (const s of sizeDefs) {
+            const bracketRegex = new RegExp(`\\[${s.name}\\]`, 'i');
+            const exactRegex = new RegExp(`^${s.name}$`, 'i');
+            const pipeRegex = new RegExp(`\\|\\s*${s.name}\\s*$`, 'i');
+            const dashRegex = new RegExp(`\\s+-\\s+${s.name}\\s*$`, 'i');
+
+            if (bracketRegex.test(altTrimmed)) {
+              sizeInfo = { name: s.name, percent: s.percent, cleanedAlt: altTrimmed.replace(bracketRegex, '').trim() };
+              break;
+            } else if (exactRegex.test(altTrimmed)) {
+              sizeInfo = { name: s.name, percent: s.percent, cleanedAlt: '' };
+              break;
+            } else if (pipeRegex.test(altTrimmed)) {
+              sizeInfo = { name: s.name, percent: s.percent, cleanedAlt: altTrimmed.replace(pipeRegex, '').trim() };
+              break;
+            } else if (dashRegex.test(altTrimmed)) {
+              sizeInfo = { name: s.name, percent: s.percent, cleanedAlt: altTrimmed.replace(dashRegex, '').trim() };
+              break;
+            }
           }
 
-          if (widthPercent !== null) {
-            img.style.maxWidth = widthPercent + '%';
-            img.setAttribute('alt', cleanedAlt);
+          img.classList.remove('img-small', 'img-medium', 'img-large', 'img-full');
+
+          if (sizeInfo) {
+            img.classList.add(`img-${sizeInfo.name}`);
+            img.setAttribute('data-size', sizeInfo.name);
+            img.style.setProperty('width', sizeInfo.percent + '%', 'important');
+            img.style.setProperty('max-width', sizeInfo.percent + '%', 'important');
+            img.style.setProperty('height', 'auto', 'important');
+            img.style.setProperty('display', 'block', 'important');
+            img.style.setProperty('margin-left', 'auto', 'important');
+            img.style.setProperty('margin-right', 'auto', 'important');
+            img.setAttribute('alt', sizeInfo.cleanedAlt);
           } else {
-            img.style.maxWidth = '70%';
+            img.removeAttribute('data-size');
+            img.style.removeProperty('width');
+            img.style.setProperty('max-width', '100%');
+            img.style.setProperty('height', 'auto');
+            img.style.setProperty('display', 'block');
+            img.style.setProperty('margin', '1.5rem auto');
           }
         }
 
@@ -1958,10 +1990,6 @@ window.addEventListener("DOMContentLoaded", () => {
           macros: { "\\eqref": "\\href{#1}{}" }
         });
       } catch (_) {}
-    }
-
-    if (typeof buildScrollMap === 'function') {
-      buildScrollMap();
     }
 
     // Callout interactive listeners
@@ -2635,10 +2663,10 @@ window.addEventListener("DOMContentLoaded", () => {
             cursorEnd = selected ? end + 3 : start + 3;
           }
           break;
-        case "e": case "E":
         case "h": case "H":
         case "`":
           e.preventDefault();
+          e.stopPropagation();
           executeAction("Code", () => {
             formatAsCode();
           });
@@ -2647,6 +2675,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
       if (formatted !== null) {
         e.preventDefault();
+        e.stopPropagation();
         executeAction(actionName, () => {
           editor.value = before + formatted + after;
           editor.selectionStart = cursorStart;
@@ -2804,6 +2833,11 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  let cachedMirrorText = null;
+  let cachedMirrorWidth = null;
+  let editorLineTops = null;
+  let editorLineHeights = null;
+
   function syncCaretMirrorStyles(element) {
     ensureCaretMirror();
     const styles = window.getComputedStyle(element);
@@ -2822,23 +2856,13 @@ window.addEventListener("DOMContentLoaded", () => {
     caretMirror.style.borderTopWidth = styles.borderTopWidth;
     caretMirror.style.borderLeftWidth = styles.borderLeftWidth;
     caretMirror.style.tabSize = styles.tabSize || '4';
+    caretMirror.style.whiteSpace = 'pre-wrap';
+    caretMirror.style.wordBreak = 'break-word';
+    caretMirror.style.overflowWrap = 'break-word';
     return {
       lineHeight: parseFloat(styles.lineHeight) || 25.6,
       paddingTop: parseFloat(styles.paddingTop) || 20
     };
-  }
-
-  function getCaretCoordinates(element, position, defaultLineHeight = 25.6) {
-    ensureCaretMirror();
-    const safePos = Math.max(0, Math.min(position, element.value.length));
-    const text = element.value.substring(0, safePos);
-    caretMirror.textContent = text;
-    caretMirror.appendChild(caretMirrorMarker);
-
-    const top = caretMirrorMarker.offsetTop;
-    const height = caretMirrorMarker.offsetHeight || defaultLineHeight;
-
-    return { top, height };
   }
 
   // ===== Synchronized Scroll Map (Block by Block & Line by Line) =====
@@ -2862,6 +2886,39 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    const text = editor.value;
+    const editorWidth = editor.clientWidth;
+    const { lineHeight: defaultLineHeight, paddingTop } = syncCaretMirrorStyles(editor);
+    const lines = text.split('\n');
+    const totalLines = lines.length;
+
+    // Aggiorna caretMirror e le posizioni delle linee solo se il testo o la larghezza dell'editor sono cambiati
+    if (text !== cachedMirrorText || editorWidth !== cachedMirrorWidth || !editorLineTops || editorLineTops.length !== totalLines) {
+      const lineMinHeight = defaultLineHeight + 'px';
+      let mirrorHtml = '';
+      for (let i = 0; i < totalLines; i++) {
+        const line = lines[i];
+        mirrorHtml += `<div style="margin:0;padding:0;min-height:${lineMinHeight}">${line ? escapeHtml(line) : '<br>'}</div>`;
+      }
+      caretMirror.innerHTML = mirrorHtml;
+
+      editorLineTops = new Float32Array(totalLines);
+      editorLineHeights = new Float32Array(totalLines);
+      const mirrorChildren = caretMirror.children;
+      for (let i = 0; i < totalLines; i++) {
+        const child = mirrorChildren[i];
+        if (child) {
+          editorLineTops[i] = child.offsetTop;
+          editorLineHeights[i] = child.offsetHeight;
+        } else {
+          editorLineTops[i] = paddingTop + i * defaultLineHeight;
+          editorLineHeights[i] = defaultLineHeight;
+        }
+      }
+      cachedMirrorText = text;
+      cachedMirrorWidth = editorWidth;
+    }
+
     const blockSelector = [
       'h1[data-source-line]', 'h2[data-source-line]', 'h3[data-source-line]', 'h4[data-source-line]',
       'h5[data-source-line]', 'h6[data-source-line]', 'p[data-source-line]', 'ul[data-source-line]',
@@ -2870,22 +2927,15 @@ window.addEventListener("DOMContentLoaded", () => {
       '.katex-display-container', 'img:not(.badge-img)'
     ].join(', ');
     const elements = preview.querySelectorAll(blockSelector);
-    const text = editor.value;
-    const lineStarts = [0];
-    for (let i = 0; i < text.length; i++) {
-      if (text[i] === '\n') {
-        lineStarts.push(i + 1);
-      }
-    }
 
-    const { lineHeight: defaultLineHeight, paddingTop } = syncCaretMirrorStyles(editor);
     const previewRect = preview.getBoundingClientRect();
     const previewScrollTop = preview.scrollTop;
 
     // Misura il fondo del contenuto testuale dell'editor
-    const lastCoord = getCaretCoordinates(editor, text.length, defaultLineHeight);
-    const lastEditorContentY = Math.max(0, lastCoord.top - paddingTop);
-    const editorContentBottom = Math.max(1, lastEditorContentY + (lastCoord.height || defaultLineHeight));
+    const lastIdx = editorLineTops.length - 1;
+    const lastLineTop = lastIdx >= 0 ? editorLineTops[lastIdx] : 0;
+    const lastLineHeight = lastIdx >= 0 ? editorLineHeights[lastIdx] : defaultLineHeight;
+    const editorContentBottom = Math.max(1, lastLineTop + lastLineHeight - paddingTop);
 
     // Misura il fondo del contenuto renderizzato del preview
     let previewContentBottom = 0;
@@ -2936,8 +2986,11 @@ window.addEventListener("DOMContentLoaded", () => {
       }
       if (!lineStart || isNaN(lineStart) || lineStart < 1) return;
 
-      const charIndex = lineStarts[lineStart - 1] !== undefined ? lineStarts[lineStart - 1] : text.length;
-      const coord = getCaretCoordinates(editor, charIndex, defaultLineHeight);
+      const lineIdx = lineStart - 1;
+      const lineTop = (lineIdx < editorLineTops.length)
+        ? editorLineTops[lineIdx]
+        : (paddingTop + lineIdx * defaultLineHeight);
+
       const elRect = el.getBoundingClientRect();
       if (elRect.width === 0 && elRect.height === 0) return;
 
@@ -2946,7 +2999,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
       if (isNaN(pTop) || pTop < -50) return;
 
-      const ye = Math.max(0, coord.top - paddingTop);
+      const ye = Math.max(0, lineTop - paddingTop);
       const yp = Math.max(0, pTop - paddingTop);
 
       rawPoints.push({
@@ -2957,18 +3010,17 @@ window.addEventListener("DOMContentLoaded", () => {
       // Special Checkpoint: Immagine e testo subito sotto l'immagine
       if (el.tagName.toLowerCase() === 'img') {
         let nextTextLine = lineStart + 1;
-        while (nextTextLine <= lineStarts.length) {
-          const sIdx = lineStarts[nextTextLine - 1];
-          const eIdx = lineStarts[nextTextLine] !== undefined ? lineStarts[nextTextLine] - 1 : text.length;
-          const lineStr = text.substring(sIdx, eIdx).trim();
-          if (lineStr.length > 0) break;
+        while (nextTextLine <= totalLines) {
+          if (lines[nextTextLine - 1].trim().length > 0) break;
           nextTextLine++;
         }
-        if (nextTextLine <= lineStarts.length) {
-          const charIndexNext = lineStarts[nextTextLine - 1];
-          const coordNext = getCaretCoordinates(editor, charIndexNext, defaultLineHeight);
+        if (nextTextLine <= totalLines) {
+          const nextIdx = nextTextLine - 1;
+          const nextTop = (nextIdx < editorLineTops.length)
+            ? editorLineTops[nextIdx]
+            : (paddingTop + nextIdx * defaultLineHeight);
           rawPoints.push({
-            editorTop: Math.max(0, coordNext.top - paddingTop),
+            editorTop: Math.max(0, nextTop - paddingTop),
             previewTop: Math.max(0, pBottom - paddingTop)
           });
         }
@@ -2979,10 +3031,15 @@ window.addEventListener("DOMContentLoaded", () => {
       if (lineEndAttr && el.tagName.toLowerCase() !== 'img') {
         const lineEnd = parseInt(lineEndAttr, 10);
         if (!isNaN(lineEnd) && lineEnd > lineStart && pBottom > pTop + 20) {
-          const charIndexEnd = lineStarts[lineEnd - 1] !== undefined ? lineStarts[lineEnd - 1] : text.length;
-          const coordEnd = getCaretCoordinates(editor, charIndexEnd, defaultLineHeight);
+          const endIdx = lineEnd - 1;
+          const endTop = (endIdx < editorLineTops.length)
+            ? editorLineTops[endIdx]
+            : (paddingTop + endIdx * defaultLineHeight);
+          const endHeight = (endIdx < editorLineHeights.length)
+            ? editorLineHeights[endIdx]
+            : defaultLineHeight;
           rawPoints.push({
-            editorTop: Math.max(0, coordEnd.top + (coordEnd.height || defaultLineHeight) - paddingTop),
+            editorTop: Math.max(0, endTop + endHeight - paddingTop),
             previewTop: Math.max(0, pBottom - paddingTop)
           });
         }
@@ -3171,15 +3228,33 @@ window.addEventListener("DOMContentLoaded", () => {
     requestAnimationFrame(() => { isSyncingScroll = false; });
   });
 
+  let resizeDebounceTimer = null;
+  function scheduleScrollMapRebuildOnResize() {
+    scrollMapNeedsRebuild = true;
+    if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer);
+    resizeDebounceTimer = setTimeout(() => {
+      if (!autoscrollEnabled || isSyncingScroll || isRenderingPreview) return;
+      const container = document.getElementById("container");
+      if (container && container.classList.contains("split-view")) {
+        buildScrollMap();
+        if (editor && preview) {
+          preview.scrollTop = getPreviewScrollForEditor(editor.scrollTop);
+        }
+      }
+    }, 120);
+  }
+
   if (window.ResizeObserver) {
     const ro = new ResizeObserver(() => {
-      buildScrollMap();
+      if (isExplorerResizing) return;
+      scheduleScrollMapRebuildOnResize();
     });
     if (editor) ro.observe(editor);
     if (preview) ro.observe(preview);
   } else {
     window.addEventListener('resize', () => {
-      buildScrollMap();
+      if (isExplorerResizing) return;
+      scheduleScrollMapRebuildOnResize();
     });
   }
 
@@ -3549,6 +3624,12 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   ipcRenderer.on("export-pdf", () => exportToPdf());
+  ipcRenderer.on("pdf-saved", () => {
+    showNotification(i18n.t("notif_pdf_saved") || "PDF file exported successfully", "success");
+  });
+  ipcRenderer.on("pdf-export-error", (event, msg) => {
+    showNotification(i18n.t("notif_pdf_export_error", { msg }) || ("Error exporting PDF: " + msg), "error");
+  });
   ipcRenderer.on("export-html", () => exportToHtml());
   ipcRenderer.on("new-file", () => createNewFile());
   ipcRenderer.on("open-folder", (event, folderPath) => openFolder(folderPath));
@@ -3579,14 +3660,16 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     }
     refreshSearchIfOpen();
+    if (typeof updatePreviewExportPosition === 'function') updatePreviewExportPosition();
     setTimeout(() => {
+      if (typeof updatePreviewExportPosition === 'function') updatePreviewExportPosition();
       if (typeof buildScrollMap === 'function') {
         buildScrollMap();
         if (autoscrollEnabled && preview && editor && container.className === "split-view") {
           preview.scrollTop = getPreviewScrollForEditor(editor.scrollTop);
         }
       }
-    }, 250);
+    }, 400);
   };
 
   ipcRenderer.on("toggle-editor-view", () => toggleViewMode("solo-editor"));
@@ -3994,7 +4077,6 @@ window.addEventListener("DOMContentLoaded", () => {
     if (isMod && !e.shiftKey && (e.key === "l" || e.key === "L")) { e.preventDefault(); insertMarkdownLink(); }
     if (isMod && e.shiftKey && (e.key === "l" || e.key === "L")) { e.preventDefault(); toggleViewMode("solo-editor"); }
     if (isMod && e.shiftKey && (e.key === "p" || e.key === "P")) { e.preventDefault(); toggleViewMode("solo-preview"); }
-    if (isMod && (e.key === "h" || e.key === "H")) { e.preventDefault(); formatAsCode(); }
     if (isMod && (e.key === "k" || e.key === "K")) { e.preventDefault(); formatMarkdown(); }
     if (e.key === "Escape" && sc && !sc.classList.contains("hidden")) toggleSearchPanel(false);
     if (e.key === "Enter" && sc && !sc.classList.contains("hidden")) {
@@ -4069,19 +4151,18 @@ window.addEventListener("DOMContentLoaded", () => {
     // A questo punto tutte le immagini locali sono embeddate come data URL
     const content = tempDiv.innerHTML;
 
-    ipcRenderer.send("print-to-pdf", content, path.basename(currentFilePath || ""));
+    const exportPdfSettings = {
+      font: localStorage.getItem('mark.exportPdfFont') || 'inter',
+      pageSize: localStorage.getItem('mark.exportPdfPageSize') || 'A4',
+      orientation: localStorage.getItem('mark.exportPdfOrientation') || 'portrait',
+      margins: localStorage.getItem('mark.exportPdfMargins') || 'normal',
+      toc: localStorage.getItem('mark.exportPdfToc') !== 'false',
+      pageNumbers: localStorage.getItem('mark.exportPdfPageNumbers') || 'none',
+      pageNumberAlign: localStorage.getItem('mark.exportPdfPageAlign') || 'right',
+      lang: localStorage.getItem('mark.lang') || 'en'
+    };
 
-    const notification = document.createElement('div');
-    notification.className = 'copy-notification';
-    notification.textContent = 'PDF loading...';
-    Object.assign(notification.style, {
-      position: 'absolute',
-      top: '50%',
-      left: '50%',
-      transform: 'translate(-50%, -50%)'
-    });
-    document.body.appendChild(notification);
-    ipcRenderer.once('pdf-saved', () => notification.remove());
+    ipcRenderer.send("print-to-pdf", content, path.basename(currentFilePath || ""), exportPdfSettings);
   }
 
   // ===== HTML export =====
@@ -4209,6 +4290,103 @@ window.addEventListener("DOMContentLoaded", () => {
       console.error('[HTML export] Errore esportazione:', err);
       showNotification(i18n.t("notif_html_export_error", { msg: err.message }) || ("Error: " + err.message), "error");
     }
+  }
+
+  // ===== FLOATING PREVIEW EXPORT WIDGET =====
+  const previewExportWidget = document.getElementById('preview-export-widget');
+  const btnPreviewExport = document.getElementById('btn-preview-export');
+  const previewExportMenu = document.getElementById('preview-export-menu');
+  const btnPreviewExportPdf = document.getElementById('btn-preview-export-pdf');
+  const btnPreviewExportHtml = document.getElementById('btn-preview-export-html');
+
+  function updatePreviewExportPosition() {
+    if (!previewExportWidget || !preview) return;
+    const cont = document.getElementById('container');
+    if (!cont || cont.classList.contains('solo-editor')) {
+      previewExportWidget.style.display = 'none';
+      return;
+    }
+    previewExportWidget.style.display = 'flex';
+    const previewRect = preview.getBoundingClientRect();
+    const containerRect = cont.getBoundingClientRect();
+
+    if (cont.classList.contains('solo-preview')) {
+      const contentRight = Math.min(previewRect.right, previewRect.left + (previewRect.width + Math.min(previewRect.width, 850)) / 2);
+      const rightOffset = Math.max(14, containerRect.right - contentRight + 14);
+      previewExportWidget.style.right = `${rightOffset}px`;
+    } else {
+      previewExportWidget.style.right = '14px';
+    }
+  }
+
+  function closePreviewExportMenu() {
+    if (previewExportMenu) previewExportMenu.classList.add('hidden');
+    if (previewExportWidget) previewExportWidget.classList.remove('menu-open');
+  }
+
+  function openPreviewExportMenu() {
+    if (previewExportMenu) previewExportMenu.classList.remove('hidden');
+    if (previewExportWidget) {
+      previewExportWidget.classList.add('menu-open');
+      previewExportWidget.classList.add('visible');
+    }
+  }
+
+  if (btnPreviewExport && previewExportMenu) {
+    btnPreviewExport.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isHidden = previewExportMenu.classList.contains('hidden');
+      if (isHidden) {
+        openPreviewExportMenu();
+      } else {
+        closePreviewExportMenu();
+      }
+    });
+
+    btnPreviewExportPdf?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closePreviewExportMenu();
+      exportToPdf();
+    });
+
+    btnPreviewExportHtml?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closePreviewExportMenu();
+      exportToHtml();
+    });
+
+    document.addEventListener('click', (e) => {
+      if (previewExportWidget && !previewExportWidget.contains(e.target)) {
+        closePreviewExportMenu();
+      }
+    });
+  }
+
+  if (preview && previewExportWidget) {
+    preview.addEventListener('mouseenter', () => {
+      const cont = document.getElementById('container');
+      if (cont && !cont.classList.contains('solo-editor')) {
+        updatePreviewExportPosition();
+        previewExportWidget.classList.add('visible');
+      }
+    });
+
+    preview.addEventListener('mouseleave', (e) => {
+      if (previewExportWidget.contains(e.relatedTarget)) return;
+      if (!previewExportWidget.classList.contains('menu-open')) {
+        previewExportWidget.classList.remove('visible');
+      }
+    });
+
+    previewExportWidget.addEventListener('mouseleave', (e) => {
+      if (preview.contains(e.relatedTarget)) return;
+      if (!previewExportWidget.classList.contains('menu-open')) {
+        previewExportWidget.classList.remove('visible');
+      }
+    });
+
+    window.addEventListener('resize', updatePreviewExportPosition);
+    updatePreviewExportPosition();
   }
 
   // ===== Format Folder Path with ~ for Home Directory =====
@@ -5521,12 +5699,164 @@ window.addEventListener("DOMContentLoaded", () => {
   const inputTabSize = document.getElementById('input-tab-size');
   const inputFontSize = document.getElementById('input-font-size');
 
+  // Navigazione a schede / categorie impostazioni
+  const settingsNavBtns = document.querySelectorAll('.settings-nav-btn');
+  const settingsTabPanes = document.querySelectorAll('.settings-tab-pane');
+
+  function switchSettingsTab(tabName) {
+    if (!tabName) return;
+    settingsNavBtns.forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.settingsTab === tabName);
+    });
+    settingsTabPanes.forEach(pane => {
+      pane.classList.toggle('active', pane.id === `pane-settings-${tabName}`);
+    });
+    localStorage.setItem('mark.activeSettingsTab', tabName);
+  }
+
+  settingsNavBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.settingsTab;
+      if (tab) switchSettingsTab(tab);
+    });
+  });
+
+  const savedActiveTab = localStorage.getItem('mark.activeSettingsTab') || 'appearance';
+  switchSettingsTab(savedActiveTab);
+
+  // Scorciatoie da tastiera per la sezione Shortcuts
+  function renderSettingsShortcuts() {
+    const shortcutsMap = {
+      'new-file': isMac ? ['⌘', 'N'] : ['Ctrl', 'N'],
+      'open-file': isMac ? ['⌘', 'O'] : ['Ctrl', 'O'],
+      'open-folder': isMac ? ['⇧', '⌘', 'O'] : ['Ctrl', 'Shift', 'O'],
+      'save-file': isMac ? ['⌘', 'S'] : ['Ctrl', 'S'],
+      'close-tab': isMac ? ['⌘', 'W'] : ['Ctrl', 'W'],
+      'import-file': isMac ? ['⌥', '⌘', 'I'] : ['Ctrl', 'Alt', 'I'],
+      'export-pdf': isMac ? ['⌥', '⌘', 'E'] : ['Ctrl', 'Alt', 'E'],
+      'export-html': isMac ? ['⇧', '⌘', 'E'] : ['Ctrl', 'Shift', 'E'],
+      'undo': isMac ? ['⌘', 'Z'] : ['Ctrl', 'Z'],
+      'find': isMac ? ['⌘', 'F'] : ['Ctrl', 'F'],
+      'format-markdown': isMac ? ['⌘', 'K'] : ['Ctrl', 'K'],
+      'insert-link': isMac ? ['⌘', 'L'] : ['Ctrl', 'L'],
+      'insert-image': isMac ? ['⇧', '⌘', 'I'] : ['Ctrl', 'Shift', 'I'],
+      'paste-image': isMac ? ['⇧', '⌘', 'V'] : ['Ctrl', 'Shift', 'V'],
+      'toggle-explorer': isMac ? ['⌘', 'R'] : ['Ctrl', 'R'],
+      'solo-editor': isMac ? ['⇧', '⌘', 'L'] : ['Ctrl', 'Shift', 'L'],
+      'solo-preview': isMac ? ['⇧', '⌘', 'P'] : ['Ctrl', 'Shift', 'P'],
+      'toggle-theme': isMac ? ['⌘', 'M'] : ['Ctrl', 'M'],
+      'exit-modal': ['Esc']
+    };
+
+    document.querySelectorAll('.shortcut-keys[data-shortcut]').forEach(el => {
+      const code = el.getAttribute('data-shortcut');
+      const keys = shortcutsMap[code];
+      if (keys) {
+        el.innerHTML = keys.map(k => `<kbd>${k}</kbd>`).join(' ');
+      }
+    });
+  }
+
+  // Impostazioni Export PDF
+  const exportFontBtnInter = document.getElementById('export-font-btn-inter');
+  const exportFontBtnJetbrains = document.getElementById('export-font-btn-jetbrains');
+
+  function applyExportFont(font) {
+    localStorage.setItem('mark.exportPdfFont', font);
+    if (exportFontBtnInter && exportFontBtnJetbrains) {
+      exportFontBtnInter.classList.toggle('active', font === 'inter');
+      exportFontBtnJetbrains.classList.toggle('active', font === 'jetbrains');
+    }
+  }
+
+  exportFontBtnInter?.addEventListener('click', () => applyExportFont('inter'));
+  exportFontBtnJetbrains?.addEventListener('click', () => applyExportFont('jetbrains'));
+  applyExportFont(localStorage.getItem('mark.exportPdfFont') || 'inter');
+
+  const selectPdfPageSize = document.getElementById('select-pdf-pagesize');
+  if (selectPdfPageSize) {
+    const savedPageSize = localStorage.getItem('mark.exportPdfPageSize') || 'A4';
+    selectPdfPageSize.value = savedPageSize;
+    selectPdfPageSize.addEventListener('change', () => {
+      localStorage.setItem('mark.exportPdfPageSize', selectPdfPageSize.value);
+    });
+  }
+
+  const exportOrientPortrait = document.getElementById('export-orient-portrait');
+  const exportOrientLandscape = document.getElementById('export-orient-landscape');
+
+  function applyExportOrientation(orient) {
+    localStorage.setItem('mark.exportPdfOrientation', orient);
+    if (exportOrientPortrait && exportOrientLandscape) {
+      exportOrientPortrait.classList.toggle('active', orient === 'portrait');
+      exportOrientLandscape.classList.toggle('active', orient === 'landscape');
+    }
+  }
+
+  exportOrientPortrait?.addEventListener('click', () => applyExportOrientation('portrait'));
+  exportOrientLandscape?.addEventListener('click', () => applyExportOrientation('landscape'));
+  applyExportOrientation(localStorage.getItem('mark.exportPdfOrientation') || 'portrait');
+
+  const selectPdfMargins = document.getElementById('select-pdf-margins');
+  if (selectPdfMargins) {
+    const savedMargins = localStorage.getItem('mark.exportPdfMargins') || 'normal';
+    selectPdfMargins.value = savedMargins;
+    selectPdfMargins.addEventListener('change', () => {
+      localStorage.setItem('mark.exportPdfMargins', selectPdfMargins.value);
+    });
+  }
+
+  const togglePdfToc = document.getElementById('toggle-pdf-toc');
+  if (togglePdfToc) {
+    const savedToc = localStorage.getItem('mark.exportPdfToc');
+    togglePdfToc.checked = savedToc !== 'false';
+    togglePdfToc.addEventListener('change', () => {
+      localStorage.setItem('mark.exportPdfToc', String(togglePdfToc.checked));
+    });
+  }
+
+  const selectPdfPageNumbers = document.getElementById('select-pdf-page-numbers');
+  const rowPdfPageAlign = document.getElementById('row-pdf-page-align');
+  const pageAlignBtns = document.querySelectorAll('#export-page-align-segmented .collab-tab');
+
+  function updatePageAlignVisibility(val) {
+    if (rowPdfPageAlign) {
+      rowPdfPageAlign.style.display = val === 'none' ? 'none' : 'flex';
+    }
+  }
+
+  if (selectPdfPageNumbers) {
+    const savedPageNums = localStorage.getItem('mark.exportPdfPageNumbers') || 'none';
+    selectPdfPageNumbers.value = savedPageNums;
+    updatePageAlignVisibility(savedPageNums);
+    selectPdfPageNumbers.addEventListener('change', () => {
+      localStorage.setItem('mark.exportPdfPageNumbers', selectPdfPageNumbers.value);
+      updatePageAlignVisibility(selectPdfPageNumbers.value);
+    });
+  }
+
+  function applyExportPageAlign(align) {
+    localStorage.setItem('mark.exportPdfPageAlign', align);
+    pageAlignBtns.forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.align === align);
+    });
+  }
+
+  pageAlignBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const align = btn.dataset.align;
+      if (align) applyExportPageAlign(align);
+    });
+  });
+  applyExportPageAlign(localStorage.getItem('mark.exportPdfPageAlign') || 'right');
+
   // Sostituiamo il vecchio click del dropdown agganciando l'apertura del Modal centrale
   if (btnOptions) {
     btnOptions.replaceWith(btnOptions.cloneNode(true)); // Rimuove eventuali vecchi listener di disturbo
     const newBtnOptions = document.getElementById("btn-options");
     newBtnOptions.addEventListener("click", (e) => {
       e.stopPropagation();
+      renderSettingsShortcuts();
       settingsModal.classList.remove('hidden');
       dropdownTitle?.classList.remove("open");
       dropdownExtra?.classList.remove("open");
@@ -5582,6 +5912,10 @@ window.addEventListener("DOMContentLoaded", () => {
       const key = el.getAttribute("data-i18n-placeholder");
       el.placeholder = i18n.t(key);
     });
+
+    if (typeof renderSettingsShortcuts === 'function') {
+      renderSettingsShortcuts();
+    }
 
     if (editor) {
       editor.placeholder = '';
@@ -6110,7 +6444,7 @@ window.addEventListener("DOMContentLoaded", () => {
           preview.scrollTop = getPreviewScrollForEditor(editor.scrollTop);
         }
       }
-    }, 350);
+    }, 400);
   });
 
   btnViewPreview && btnViewPreview.addEventListener("click", () => {

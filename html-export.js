@@ -692,6 +692,42 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
       border: 1px solid var(--border);
     }
 
+    .markdown-body img.img-small,
+    .markdown-body img[data-size="small"] {
+      width: 25% !important;
+      max-width: 25% !important;
+      height: auto !important;
+      display: block !important;
+      margin: 24px auto !important;
+    }
+
+    .markdown-body img.img-medium,
+    .markdown-body img[data-size="medium"] {
+      width: 50% !important;
+      max-width: 50% !important;
+      height: auto !important;
+      display: block !important;
+      margin: 24px auto !important;
+    }
+
+    .markdown-body img.img-large,
+    .markdown-body img[data-size="large"] {
+      width: 75% !important;
+      max-width: 75% !important;
+      height: auto !important;
+      display: block !important;
+      margin: 24px auto !important;
+    }
+
+    .markdown-body img.img-full,
+    .markdown-body img[data-size="full"] {
+      width: 100% !important;
+      max-width: 100% !important;
+      height: auto !important;
+      display: block !important;
+      margin: 24px auto !important;
+    }
+
     .markdown-body img.badge-img {
       display: inline-block !important;
       vertical-align: middle !important;

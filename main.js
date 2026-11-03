@@ -345,7 +345,7 @@ function createPrintWindow() {
   printWin.loadFile("print.html");
 }
 
-ipcMain.on("print-to-pdf", async (event, content, title) => {
+ipcMain.on("print-to-pdf", async (event, content, title, exportSettings) => {
   if (!printWin) {
     createPrintWindow();
     
@@ -354,18 +354,59 @@ ipcMain.on("print-to-pdf", async (event, content, title) => {
     });
   }
   
-  printWin.webContents.send('print-content', content);
+  printWin.webContents.send('print-content', content, exportSettings);
   
   await new Promise(resolve => {
     ipcMain.once('content-ready', resolve);
   });
   
+  const pageNumbers = exportSettings?.pageNumbers || 'none';
+  const pageAlign = exportSettings?.pageNumberAlign || 'right';
+
+  let displayHeaderFooter = false;
+  let headerTemplate = '<div></div>';
+  let footerTemplate = '';
+
+  if (pageNumbers !== 'none') {
+    displayHeaderFooter = true;
+    let alignCss = 'justify-content: flex-end; text-align: right;';
+    if (pageAlign === 'center') {
+      alignCss = 'justify-content: center; text-align: center;';
+    } else if (pageAlign === 'left') {
+      alignCss = 'justify-content: flex-start; text-align: left;';
+    }
+
+    const fontFamily = exportSettings?.font === 'jetbrains'
+      ? '"JetBrains Mono", monospace'
+      : '"Inter", -apple-system, BlinkMacSystemFont, sans-serif';
+
+    const numSpan = pageNumbers === 'total'
+      ? '<span class="pageNumber"></span> / <span class="totalPages"></span>'
+      : '<span class="pageNumber"></span>';
+
+    let footerPadding = '20mm';
+    if (exportSettings?.margins === 'minimum' || exportSettings?.margins === 'none') {
+      footerPadding = '10mm';
+    }
+
+    footerTemplate = `<div style="width:100%; display:flex; ${alignCss} padding:0 ${footerPadding}; font-size:9px; color:#666666; font-family:${fontFamily}; box-sizing:border-box;">${numSpan}</div>`;
+  }
+
+  let marginsType = 0;
+  if (exportSettings?.margins === 'minimum') marginsType = 2;
+  else if (exportSettings?.margins === 'none' && !displayHeaderFooter) marginsType = 1;
+  else if (exportSettings?.margins === 'none' && displayHeaderFooter) marginsType = 2;
+  else marginsType = 0;
+
   const options = {
-    marginsType: 1,
-    pageSize: 'A4',
+    marginsType: marginsType,
+    pageSize: exportSettings?.pageSize || 'A4',
     printBackground: true,
     printSelectionOnly: false,
-    landscape: false
+    landscape: exportSettings?.orientation === 'landscape',
+    displayHeaderFooter: displayHeaderFooter,
+    headerTemplate: headerTemplate,
+    footerTemplate: footerTemplate
   };
 
   let defaultPath = "exported.pdf";
@@ -386,12 +427,14 @@ ipcMain.on("print-to-pdf", async (event, content, title) => {
     fs.writeFile(result.filePath, data, (error) => {
       if (error) {
         console.error("Errore nel salvataggio del PDF:", error);
+        event.reply('pdf-export-error', error.message);
         return;
       }
       event.reply('pdf-saved', result.filePath);
     });
   } catch (error) {
     console.error("Errore nella generazione del PDF:", error);
+    event.reply('pdf-export-error', error.message);
   }
 });
 

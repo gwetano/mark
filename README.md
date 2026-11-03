@@ -17,10 +17,11 @@ No account. No cloud. No bloat.
 [![Download for Linux](https://img.shields.io/badge/Linux-Download-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/gwetano/mark/releases/latest)
 
 [**Website**](https://gwetano.vercel.app/mark/) · [**Releases**](https://github.com/gwetano/mark/releases)
-
 <br/>
 
 <img src="build/preview.gif" alt="Mark preview" width="800" />
+
+[![XERJ Corpus Hub contributor](https://hub.xerj.org/contributors/gwetano/badge.svg)](https://hub.xerj.org/contributors/gwetano)
 
 </div>
 
