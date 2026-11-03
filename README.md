@@ -47,6 +47,13 @@ Most editors are too heavy and want your data in their cloud. Mark opens folders
 2. Open a folder (`Ctrl/Cmd + Shift + O`)
 3. Write. Export when done.
 
+> [!NOTE]
+> **macOS Note**: Because Mark is an open-source application distributed without a paid Apple Developer certificate, macOS Gatekeeper may show an alert saying *"Mark is damaged and can’t be opened. You should move it to the Trash."*  
+> To fix this, move `Mark.app` to your `/Applications` folder and run this one-line command in your Terminal:
+> ```bash
+> xattr -cr /Applications/Mark.app
+> ```
+
 ### Build from source
 
 ```bash
