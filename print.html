@@ -65,6 +65,27 @@
       font-family: "JetBrains Mono", monospace !important;
     }
 
+    /* Text Alignment for PDF */
+    body.align-justify,
+    body.align-justify .markdown-body,
+    body.align-justify p,
+    body.align-justify li,
+    body.align-justify blockquote {
+      text-align: justify !important;
+      -webkit-hyphens: auto !important;
+      hyphens: auto !important;
+    }
+
+    body.align-left,
+    body.align-left .markdown-body,
+    body.align-left p,
+    body.align-left li,
+    body.align-left blockquote {
+      text-align: left !important;
+      -webkit-hyphens: manual !important;
+      hyphens: manual !important;
+    }
+
     .katex {
       font-family: KaTeX_Main, 'Times New Roman', serif !important;
     }
@@ -688,6 +709,15 @@
         document.body.classList.add('font-jetbrains');
       } else {
         document.body.classList.remove('font-jetbrains');
+      }
+
+      const textAlign = (exportSettings && exportSettings.textAlign) || 'justify';
+      if (textAlign === 'left') {
+        document.body.classList.remove('align-justify');
+        document.body.classList.add('align-left');
+      } else {
+        document.body.classList.remove('align-left');
+        document.body.classList.add('align-justify');
       }
 
       const sourceElements = document.querySelectorAll('span.katex-mathml');

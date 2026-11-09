@@ -532,6 +532,18 @@
                   <span class="settings-unit">sp</span>
                 </div>
               </div>
+
+              <!-- PREVIEW TEXT ALIGNMENT -->
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <label data-i18n="settings_preview_text_align">Preview Text Alignment</label>
+                  <span class="settings-sublabel" data-i18n="settings_preview_text_align_desc">Choose whether to justify preview paragraphs or align them to the left</span>
+                </div>
+                <div class="collab-tabs settings-tabs" id="preview-align-segmented">
+                  <button type="button" class="collab-tab active" id="preview-align-btn-justify" data-align="justify" data-i18n="settings_align_justify">Justified</button>
+                  <button type="button" class="collab-tab" id="preview-align-btn-left" data-align="left" data-i18n="settings_align_left">Left</button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -626,6 +638,18 @@
                   <option value="minimum" data-i18n="settings_export_margins_minimum">Minimum</option>
                   <option value="none" data-i18n="settings_export_margins_none">None</option>
                 </select>
+              </div>
+
+              <!-- PDF TEXT ALIGNMENT -->
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <label data-i18n="settings_export_text_align">PDF Text Alignment</label>
+                  <span class="settings-sublabel" data-i18n="settings_export_text_align_desc">Paragraph alignment for the exported PDF document</span>
+                </div>
+                <div class="collab-tabs settings-tabs" id="export-text-align-segmented">
+                  <button type="button" class="collab-tab active" id="export-text-align-btn-justify" data-align="justify" data-i18n="settings_align_justify">Justified</button>
+                  <button type="button" class="collab-tab" id="export-text-align-btn-left" data-align="left" data-i18n="settings_align_left">Left</button>
+                </div>
               </div>
 
               <!-- TOC TOGGLE -->
@@ -774,6 +798,110 @@
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- POP-UP MODAL EXPORT PDF -->
+  <div id="pdf-export-modal" class="modal hidden">
+    <div class="modal-overlay" id="pdf-export-overlay"></div>
+    <div class="modal-content pdf-export-modal-content">
+      <div class="modal-header pdf-export-header">
+        <div class="pdf-export-header-left">
+          <h2 data-i18n="export_modal_title">Export PDF</h2>
+        </div>
+        <button id="btn-close-pdf-export-modal" class="collab-close-btn" data-i18n-title="win_close" title="Close">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-body pdf-export-modal-body">
+        <!-- LOCATION SECTION -->
+        <div class="pdf-export-section">
+          <label class="pdf-export-label" for="pdf-export-path-input" data-i18n="export_modal_location_label">Save destination</label>
+          <div class="pdf-export-location-row">
+            <input type="text" id="pdf-export-path-input" class="collab-input pdf-export-path-input" data-i18n-placeholder="export_modal_location_placeholder" placeholder="Select destination path..." spellcheck="false" />
+            <button type="button" id="btn-browse-pdf-location" class="collab-icon-btn pdf-export-browse-btn" data-i18n-title="export_modal_browse" title="Browse...">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- SETTINGS SECTION -->
+        <div class="pdf-export-section">
+          <div class="pdf-export-summary-header">
+            <span class="pdf-export-label" data-i18n="export_modal_settings_title">Export Settings</span>
+          </div>
+          <div class="pdf-export-summary-grid">
+            <div class="pdf-summary-item">
+              <span class="pdf-summary-key" data-i18n="export_modal_pagesize">Format</span>
+              <select id="pdf-select-pagesize" class="pdf-summary-select">
+                <option value="A4">A4</option>
+                <option value="Letter">Letter</option>
+                <option value="A3">A3</option>
+                <option value="Legal">Legal</option>
+              </select>
+            </div>
+            <div class="pdf-summary-item">
+              <span class="pdf-summary-key" data-i18n="export_modal_orientation">Orientation</span>
+              <select id="pdf-select-orientation" class="pdf-summary-select">
+                <option value="portrait" data-i18n="settings_export_orientation_portrait">Portrait</option>
+                <option value="landscape" data-i18n="settings_export_orientation_landscape">Landscape</option>
+              </select>
+            </div>
+            <div class="pdf-summary-item">
+              <span class="pdf-summary-key" data-i18n="export_modal_font">Font</span>
+              <select id="pdf-select-font" class="pdf-summary-select">
+                <option value="inter">Inter</option>
+                <option value="jetbrains">JetBrains Mono</option>
+              </select>
+            </div>
+            <div class="pdf-summary-item">
+              <span class="pdf-summary-key" data-i18n="export_modal_margins">Margins</span>
+              <select id="pdf-select-margins" class="pdf-summary-select">
+                <option value="normal" data-i18n="settings_export_margins_normal">Standard</option>
+                <option value="minimum" data-i18n="settings_export_margins_minimum">Minimum</option>
+                <option value="none" data-i18n="settings_export_margins_none">None</option>
+              </select>
+            </div>
+            <div class="pdf-summary-item">
+              <span class="pdf-summary-key" data-i18n="export_modal_text_align">Text alignment</span>
+              <select id="pdf-select-text-align" class="pdf-summary-select">
+                <option value="justify" data-i18n="settings_align_justify">Justified</option>
+                <option value="left" data-i18n="settings_align_left">Left</option>
+              </select>
+            </div>
+            <div class="pdf-summary-item">
+              <span class="pdf-summary-key" data-i18n="export_modal_page_numbers">Page numbers</span>
+              <select id="pdf-select-page-numbers" class="pdf-summary-select">
+                <option value="none" data-i18n="settings_export_page_nums_none">None</option>
+                <option value="single-right" data-i18n="export_modal_page_num_single_right">1 (Right)</option>
+                <option value="single-center" data-i18n="export_modal_page_num_single_center">1 (Center)</option>
+                <option value="single-left" data-i18n="export_modal_page_num_single_left">1 (Left)</option>
+                <option value="total-right" data-i18n="export_modal_page_num_total_right">1 / X (Right)</option>
+                <option value="total-center" data-i18n="export_modal_page_num_total_center">1 / X (Center)</option>
+                <option value="total-left" data-i18n="export_modal_page_num_total_left">1 / X (Left)</option>
+              </select>
+            </div>
+            <div class="pdf-summary-item pdf-summary-item-full">
+              <span class="pdf-summary-key" data-i18n="export_modal_toc">Table of contents</span>
+              <select id="pdf-select-toc" class="pdf-summary-select">
+                <option value="false" data-i18n="export_modal_toc_disabled">Excluded</option>
+                <option value="true" data-i18n="export_modal_toc_enabled">Included</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- ACTIONS -->
+        <div class="pdf-export-actions">
+          <button type="button" id="btn-cancel-pdf-export" class="pdf-export-btn-cancel" data-i18n="export_modal_btn_cancel">Cancel</button>
+          <button type="button" id="btn-confirm-pdf-export" class="collab-submit-btn pdf-export-btn-confirm" data-i18n="export_modal_btn_export">Export</button>
         </div>
       </div>
     </div>

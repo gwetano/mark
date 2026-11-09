@@ -832,6 +832,18 @@ body.dark .empty-item-shortcut kbd {
   overflow-wrap: normal;
 }
 
+/* Opzione allineamento a sinistra (se impostato dall'utente) */
+#preview.align-left,
+#preview.align-left .markdown-body,
+#preview.align-left p,
+#preview.align-left li,
+#preview.align-left blockquote {
+  text-align: left !important;
+  -webkit-hyphens: manual !important;
+  -ms-hyphens: manual !important;
+  hyphens: manual !important;
+}
+
 /* Titoli stile GitHub: allineamento a sinistra di default e line-height ottimizzata */
 #preview h1,
 #preview h2,
@@ -3833,6 +3845,259 @@ body.dark .collab-beta-badge {
   gap: 4px;
   font-size: 12px;
   opacity: 0.8;
+}
+
+/* ====== POP-UP MODAL EXPORT PDF ====== */
+.pdf-export-modal-content {
+  width: min(90vw, 440px);
+  max-height: min(88vh, 540px);
+  background-color: var(--editor-bg);
+  color: var(--fg);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--explorer-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+body.dark .pdf-export-modal-content {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75);
+}
+
+.pdf-export-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--explorer-border);
+  flex-shrink: 0;
+}
+
+.pdf-export-header-left h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+.pdf-export-modal-body {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+}
+
+.pdf-export-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pdf-export-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--fg);
+  opacity: 0.8;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.pdf-export-location-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pdf-export-path-input {
+  flex: 1;
+  font-size: 12.5px;
+  padding: 8px 10px;
+  background-color: var(--code-bg);
+  color: var(--fg);
+  border: 1px solid var(--explorer-border);
+  border-radius: 6px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pdf-export-path-input:focus {
+  border-color: #007acc;
+}
+
+.pdf-export-browse-btn {
+  flex-shrink: 0;
+  background: var(--code-bg);
+  border: 1px solid var(--explorer-border);
+  color: var(--fg);
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.pdf-export-browse-btn:hover {
+  background: var(--explorer-hover);
+  border-color: #007acc;
+  color: #007acc;
+}
+
+.pdf-export-summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pdf-export-edit-link {
+  background: none;
+  border: none;
+  color: #007acc;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+}
+
+.pdf-export-edit-link:hover {
+  text-decoration: underline;
+  opacity: 0.85;
+}
+
+.pdf-export-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  background: var(--code-bg);
+  border: 1px solid var(--explorer-border);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.pdf-summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 8px;
+  border-radius: 4px;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+body.dark .pdf-summary-item {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.pdf-summary-item-full {
+  grid-column: 1 / -1;
+}
+
+.pdf-summary-key {
+  font-size: 11px;
+  color: var(--fg);
+  opacity: 0.65;
+  user-select: none;
+}
+
+.pdf-summary-val {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.pdf-summary-select {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 2px 4px;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+  transition: all 0.15s ease;
+  max-width: 130px;
+  text-align: right;
+  text-align-last: right;
+}
+
+.pdf-summary-item-full .pdf-summary-select {
+  max-width: 180px;
+}
+
+.pdf-summary-item:hover .pdf-summary-select {
+  border-color: rgba(0, 122, 204, 0.25);
+  background: rgba(0, 0, 0, 0.03);
+}
+
+body.dark .pdf-summary-item:hover .pdf-summary-select {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.pdf-summary-select:hover,
+.pdf-summary-select:focus {
+  border-color: #007acc !important;
+  color: #007acc !important;
+}
+
+.pdf-summary-select option {
+  background-color: var(--editor-bg);
+  color: var(--fg);
+  font-size: 12px;
+  font-weight: normal;
+  text-align: left;
+}
+
+.pdf-export-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.pdf-export-btn-cancel {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--explorer-border);
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pdf-export-btn-cancel:hover {
+  background: var(--explorer-hover);
+}
+
+.pdf-export-btn-confirm {
+  background: #007acc;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 18px;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.pdf-export-btn-confirm:hover {
+  background: #0062a3;
 }
 
 /* ====== POP-UP NOTIFICATIONS (MINIMALIST COHERENT & CLOUD DISSOLVE ON CLICK) ====== */

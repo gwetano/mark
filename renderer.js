@@ -4094,6 +4094,15 @@ window.addEventListener("DOMContentLoaded", () => {
   // ===== PDF export =====
   function exportToPdf() {
     if (!preview) return;
+    if (typeof openPdfExportModal === 'function') {
+      openPdfExportModal();
+    } else {
+      performPdfExport();
+    }
+  }
+
+  function performPdfExport(targetFilePath) {
+    if (!preview) return;
 
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = preview.innerHTML;
@@ -4159,13 +4168,15 @@ window.addEventListener("DOMContentLoaded", () => {
       pageSize: localStorage.getItem('mark.exportPdfPageSize') || 'A4',
       orientation: localStorage.getItem('mark.exportPdfOrientation') || 'portrait',
       margins: localStorage.getItem('mark.exportPdfMargins') || 'normal',
+      textAlign: localStorage.getItem('mark.exportPdfTextAlign') || 'justify',
       toc: localStorage.getItem('mark.exportPdfToc') === 'true',
       pageNumbers: localStorage.getItem('mark.exportPdfPageNumbers') || 'none',
       pageNumberAlign: localStorage.getItem('mark.exportPdfPageAlign') || 'right',
       lang: localStorage.getItem('mark.lang') || 'en'
     };
 
-    ipcRenderer.send("print-to-pdf", content, path.basename(currentFilePath || ""), exportPdfSettings);
+    const docTitle = path.basename(currentFilePath || "");
+    ipcRenderer.send("print-to-pdf", content, docTitle, exportPdfSettings, targetFilePath || null);
   }
 
   // ===== HTML export =====
@@ -5855,6 +5866,214 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   applyExportPageAlign(localStorage.getItem('mark.exportPdfPageAlign') || 'right');
 
+  // Preview Text Alignment (Giustificato vs A sinistra)
+  const previewAlignBtnJustify = document.getElementById('preview-align-btn-justify');
+  const previewAlignBtnLeft = document.getElementById('preview-align-btn-left');
+
+  function applyPreviewTextAlign(align) {
+    const finalAlign = (align === 'left') ? 'left' : 'justify';
+    localStorage.setItem('mark.previewTextAlign', finalAlign);
+    if (preview) {
+      preview.classList.toggle('align-left', finalAlign === 'left');
+    }
+    if (previewAlignBtnJustify && previewAlignBtnLeft) {
+      previewAlignBtnJustify.classList.toggle('active', finalAlign === 'justify');
+      previewAlignBtnLeft.classList.toggle('active', finalAlign === 'left');
+    }
+  }
+
+  previewAlignBtnJustify?.addEventListener('click', () => applyPreviewTextAlign('justify'));
+  previewAlignBtnLeft?.addEventListener('click', () => applyPreviewTextAlign('left'));
+  applyPreviewTextAlign(localStorage.getItem('mark.previewTextAlign') || 'justify');
+
+  // PDF Export Text Alignment (Giustificato vs A sinistra)
+  const exportTextAlignBtnJustify = document.getElementById('export-text-align-btn-justify');
+  const exportTextAlignBtnLeft = document.getElementById('export-text-align-btn-left');
+
+  function applyExportPdfTextAlign(align) {
+    const finalAlign = (align === 'left') ? 'left' : 'justify';
+    localStorage.setItem('mark.exportPdfTextAlign', finalAlign);
+    if (exportTextAlignBtnJustify && exportTextAlignBtnLeft) {
+      exportTextAlignBtnJustify.classList.toggle('active', finalAlign === 'justify');
+      exportTextAlignBtnLeft.classList.toggle('active', finalAlign === 'left');
+    }
+  }
+
+  exportTextAlignBtnJustify?.addEventListener('click', () => applyExportPdfTextAlign('justify'));
+  exportTextAlignBtnLeft?.addEventListener('click', () => applyExportPdfTextAlign('left'));
+  applyExportPdfTextAlign(localStorage.getItem('mark.exportPdfTextAlign') || 'justify');
+
+  // ===== PDF EXPORT MODAL LOGIC =====
+  const pdfExportModal = document.getElementById('pdf-export-modal');
+  const pdfExportOverlay = document.getElementById('pdf-export-overlay');
+  const btnClosePdfExportModal = document.getElementById('btn-close-pdf-export-modal');
+  const btnCancelPdfExport = document.getElementById('btn-cancel-pdf-export');
+  const btnConfirmPdfExport = document.getElementById('btn-confirm-pdf-export');
+  const btnBrowsePdfLocation = document.getElementById('btn-browse-pdf-location');
+  const pdfExportPathInput = document.getElementById('pdf-export-path-input');
+
+  const pdfSelectPagesize = document.getElementById('pdf-select-pagesize');
+  const pdfSelectOrientation = document.getElementById('pdf-select-orientation');
+  const pdfSelectFont = document.getElementById('pdf-select-font');
+  const pdfSelectMargins = document.getElementById('pdf-select-margins');
+  const pdfSelectTextAlign = document.getElementById('pdf-select-text-align');
+  const pdfSelectPageNumbers = document.getElementById('pdf-select-page-numbers');
+  const pdfSelectToc = document.getElementById('pdf-select-toc');
+
+  function getDefaultPdfFileName() {
+    let docName = '';
+    if (currentFilePath) {
+      docName = path.basename(currentFilePath).replace(/\.[^/.]+$/, '');
+    } else {
+      const firstHeading = preview ? preview.querySelector('h1') : null;
+      if (firstHeading && firstHeading.textContent.trim()) {
+        docName = firstHeading.textContent.trim().replace(/[\\/:*?"<>|]/g, '').slice(0, 40);
+      }
+    }
+    return `${docName || 'exported'}.pdf`;
+  }
+
+  function openPdfExportModal() {
+    if (!pdfExportModal) return;
+
+    const defaultFileName = getDefaultPdfFileName();
+
+    // Default location: current folder if opened in folder, otherwise empty
+    if (currentFolderPath) {
+      if (pdfExportPathInput) {
+        pdfExportPathInput.value = path.join(currentFolderPath, defaultFileName);
+      }
+    } else {
+      if (pdfExportPathInput) {
+        pdfExportPathInput.value = '';
+      }
+    }
+
+    if (pdfSelectPagesize) {
+      pdfSelectPagesize.value = localStorage.getItem('mark.exportPdfPageSize') || 'A4';
+    }
+    if (pdfSelectOrientation) {
+      pdfSelectOrientation.value = localStorage.getItem('mark.exportPdfOrientation') || 'portrait';
+    }
+    if (pdfSelectFont) {
+      pdfSelectFont.value = localStorage.getItem('mark.exportPdfFont') || 'inter';
+    }
+    if (pdfSelectMargins) {
+      pdfSelectMargins.value = localStorage.getItem('mark.exportPdfMargins') || 'normal';
+    }
+    if (pdfSelectTextAlign) {
+      pdfSelectTextAlign.value = localStorage.getItem('mark.exportPdfTextAlign') || 'justify';
+    }
+    if (pdfSelectPageNumbers) {
+      const pNum = localStorage.getItem('mark.exportPdfPageNumbers') || 'none';
+      const pAlign = localStorage.getItem('mark.exportPdfPageAlign') || 'right';
+      pdfSelectPageNumbers.value = (pNum === 'none') ? 'none' : `${pNum}-${pAlign}`;
+    }
+    if (pdfSelectToc) {
+      pdfSelectToc.value = localStorage.getItem('mark.exportPdfToc') === 'true' ? 'true' : 'false';
+    }
+
+    pdfExportModal.classList.remove('hidden');
+    if (pdfExportPathInput && currentFolderPath) {
+      pdfExportPathInput.focus();
+    }
+  }
+
+  function closePdfExportModal() {
+    if (pdfExportModal) {
+      pdfExportModal.classList.add('hidden');
+    }
+  }
+
+  pdfSelectPagesize?.addEventListener('change', () => {
+    localStorage.setItem('mark.exportPdfPageSize', pdfSelectPagesize.value);
+    if (selectPdfPageSize) selectPdfPageSize.value = pdfSelectPagesize.value;
+  });
+
+  pdfSelectOrientation?.addEventListener('change', () => {
+    applyExportOrientation(pdfSelectOrientation.value);
+  });
+
+  pdfSelectFont?.addEventListener('change', () => {
+    applyExportFont(pdfSelectFont.value);
+  });
+
+  pdfSelectMargins?.addEventListener('change', () => {
+    localStorage.setItem('mark.exportPdfMargins', pdfSelectMargins.value);
+    if (selectPdfMargins) selectPdfMargins.value = pdfSelectMargins.value;
+  });
+
+  pdfSelectTextAlign?.addEventListener('change', () => {
+    applyExportPdfTextAlign(pdfSelectTextAlign.value);
+  });
+
+  pdfSelectPageNumbers?.addEventListener('change', () => {
+    const val = pdfSelectPageNumbers.value;
+    if (val === 'none') {
+      localStorage.setItem('mark.exportPdfPageNumbers', 'none');
+      if (selectPdfPageNumbers) {
+        selectPdfPageNumbers.value = 'none';
+        updatePageAlignVisibility('none');
+      }
+    } else {
+      const parts = val.split('-');
+      const pNum = parts[0];
+      const pAlign = parts[1] || 'right';
+      localStorage.setItem('mark.exportPdfPageNumbers', pNum);
+      localStorage.setItem('mark.exportPdfPageAlign', pAlign);
+      if (selectPdfPageNumbers) {
+        selectPdfPageNumbers.value = pNum;
+        updatePageAlignVisibility(pNum);
+      }
+      applyExportPageAlign(pAlign);
+    }
+  });
+
+  pdfSelectToc?.addEventListener('change', () => {
+    const enabled = pdfSelectToc.value === 'true';
+    localStorage.setItem('mark.exportPdfToc', String(enabled));
+    if (togglePdfToc) togglePdfToc.checked = enabled;
+  });
+
+  btnClosePdfExportModal?.addEventListener('click', closePdfExportModal);
+  btnCancelPdfExport?.addEventListener('click', closePdfExportModal);
+  pdfExportOverlay?.addEventListener('click', closePdfExportModal);
+
+  btnBrowsePdfLocation?.addEventListener('click', () => {
+    const defaultFileName = getDefaultPdfFileName();
+    const currentVal = pdfExportPathInput?.value.trim();
+    const suggestedPath = currentVal || (currentFolderPath ? path.join(currentFolderPath, defaultFileName) : defaultFileName);
+    const result = dialog.showSaveDialogSync({
+      title: i18n.t("dialog_save_pdf_title") || "Save PDF",
+      defaultPath: suggestedPath,
+      filters: [{ name: "PDF", extensions: ["pdf"] }]
+    });
+    if (result && pdfExportPathInput) {
+      pdfExportPathInput.value = result;
+    }
+  });
+
+  btnConfirmPdfExport?.addEventListener('click', () => {
+    let targetPath = pdfExportPathInput?.value.trim();
+    if (!targetPath) {
+      const defaultFileName = getDefaultPdfFileName();
+      const suggestedPath = currentFolderPath ? path.join(currentFolderPath, defaultFileName) : defaultFileName;
+      const result = dialog.showSaveDialogSync({
+        title: i18n.t("dialog_save_pdf_title") || "Save PDF",
+        defaultPath: suggestedPath,
+        filters: [{ name: "PDF", extensions: ["pdf"] }]
+      });
+      if (!result) return;
+      targetPath = result;
+      if (pdfExportPathInput) {
+        pdfExportPathInput.value = targetPath;
+      }
+    }
+
+    closePdfExportModal();
+    performPdfExport(targetPath);
+  });
+
   // Sostituiamo il vecchio click del dropdown agganciando l'apertura del Modal centrale
   if (btnOptions) {
     btnOptions.replaceWith(btnOptions.cloneNode(true)); // Rimuove eventuali vecchi listener di disturbo
@@ -6375,6 +6594,13 @@ window.addEventListener("DOMContentLoaded", () => {
         e.preventDefault();
         return;
       }
+      const pdfExportModal = document.getElementById('pdf-export-modal');
+      if (pdfExportModal && !pdfExportModal.classList.contains('hidden')) {
+        pdfExportModal.classList.add('hidden');
+        e.preventDefault();
+        return;
+      }
+
       const settingsModal = document.getElementById('settings-modal');
       
       // Se il modal delle impostazioni è aperto, lo chiude

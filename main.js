@@ -376,7 +376,7 @@ function createPrintWindow() {
   });
 }
 
-ipcMain.on("print-to-pdf", async (event, content, title, exportSettings) => {
+ipcMain.on("print-to-pdf", async (event, content, title, exportSettings, targetPath) => {
   if (!printWin) {
     createPrintWindow();
     
@@ -440,28 +440,32 @@ ipcMain.on("print-to-pdf", async (event, content, title, exportSettings) => {
     footerTemplate: footerTemplate
   };
 
-  let defaultPath = "exported.pdf";
-  if (title && title !== "*") {
-    defaultPath = `${title.replace(/\.[^/.]+$/, "")}.pdf`;
+  let destinationPath = targetPath;
+  if (!destinationPath) {
+    let defaultPath = "exported.pdf";
+    if (title && title !== "*") {
+      defaultPath = `${title.replace(/\.[^/.]+$/, "")}.pdf`;
+    }
+
+    const result = await dialog.showSaveDialog({
+      title: i18n.t("dialog_save_pdf_title"),
+      defaultPath: defaultPath,
+      filters: [{ name: "PDF", extensions: ["pdf"] }]
+    });
+
+    if (result.canceled) return;
+    destinationPath = result.filePath;
   }
-
-  const result = await dialog.showSaveDialog({
-    title: i18n.t("dialog_save_pdf_title"),
-    defaultPath: defaultPath,
-    filters: [{ name: "PDF", extensions: ["pdf"] }]
-  });
-
-  if (result.canceled) return;
   
   try {
     const data = await printWin.webContents.printToPDF(options);
-    fs.writeFile(result.filePath, data, (error) => {
+    fs.writeFile(destinationPath, data, (error) => {
       if (error) {
         console.error("Errore nel salvataggio del PDF:", error);
         event.reply('pdf-export-error', error.message);
         return;
       }
-      event.reply('pdf-saved', result.filePath);
+      event.reply('pdf-saved', destinationPath);
     });
   } catch (error) {
     console.error("Errore nella generazione del PDF:", error);
