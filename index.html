@@ -7,6 +7,7 @@
   <title>Mark</title>
   <link rel="stylesheet" href="style.css" />
   <script src="./api/marked.min.js"></script>
+  <script src="./lib/pdfjs/pdf.js"></script>
   <link rel="stylesheet" href="./api/katex.min.css">
   <link rel="stylesheet" href="./api/katex-fonts.css">
 
@@ -601,6 +602,15 @@
                 </div>
               </div>
 
+              <!-- PDF FONT SIZE -->
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <label for="input-pdf-font-size" data-i18n="settings_export_font_size">PDF Font Size</label>
+                  <span class="settings-sublabel" data-i18n="settings_export_font_size_desc">Base font size for exported PDF documents (px)</span>
+                </div>
+                <input type="number" id="input-pdf-font-size" min="10" max="28" value="15" class="settings-number-input" />
+              </div>
+
               <!-- PAGE FORMAT -->
               <div class="settings-row">
                 <div class="settings-label-group">
@@ -819,90 +829,122 @@
       </div>
 
       <div class="modal-body pdf-export-modal-body">
-        <!-- LOCATION SECTION -->
-        <div class="pdf-export-section">
-          <label class="pdf-export-label" for="pdf-export-path-input" data-i18n="export_modal_location_label">Save destination</label>
-          <div class="pdf-export-location-row">
-            <input type="text" id="pdf-export-path-input" class="collab-input pdf-export-path-input" data-i18n-placeholder="export_modal_location_placeholder" placeholder="Select destination path..." spellcheck="false" />
-            <button type="button" id="btn-browse-pdf-location" class="collab-icon-btn pdf-export-browse-btn" data-i18n-title="export_modal_browse" title="Browse...">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/>
-              </svg>
-            </button>
+        <!-- LEFT PANEL: CONTROLS -->
+        <div class="pdf-export-controls-panel">
+          <!-- LOCATION SECTION -->
+          <div class="pdf-export-section">
+            <label class="pdf-export-label" for="pdf-export-path-input" data-i18n="export_modal_location_label">Save destination</label>
+            <div class="pdf-export-location-row">
+              <input type="text" id="pdf-export-path-input" class="collab-input pdf-export-path-input" data-i18n-placeholder="export_modal_location_placeholder" placeholder="Select destination path..." spellcheck="false" />
+              <button type="button" id="btn-browse-pdf-location" class="collab-icon-btn pdf-export-browse-btn" data-i18n-title="export_modal_browse" title="Browse...">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/>
+                </svg>
+              </button>
+            </div>
           </div>
-        </div>
 
-        <!-- SETTINGS SECTION -->
-        <div class="pdf-export-section">
-          <div class="pdf-export-summary-header">
+          <!-- SETTINGS SECTION -->
+          <div class="pdf-export-section">
             <span class="pdf-export-label" data-i18n="export_modal_settings_title">Export Settings</span>
-          </div>
-          <div class="pdf-export-summary-grid">
-            <div class="pdf-summary-item">
-              <span class="pdf-summary-key" data-i18n="export_modal_pagesize">Format</span>
-              <select id="pdf-select-pagesize" class="pdf-summary-select">
-                <option value="A4">A4</option>
-                <option value="Letter">Letter</option>
-                <option value="A3">A3</option>
-                <option value="Legal">Legal</option>
-              </select>
-            </div>
-            <div class="pdf-summary-item">
-              <span class="pdf-summary-key" data-i18n="export_modal_orientation">Orientation</span>
-              <select id="pdf-select-orientation" class="pdf-summary-select">
-                <option value="portrait" data-i18n="settings_export_orientation_portrait">Portrait</option>
-                <option value="landscape" data-i18n="settings_export_orientation_landscape">Landscape</option>
-              </select>
-            </div>
-            <div class="pdf-summary-item">
-              <span class="pdf-summary-key" data-i18n="export_modal_font">Font</span>
-              <select id="pdf-select-font" class="pdf-summary-select">
-                <option value="inter">Inter</option>
-                <option value="jetbrains">JetBrains Mono</option>
-              </select>
-            </div>
-            <div class="pdf-summary-item">
-              <span class="pdf-summary-key" data-i18n="export_modal_margins">Margins</span>
-              <select id="pdf-select-margins" class="pdf-summary-select">
-                <option value="normal" data-i18n="settings_export_margins_normal">Standard</option>
-                <option value="minimum" data-i18n="settings_export_margins_minimum">Minimum</option>
-                <option value="none" data-i18n="settings_export_margins_none">None</option>
-              </select>
-            </div>
-            <div class="pdf-summary-item">
-              <span class="pdf-summary-key" data-i18n="export_modal_text_align">Text alignment</span>
-              <select id="pdf-select-text-align" class="pdf-summary-select">
-                <option value="justify" data-i18n="settings_align_justify">Justified</option>
-                <option value="left" data-i18n="settings_align_left">Left</option>
-              </select>
-            </div>
-            <div class="pdf-summary-item">
-              <span class="pdf-summary-key" data-i18n="export_modal_page_numbers">Page numbers</span>
-              <select id="pdf-select-page-numbers" class="pdf-summary-select">
-                <option value="none" data-i18n="settings_export_page_nums_none">None</option>
-                <option value="single-right" data-i18n="export_modal_page_num_single_right">1 (Right)</option>
-                <option value="single-center" data-i18n="export_modal_page_num_single_center">1 (Center)</option>
-                <option value="single-left" data-i18n="export_modal_page_num_single_left">1 (Left)</option>
-                <option value="total-right" data-i18n="export_modal_page_num_total_right">1 / X (Right)</option>
-                <option value="total-center" data-i18n="export_modal_page_num_total_center">1 / X (Center)</option>
-                <option value="total-left" data-i18n="export_modal_page_num_total_left">1 / X (Left)</option>
-              </select>
-            </div>
-            <div class="pdf-summary-item pdf-summary-item-full">
-              <span class="pdf-summary-key" data-i18n="export_modal_toc">Table of contents</span>
-              <select id="pdf-select-toc" class="pdf-summary-select">
-                <option value="false" data-i18n="export_modal_toc_disabled">Excluded</option>
-                <option value="true" data-i18n="export_modal_toc_enabled">Included</option>
-              </select>
+            <div class="pdf-settings-list">
+              <div class="pdf-setting-row">
+                <label class="pdf-setting-label" for="pdf-select-pagesize" data-i18n="export_modal_pagesize">Format</label>
+                <select id="pdf-select-pagesize" class="pdf-setting-select">
+                  <option value="A4">A4</option>
+                  <option value="Letter">Letter</option>
+                  <option value="A3">A3</option>
+                  <option value="Legal">Legal</option>
+                </select>
+              </div>
+
+              <div class="pdf-setting-row">
+                <label class="pdf-setting-label" for="pdf-select-orientation" data-i18n="export_modal_orientation">Orientation</label>
+                <select id="pdf-select-orientation" class="pdf-setting-select">
+                  <option value="portrait" data-i18n="settings_export_orientation_portrait">Portrait</option>
+                  <option value="landscape" data-i18n="settings_export_orientation_landscape">Landscape</option>
+                </select>
+              </div>
+
+              <div class="pdf-setting-row">
+                <label class="pdf-setting-label" for="pdf-select-font" data-i18n="export_modal_font">Font</label>
+                <select id="pdf-select-font" class="pdf-setting-select">
+                  <option value="inter">Inter</option>
+                  <option value="jetbrains">JetBrains Mono</option>
+                </select>
+              </div>
+
+              <div class="pdf-setting-row">
+                <label class="pdf-setting-label" data-i18n="export_modal_font_size">Font size</label>
+                <div class="pdf-stepper">
+                  <button type="button" id="btn-pdf-font-dec" class="pdf-stepper-btn" aria-label="Decrease font size">−</button>
+                  <span id="pdf-font-size-val" class="pdf-stepper-val">15 px</span>
+                  <button type="button" id="btn-pdf-font-inc" class="pdf-stepper-btn" aria-label="Increase font size">+</button>
+                </div>
+              </div>
+
+              <div class="pdf-setting-row">
+                <label class="pdf-setting-label" for="pdf-select-margins" data-i18n="export_modal_margins">Margins</label>
+                <select id="pdf-select-margins" class="pdf-setting-select">
+                  <option value="normal" data-i18n="settings_export_margins_normal">Standard</option>
+                  <option value="minimum" data-i18n="settings_export_margins_minimum">Minimum</option>
+                  <option value="none" data-i18n="settings_export_margins_none">None</option>
+                </select>
+              </div>
+
+              <div class="pdf-setting-row">
+                <label class="pdf-setting-label" for="pdf-select-text-align" data-i18n="export_modal_text_align">Text alignment</label>
+                <select id="pdf-select-text-align" class="pdf-setting-select">
+                  <option value="justify" data-i18n="settings_align_justify">Justified</option>
+                  <option value="left" data-i18n="settings_align_left">Left</option>
+                </select>
+              </div>
+
+              <div class="pdf-setting-row">
+                <label class="pdf-setting-label" for="pdf-select-page-numbers" data-i18n="export_modal_page_numbers">Page numbers</label>
+                <select id="pdf-select-page-numbers" class="pdf-setting-select">
+                  <option value="none" data-i18n="settings_export_page_nums_none">None</option>
+                  <option value="single-right" data-i18n="export_modal_page_num_single_right">1 (Right)</option>
+                  <option value="single-center" data-i18n="export_modal_page_num_single_center">1 (Center)</option>
+                  <option value="single-left" data-i18n="export_modal_page_num_single_left">1 (Left)</option>
+                  <option value="total-right" data-i18n="export_modal_page_num_total_right">1 / X (Right)</option>
+                  <option value="total-center" data-i18n="export_modal_page_num_total_center">1 / X (Center)</option>
+                  <option value="total-left" data-i18n="export_modal_page_num_total_left">1 / X (Left)</option>
+                </select>
+              </div>
+
+              <div class="pdf-setting-row">
+                <label class="pdf-setting-label" for="pdf-select-toc" data-i18n="export_modal_toc">Table of contents</label>
+                <select id="pdf-select-toc" class="pdf-setting-select">
+                  <option value="false" data-i18n="export_modal_toc_disabled">Excluded</option>
+                  <option value="true" data-i18n="export_modal_toc_enabled">Included</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- ACTIONS -->
-        <div class="pdf-export-actions">
-          <button type="button" id="btn-cancel-pdf-export" class="pdf-export-btn-cancel" data-i18n="export_modal_btn_cancel">Cancel</button>
-          <button type="button" id="btn-confirm-pdf-export" class="collab-submit-btn pdf-export-btn-confirm" data-i18n="export_modal_btn_export">Export</button>
+        <!-- RIGHT PANEL: REAL-TIME PREVIEW -->
+        <div class="pdf-export-preview-panel">
+          <div class="pdf-preview-toolbar">
+            <span class="pdf-preview-title" data-i18n="export_modal_preview_title">Preview</span>
+            <div class="pdf-preview-zoom-controls">
+              <button type="button" id="btn-pdf-zoom-out" class="pdf-zoom-btn" data-i18n-title="export_modal_zoom_out" title="Zoom out">−</button>
+              <span id="pdf-preview-zoom-val" class="pdf-zoom-val">65%</span>
+              <button type="button" id="btn-pdf-zoom-in" class="pdf-zoom-btn" data-i18n-title="export_modal_zoom_in" title="Zoom in">+</button>
+              <button type="button" id="btn-pdf-zoom-reset" class="pdf-zoom-btn pdf-zoom-btn-fit" data-i18n-title="export_modal_zoom_fit" title="Fit">Fit</button>
+            </div>
+          </div>
+          <div class="pdf-preview-viewport" id="pdf-preview-viewport">
+            <div class="pdf-preview-pages-container" id="pdf-preview-pages-container"></div>
+          </div>
         </div>
+      </div>
+
+      <!-- MODAL FOOTER: IN BASSO A DESTRA -->
+      <div class="modal-footer pdf-export-modal-footer">
+        <button type="button" id="btn-cancel-pdf-export" class="pdf-export-btn-cancel" data-i18n="export_modal_btn_cancel">Cancel</button>
+        <button type="button" id="btn-confirm-pdf-export" class="pdf-export-btn-confirm" data-i18n="export_modal_btn_export">Export</button>
       </div>
     </div>
   </div>

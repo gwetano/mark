@@ -376,21 +376,22 @@ function createPrintWindow() {
   });
 }
 
-ipcMain.on("print-to-pdf", async (event, content, title, exportSettings, targetPath) => {
-  if (!printWin) {
-    createPrintWindow();
-    
-    await new Promise(resolve => {
-      printWin.webContents.once('did-finish-load', resolve);
-    });
+let interFontBase64 = null;
+function getInterFontBase64() {
+  if (!interFontBase64) {
+    try {
+      const fontPath = path.join(__dirname, "fonts", "inter", "Inter-Regular.ttf");
+      if (fs.existsSync(fontPath)) {
+        interFontBase64 = fs.readFileSync(fontPath).toString("base64");
+      }
+    } catch (err) {
+      console.error("Error reading Inter font for PDF export:", err);
+    }
   }
-  
-  printWin.webContents.send('print-content', content, exportSettings);
-  
-  await new Promise(resolve => {
-    ipcMain.once('content-ready', resolve);
-  });
-  
+  return interFontBase64;
+}
+
+function buildPdfPrintOptions(exportSettings) {
   const pageNumbers = exportSettings?.pageNumbers || 'none';
   const pageAlign = exportSettings?.pageNumberAlign || 'right';
 
@@ -407,10 +408,6 @@ ipcMain.on("print-to-pdf", async (event, content, title, exportSettings, targetP
       alignCss = 'justify-content: flex-start; text-align: left;';
     }
 
-    const fontFamily = exportSettings?.font === 'jetbrains'
-      ? '"JetBrains Mono", monospace'
-      : '"Inter", -apple-system, BlinkMacSystemFont, sans-serif';
-
     const numSpan = pageNumbers === 'total'
       ? '<span class="pageNumber"></span> / <span class="totalPages"></span>'
       : '<span class="pageNumber"></span>';
@@ -420,17 +417,69 @@ ipcMain.on("print-to-pdf", async (event, content, title, exportSettings, targetP
       footerPadding = '10mm';
     }
 
-    footerTemplate = `<div style="width:100%; display:flex; ${alignCss} padding:0 ${footerPadding}; font-size:9px; color:#666666; font-family:${fontFamily}; box-sizing:border-box;">${numSpan}</div>`;
+    const interB64 = getInterFontBase64();
+    const fontFaceCss = interB64
+      ? `@font-face { font-family: 'Inter'; src: url('data:font/truetype;charset=utf-8;base64,${interB64}') format('truetype'); font-weight: normal; font-style: normal; }`
+      : '';
+
+    footerTemplate = `<style>
+      ${fontFaceCss}
+      .pdf-footer-root {
+        width: 100%;
+        display: flex;
+        ${alignCss}
+        padding: 0 ${footerPadding};
+        font-size: 10px;
+        color: #666666;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+        box-sizing: border-box;
+        margin-bottom: 5mm;
+      }
+      .pdf-footer-root span {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+      }
+    </style>
+    <div class="pdf-footer-root">${numSpan}</div>`;
   }
 
-  let marginsType = 0;
-  if (exportSettings?.margins === 'minimum') marginsType = 2;
-  else if (exportSettings?.margins === 'none' && !displayHeaderFooter) marginsType = 1;
-  else if (exportSettings?.margins === 'none' && displayHeaderFooter) marginsType = 2;
-  else marginsType = 0;
+  const marginsSetting = exportSettings?.margins || 'normal';
+  let marginsObj;
 
-  const options = {
-    marginsType: marginsType,
+  if (marginsSetting === 'minimum') {
+    marginsObj = {
+      top: 0.5,     // ~12.7mm
+      bottom: 0.55, // ~14mm
+      left: 0.4,    // ~10mm
+      right: 0.4    // ~10mm
+    };
+  } else if (marginsSetting === 'none') {
+    if (displayHeaderFooter) {
+      marginsObj = {
+        top: 0.25,
+        bottom: 0.45,
+        left: 0.25,
+        right: 0.25
+      };
+    } else {
+      marginsObj = {
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0
+      };
+    }
+  } else {
+    // 'normal' (standard) - increased top and bottom spacing as requested (comfortably 24-25mm)
+    marginsObj = {
+      top: 0.95,    // ~24.1mm
+      bottom: 0.95, // ~24.1mm
+      left: 0.7,    // ~17.8mm
+      right: 0.7    // ~17.8mm
+    };
+  }
+
+  return {
+    margins: marginsObj,
     pageSize: exportSettings?.pageSize || 'A4',
     printBackground: true,
     printSelectionOnly: false,
@@ -439,7 +488,47 @@ ipcMain.on("print-to-pdf", async (event, content, title, exportSettings, targetP
     headerTemplate: headerTemplate,
     footerTemplate: footerTemplate
   };
+}
 
+let printQueue = Promise.resolve();
+
+function renderPdfBuffer(content, exportSettings) {
+  const task = printQueue.then(async () => {
+    if (!printWin || printWin.isDestroyed()) {
+      createPrintWindow();
+      await new Promise(resolve => {
+        printWin.webContents.once('did-finish-load', resolve);
+      });
+    }
+
+    const options = buildPdfPrintOptions(exportSettings);
+
+    const contentReadyPromise = new Promise(resolve => {
+      ipcMain.once('content-ready', resolve);
+    });
+
+    printWin.webContents.send('print-content', content, exportSettings);
+    await contentReadyPromise;
+
+    const data = await printWin.webContents.printToPDF(options);
+    return data;
+  });
+
+  printQueue = task.catch(() => {});
+  return task;
+}
+
+ipcMain.handle('generate-pdf-preview', async (event, content, exportSettings) => {
+  try {
+    const data = await renderPdfBuffer(content, exportSettings);
+    return data;
+  } catch (error) {
+    console.error("Errore nella generazione preview PDF:", error);
+    throw error;
+  }
+});
+
+ipcMain.on("print-to-pdf", async (event, content, title, exportSettings, targetPath) => {
   let destinationPath = targetPath;
   if (!destinationPath) {
     let defaultPath = "exported.pdf";
@@ -458,7 +547,7 @@ ipcMain.on("print-to-pdf", async (event, content, title, exportSettings, targetP
   }
   
   try {
-    const data = await printWin.webContents.printToPDF(options);
+    const data = await renderPdfBuffer(content, exportSettings);
     fs.writeFile(destinationPath, data, (error) => {
       if (error) {
         console.error("Errore nel salvataggio del PDF:", error);

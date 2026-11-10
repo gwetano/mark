@@ -376,7 +376,7 @@
       margin: 16px 0;
       background: #fff;
       border: 1px solid #d0d7de;
-      font-size: 16px;
+      font-size: 0.95em;
     }
 
     th,
@@ -444,10 +444,16 @@
       body {
         height: auto;
         overflow: visible;
+        padding: 0 !important;
+        margin: 0 !important;
       }
 
       .markdown-body {
         height: auto;
+        max-width: 100% !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
       }
 
       .page-break {
@@ -710,6 +716,9 @@
       } else {
         document.body.classList.remove('font-jetbrains');
       }
+
+      const baseFontSize = (exportSettings && exportSettings.fontSize) ? (exportSettings.fontSize + 'px') : '15px';
+      document.body.style.fontSize = baseFontSize;
 
       const textAlign = (exportSettings && exportSettings.textAlign) || 'justify';
       if (textAlign === 'left') {
