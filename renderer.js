@@ -857,6 +857,9 @@ function insertMarkdownLink() {
   }
 
   editor.focus();
+  if (typeof stopTypewriterEffect === 'function') {
+    stopTypewriterEffect();
+  }
 
   if (typeof updateEditorOverlay === 'function') {
     updateEditorOverlay();
@@ -935,6 +938,9 @@ window.addEventListener("DOMContentLoaded", () => {
     isProgrammaticEdit = true;
     fn();
     isProgrammaticEdit = false;
+    if (editor && editor.value.length > 0 && typeof stopTypewriterEffect === 'function') {
+      stopTypewriterEffect();
+    }
     if (editor.value !== oldVal) {
       recordAction(actionName, oldVal, editor.value);
     } else {
@@ -1370,6 +1376,12 @@ window.addEventListener("DOMContentLoaded", () => {
           document.dispatchEvent(new Event('autosave'));
           saveCurrentFile();
         }
+        if (autosaveSwitch && autosaveSwitch.checked && collabTabId && typeof getCollabTab === 'function') {
+          const cTab = getCollabTab();
+          if (cTab && cTab.id !== activeTabId && cTab.filePath && cTab.isDirty && typeof saveSpecificTab === 'function') {
+            saveSpecificTab(cTab);
+          }
+        }
       } catch (err) { console.error('[autosave] error:', err); }
     }, AUTOSAVE_MS);
   }
@@ -1772,6 +1784,10 @@ window.addEventListener("DOMContentLoaded", () => {
   // ===== PREVIEW RENDER (con include) =====
   function updatePreview() {
     if (!editor || !preview) return;
+
+    if (editor.value.length > 0 && typeof stopTypewriterEffect === 'function') {
+      stopTypewriterEffect();
+    }
 
     const rawOriginal = editor.value;
     let raw = preprocessCodeIncludes(rawOriginal);
@@ -2490,6 +2506,30 @@ window.addEventListener("DOMContentLoaded", () => {
     const pairs = { '(': ')', '[': ']', '{': '}', '"': '"', '`': '`' };
     const closingChars = [')', ']', '}', '"', '`'];
 
+    // 0. Auto-delete pair su Backspace se il cursore è direttamente tra di essi e non c'è nulla in mezzo
+    if (e.key === 'Backspace' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      if (start === end && start > 0) {
+        const prevChar = editor.value.charAt(start - 1);
+        const nextChar = editor.value.charAt(start);
+        if (pairs[prevChar] && pairs[prevChar] === nextChar) {
+          e.preventDefault();
+          executeAction("Delete Pair", () => {
+            const left = editor.value.substring(0, start - 1);
+            const right = editor.value.substring(start + 1);
+            editor.value = left + right;
+            editor.selectionStart = editor.selectionEnd = start - 1;
+            editor.dispatchEvent(new Event('input', { bubbles: true }));
+            updatePreview();
+            setDirty(true);
+            updateEditorOverlay();
+          });
+          return;
+        }
+      }
+    }
+
     // 1. Overtyping: se premo chiusura e sono davanti a quella chiusura, avanzo
     if (closingChars.includes(e.key)) {
       const start = editor.selectionStart;
@@ -2508,10 +2548,21 @@ window.addEventListener("DOMContentLoaded", () => {
       const left = editor.value.substring(0, start), right = editor.value.substring(end);
       const pair = pairs[e.key];
       executeAction("Auto-close", () => {
-        editor.value = left + e.key + pair + right;
-        editor.selectionStart = editor.selectionEnd = start + 1;
-        updatePreview(); setDirty(true); updateEditorOverlay();
-      }); return;
+        if (start !== end) {
+          const selected = editor.value.substring(start, end);
+          editor.value = left + e.key + selected + pair + right;
+          editor.selectionStart = start + 1;
+          editor.selectionEnd = start + 1 + selected.length;
+        } else {
+          editor.value = left + e.key + pair + right;
+          editor.selectionStart = editor.selectionEnd = start + 1;
+        }
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        updatePreview();
+        setDirty(true);
+        updateEditorOverlay();
+      });
+      return;
     }
 
     if (e.key === "Tab") {
@@ -3431,6 +3482,7 @@ window.addEventListener("DOMContentLoaded", () => {
     if (placeholderEl) {
       placeholderEl.classList.remove('active');
       placeholderEl.innerHTML = '';
+      placeholderEl.style.display = 'none';
     }
   }
 
@@ -3482,6 +3534,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
     isTypewriterActive = true;
     document.body.classList.add('typewriter-running');
+    placeholderEl.style.display = '';
     placeholderEl.classList.add('active');
     placeholderEl.scrollTop = editor.scrollTop;
     placeholderEl.scrollLeft = editor.scrollLeft;
@@ -4483,7 +4536,7 @@ window.addEventListener("DOMContentLoaded", () => {
     createFileTree(folderPath, fileTree);
   }
 
-  // ===== COLLABORATION GUARD CONTRO CAMBIO FILE ACCIDENTALE =====
+  // ===== COLLABORATION GUARD CONTRO CREAZIONE/JOIN DI UNA NUOVA SESSIONE =====
   function confirmLeaveCollabIfActive(actionKey = 'action_open_file', actionParam = {}) {
     const collabState = getCollabState();
     if (!collabState || !collabState.isActive) {
@@ -4504,18 +4557,21 @@ window.addEventListener("DOMContentLoaded", () => {
     });
 
     if (choice === 0) {
-      if (currentFilePath && isDirty && typeof saveCurrentFile === 'function') {
+      const cTab = getCollabTab();
+      if (cTab && cTab.filePath && cTab.isDirty && typeof saveSpecificTab === 'function') {
         try {
-          saveCurrentFile();
+          saveSpecificTab(cTab);
         } catch (e) {
           console.error('[Collab] Errore salvataggio prima di terminare sessione:', e);
         }
       }
       leaveCollaboration();
+      collabTabId = null;
       const bCollab = document.getElementById("btn-collab");
       bCollab?.classList.remove("active-collab");
       const sContainer = document.getElementById("collab-status-container");
       sContainer?.classList.add("hidden");
+      renderTabs();
       if (typeof updateCollabModalView === 'function') {
         updateCollabModalView();
       }
@@ -4529,11 +4585,17 @@ window.addEventListener("DOMContentLoaded", () => {
   // ====== MULTI-TAB FILE MANAGEMENT ======
   let tabs = [];
   let activeTabId = null;
+  let collabTabId = null;
   let untitledCounter = 0;
   let isDraggingTab = false;
 
   function getActiveTab() {
     return tabs.find(t => t.id === activeTabId) || null;
+  }
+
+  function getCollabTab() {
+    if (!collabTabId) return null;
+    return tabs.find(t => t.id === collabTabId) || null;
   }
 
   function saveStateForActiveTab() {
@@ -4591,10 +4653,13 @@ window.addEventListener("DOMContentLoaded", () => {
     if (emptyState) emptyState.classList.add('hidden');
 
     tabs.forEach(tab => {
+      const isCollab = (collabTabId && tab.id === collabTabId);
       const tabEl = document.createElement('div');
-      tabEl.className = 'editor-tab' + (tab.id === activeTabId ? ' active' : '');
+      tabEl.className = 'editor-tab' +
+        (tab.id === activeTabId ? ' active' : '') +
+        (isCollab ? ' collab-active-tab' : '');
       tabEl.dataset.tabId = tab.id;
-      tabEl.title = tab.filePath || tab.title;
+      tabEl.title = (isCollab ? `[${i18n.t('collab_session_active') || 'Active session'}] ` : '') + (tab.filePath || tab.title);
 
       tabEl.innerHTML = `
         <span class="tab-icon">${FILE_SVG}</span>
@@ -4645,18 +4710,17 @@ window.addEventListener("DOMContentLoaded", () => {
     });
 
     const activeTab = getActiveTab();
-    if (activeTab && activeTab.filePath) {
-      document.querySelectorAll('.tree-item').forEach(item => {
-        item.classList.remove('active');
+    document.querySelectorAll('.tree-item').forEach(item => {
+      item.classList.remove('active');
+      if (activeTab && activeTab.filePath && item.dataset.path === activeTab.filePath) {
+        item.classList.add('active');
+      }
+      if (selectedExplorerPath && item.dataset.path === selectedExplorerPath) {
+        item.classList.add('selected');
+      } else {
         item.classList.remove('selected');
-        if (item.dataset.path === activeTab.filePath) item.classList.add('active');
-      });
-    } else {
-      document.querySelectorAll('.tree-item').forEach(item => {
-        item.classList.remove('active');
-        item.classList.remove('selected');
-      });
-    }
+      }
+    });
     if (typeof updateTitlebarTitle === 'function') updateTitlebarTitle();
   }
 
@@ -4859,12 +4923,6 @@ window.addEventListener("DOMContentLoaded", () => {
     const targetTab = tabs.find(t => t.id === tabId);
     if (!targetTab) return;
 
-    if (getCollabState().isActive) {
-      if (!confirmLeaveCollabIfActive('action_open_file', { name: targetTab.title })) {
-        return;
-      }
-    }
-
     saveStateForActiveTab();
     closeAutocomplete();
 
@@ -4918,12 +4976,6 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   function createNewTab(title = null, content = '') {
-    if (getCollabState().isActive) {
-      if (!confirmLeaveCollabIfActive('creare un nuovo file')) {
-        return;
-      }
-    }
-
     untitledCounter++;
     const defaultTitle = (i18n.t('untitled_file') || 'untitled') + '-' + untitledCounter;
     const newTab = {
@@ -4962,12 +5014,6 @@ window.addEventListener("DOMContentLoaded", () => {
     if (existing) {
       switchToTab(existing.id);
       return existing;
-    }
-
-    if (getCollabState().isActive) {
-      if (!confirmLeaveCollabIfActive('action_open_file', { name: path.basename(normalPath) })) {
-        return null;
-      }
     }
 
     let fileContent = content;
@@ -5130,13 +5176,15 @@ window.addEventListener("DOMContentLoaded", () => {
       closedTabEl.remove();
     }
 
-    if (getCollabState().isActive && tab.filePath === currentFilePath) {
+    if (getCollabState().isActive && collabTabId && tab.id === collabTabId) {
       leaveCollaboration();
+      collabTabId = null;
       const bCollab = document.getElementById("btn-collab");
       bCollab?.classList.remove("active-collab");
       const sContainer = document.getElementById("collab-status-container");
       sContainer?.classList.add("hidden");
       if (typeof updateCollabModalView === 'function') updateCollabModalView();
+      showNotification(i18n.t('notif_session_ended'), "info");
     }
 
     tabs.splice(tabIndex, 1);
@@ -5532,6 +5580,8 @@ window.addEventListener("DOMContentLoaded", () => {
           folderElement.appendChild(folderContent);
           parentElement.appendChild(folderElement);
           folderHeader.addEventListener('click', () => {
+            selectExplorerItem(itemPath, folderHeader);
+            try { folderHeader.focus(); } catch (_) {}
             folderElement.classList.toggle('collapsed');
             if (!folderElement.dataset.loaded && !folderElement.classList.contains('collapsed')) {
               createFileTree(itemPath, folderContent);
@@ -5541,6 +5591,7 @@ window.addEventListener("DOMContentLoaded", () => {
           folderHeader.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             e.stopPropagation();
+            selectExplorerItem(itemPath, folderHeader);
             showFolderContextMenu(itemPath);
           });
         });
@@ -5563,8 +5614,14 @@ window.addEventListener("DOMContentLoaded", () => {
             <span class="tree-label">${item}</span>
           `;
           fileElement.addEventListener('click', (e) => {
-            clearExplorerSelection();
+            selectExplorerItem(itemPath, fileElement);
             openFileInTab(itemPath);
+            try { fileElement.focus(); } catch (_) {}
+          });
+          fileElement.addEventListener('dblclick', () => {
+            if (editor) {
+              editor.focus();
+            }
           });
           fileElement.addEventListener('contextmenu', (e) => {
             e.preventDefault();
@@ -5612,6 +5669,8 @@ window.addEventListener("DOMContentLoaded", () => {
       const block = "```\n\n```"; editor.value = editor.value.substring(0, start) + block + editor.value.substring(end);
       const pos = start + 4; editor.selectionStart = pos; editor.selectionEnd = pos;
     }
+    if (typeof stopTypewriterEffect === 'function') stopTypewriterEffect();
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
     updatePreview(); setDirty(true); updateEditorOverlay(); editor.focus();
   }
   function insertMarkdownLinkBtn() { insertMarkdownLink(); }
@@ -5621,6 +5680,8 @@ window.addEventListener("DOMContentLoaded", () => {
       const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.substring(start, end);
       const text = `**${selected || 'text'}**`; editor.setRangeText(text, start, end, 'end');
       editor.focus(); editor.setSelectionRange(start + 2, start + 2 + (selected ? selected.length : 4));
+      if (typeof stopTypewriterEffect === 'function') stopTypewriterEffect();
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
       updatePreview(); setDirty(true); updateEditorOverlay();
     });
   });
@@ -5630,6 +5691,8 @@ window.addEventListener("DOMContentLoaded", () => {
       const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.substring(start, end);
       const text = `*${selected || 'text'}*`; editor.setRangeText(text, start, end, 'end');
       editor.focus(); editor.setSelectionRange(start + 1, start + 1 + (selected ? selected.length : 4));
+      if (typeof stopTypewriterEffect === 'function') stopTypewriterEffect();
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
       updatePreview(); setDirty(true); updateEditorOverlay();
     });
   });
@@ -5639,7 +5702,10 @@ window.addEventListener("DOMContentLoaded", () => {
     executeAction("Image", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.substring(start, end);
       const imageMd = `![alt](${selected || 'url'})`; editor.setRangeText(imageMd, start, end, 'end');
-      editor.focus(); editor.setSelectionRange(start + 7, start + 10); updatePreview(); setDirty(true); updateEditorOverlay();
+      editor.focus(); editor.setSelectionRange(start + 7, start + 10);
+      if (typeof stopTypewriterEffect === 'function') stopTypewriterEffect();
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+      updatePreview(); setDirty(true); updateEditorOverlay();
     });
   });
   });
@@ -5648,6 +5714,8 @@ window.addEventListener("DOMContentLoaded", () => {
       const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.substring(start, end);
       const listMd = `* ${selected || 'elem'}`; editor.setRangeText(listMd, start, end, 'end');
       editor.focus(); editor.setSelectionRange(start + 2, start + 2 + (selected ? selected.length : 4));
+      if (typeof stopTypewriterEffect === 'function') stopTypewriterEffect();
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
       updatePreview(); setDirty(true); updateEditorOverlay();
     });
   });
@@ -5657,6 +5725,8 @@ window.addEventListener("DOMContentLoaded", () => {
       const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.substring(start, end);
       const listMd = `1. ${selected || 'elem'}`; editor.setRangeText(listMd, start, end, 'end');
       editor.focus(); editor.setSelectionRange(start + 3, start + 3 + (selected ? selected.length : 4));
+      if (typeof stopTypewriterEffect === 'function') stopTypewriterEffect();
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
       updatePreview(); setDirty(true); updateEditorOverlay();
     });
   });
@@ -5665,7 +5735,10 @@ window.addEventListener("DOMContentLoaded", () => {
   btnHr && btnHr.addEventListener("click", () => {
     executeAction("Horizontal Rule", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd; editor.setRangeText("***\n", start, end, 'end');
-      editor.focus(); editor.setSelectionRange(start + 4, start + 4); updatePreview(); setDirty(true); updateEditorOverlay();
+      editor.focus(); editor.setSelectionRange(start + 4, start + 4);
+      if (typeof stopTypewriterEffect === 'function') stopTypewriterEffect();
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+      updatePreview(); setDirty(true); updateEditorOverlay();
     });
   });
   });
@@ -5674,6 +5747,8 @@ window.addEventListener("DOMContentLoaded", () => {
       const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.substring(start, end);
       const text = `<u>${selected || 'text'}</u>`; editor.setRangeText(text, start, end, 'end');
       editor.focus(); editor.setSelectionRange(start + 3, start + 3 + (selected ? selected.length : 4));
+      if (typeof stopTypewriterEffect === 'function') stopTypewriterEffect();
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
       updatePreview(); setDirty(true); updateEditorOverlay();
     });
   });
@@ -5684,6 +5759,8 @@ window.addEventListener("DOMContentLoaded", () => {
       const quoteMd = `> ${selected || 'quote'}`;
       editor.value = editor.value.substring(0, start) + quoteMd + editor.value.substring(end);
       editor.focus(); editor.setSelectionRange(start + 2, start + 2 + (selected ? selected.length : 5));
+      if (typeof stopTypewriterEffect === 'function') stopTypewriterEffect();
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
       updatePreview(); setDirty(true); updateEditorOverlay();
     });
   });
@@ -5694,6 +5771,7 @@ window.addEventListener("DOMContentLoaded", () => {
       const tableMd = `| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |\n| Cell 3   | Cell 4   |`;
       editor.setRangeText(tableMd, start, end, 'end');
       editor.focus(); editor.setSelectionRange(start + tableMd.length, start + tableMd.length);
+      if (typeof stopTypewriterEffect === 'function') stopTypewriterEffect();
       editor.dispatchEvent(new Event('input', { bubbles: true })); updatePreview(); setDirty(true); updateEditorOverlay();
     });
   });
@@ -6461,6 +6539,11 @@ window.addEventListener("DOMContentLoaded", () => {
       }
       if (collabActiveRoomId) collabActiveRoomId.value = state.roomId;
       if (collabUsersCount) collabUsersCount.textContent = state.userCount || 1;
+      const cTab = getCollabTab();
+      const activeFileEl = document.getElementById("collab-active-file-name");
+      if (activeFileEl) {
+        activeFileEl.textContent = cTab ? (cTab.filePath ? path.basename(cTab.filePath) : cTab.title) : '-';
+      }
     } else {
       if (collabDisconnectedView) {
         collabDisconnectedView.classList.remove("hidden");
@@ -6518,10 +6601,30 @@ window.addEventListener("DOMContentLoaded", () => {
       stopTypewriterEffect();
     }
 
+    const currentTab = getActiveTab();
+    if (!currentTab) return;
+
+    collabTabId = currentTab.id;
+    const initialDocContent = currentTab.content !== undefined ? currentTab.content : (editor ? editor.value : '');
+
     const session = startCollaboration({
       roomId: roomId,
       editor: editor,
       isJoining: isJoining,
+      targetTabId: collabTabId,
+      initialContent: initialDocContent,
+      isTargetActive: () => {
+        return activeTabId === collabTabId;
+      },
+      onRemoteBackgroundUpdate: (newText) => {
+        const cTab = tabs.find(t => t.id === collabTabId);
+        if (cTab) {
+          cTab.content = newText;
+          cTab.lastKnownEditorValue = newText;
+          cTab.isDirty = true;
+          updateTabDirtyIndicator(cTab.id, true);
+        }
+      },
       onRemoteUpdate: () => {
         if (typeof stopTypewriterEffect === 'function') {
           stopTypewriterEffect();
@@ -6554,6 +6657,7 @@ window.addEventListener("DOMContentLoaded", () => {
           const state = getCollabState();
           if (!state.isActive) {
             btnCollab?.classList.remove("active-collab");
+            collabStatusContainer?.classList.add("hidden");
           }
         }
       },
@@ -6564,6 +6668,7 @@ window.addEventListener("DOMContentLoaded", () => {
       btnCollab?.classList.add("active-collab");
       collabStatusContainer?.classList.remove("hidden");
       if (collabStatusText) collabStatusText.textContent = `${roomId} · 1`;
+      renderTabs();
       updateCollabModalView();
       collabModal?.classList.add("hidden");
       showNotification(isJoining ? i18n.t('notif_joined_session', { roomId: roomId }) : i18n.t('notif_session_started', { roomId: roomId }), "success");
@@ -6727,18 +6832,30 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   btnCollabLeave?.addEventListener("click", () => {
-    if (currentFilePath && isDirty && typeof saveCurrentFile === 'function') {
+    const cTab = getCollabTab();
+    if (cTab && cTab.filePath && cTab.isDirty && typeof saveSpecificTab === 'function') {
       try {
-        saveCurrentFile();
+        saveSpecificTab(cTab);
       } catch (e) {
         console.error('[Collab] Errore salvataggio chiusura sessione:', e);
       }
     }
     leaveCollaboration();
+    collabTabId = null;
     btnCollab?.classList.remove("active-collab");
     collabStatusContainer?.classList.add("hidden");
+    renderTabs();
     updateCollabModalView();
     showNotification(i18n.t('notif_session_ended'), "info");
+  });
+
+  collabStatusContainer?.addEventListener("click", () => {
+    if (collabTabId && activeTabId !== collabTabId) {
+      switchToTab(collabTabId);
+    } else {
+      updateCollabModalView();
+      collabModal?.classList.remove("hidden");
+    }
   });
 
   window.addEventListener('beforeunload', (e) => {
@@ -7000,6 +7117,8 @@ window.addEventListener("DOMContentLoaded", () => {
 
     const isExplorerFocused =
       document.activeElement === selectedExplorerElement ||
+      selectedExplorerElement?.contains(document.activeElement) ||
+      document.getElementById('file-tree')?.contains(document.activeElement) ||
       document.getElementById('explorer-panel')?.contains(document.activeElement) ||
       document.activeElement === document.body;
 
@@ -7014,16 +7133,36 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Delete (Cmd+Backspace/Cmd+Delete on Mac, Delete/Canc on Win/Linux)
+    // Delete (Canc / Delete / Backspace / Cmd+Backspace on Mac)
     const isDarwin = platform === 'darwin';
-    const isDelete = isDarwin
-      ? (e.metaKey && (e.key === 'Backspace' || e.key === 'Delete'))
-      : (!e.metaKey && !e.ctrlKey && !e.altKey && e.key === 'Delete');
+    const isDelete =
+      e.key === 'Delete' ||
+      e.key === 'Backspace' ||
+      (isDarwin && (e.metaKey && (e.key === 'Backspace' || e.key === 'Delete')));
 
     if (isDelete) {
       e.preventDefault();
       deleteExplorerFile(selectedExplorerPath);
       return;
+    }
+
+    // Navigation (ArrowDown / ArrowUp)
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      const allFiles = Array.from(document.querySelectorAll('#file-tree .tree-file'));
+      const currentIndex = allFiles.indexOf(selectedExplorerElement);
+      if (currentIndex !== -1) {
+        e.preventDefault();
+        const nextIndex = e.key === 'ArrowDown'
+          ? Math.min(allFiles.length - 1, currentIndex + 1)
+          : Math.max(0, currentIndex - 1);
+        const nextFile = allFiles[nextIndex];
+        if (nextFile) {
+          selectExplorerItem(nextFile.dataset.path, nextFile);
+          openFileInTab(nextFile.dataset.path);
+          try { nextFile.focus(); } catch (_) {}
+        }
+        return;
+      }
     }
   });
 

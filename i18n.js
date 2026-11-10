@@ -189,6 +189,7 @@ const translations = {
     collab_enter_code_placeholder: "mark-xxxxxx",
     collab_join_session: "Join session",
     collab_session_active: "Active session",
+    collab_active_file: "Document:",
     collab_participants: "participants connected",
     collab_leave_session: "End session",
 
@@ -511,6 +512,7 @@ const translations = {
     collab_enter_code_placeholder: "mark-xxxxxx",
     collab_join_session: "Entra nella sessione",
     collab_session_active: "Sessione attiva",
+    collab_active_file: "Documento:",
     collab_participants: "partecipanti connessi",
     collab_leave_session: "Termina sessione",
 

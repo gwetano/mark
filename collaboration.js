@@ -10,6 +10,9 @@ let isApplyingRemote = false;
 let currentRoomId = null;
 let localEditorRef = null;
 let inputHandlerRef = null;
+let currentTargetTabId = null;
+let isTargetActiveFn = null;
+let onRemoteBackgroundUpdateRef = null;
 
 // Calcola il diff minimo tra il vecchio e il nuovo testo e lo applica a Y.Text
 function applyDiffToYText(yTextTarget, oldVal, newVal) {
@@ -58,6 +61,10 @@ function startCollaboration({
   password = null,
   editor,
   isJoining = false,
+  targetTabId = null,
+  initialContent = null,
+  isTargetActive = null,
+  onRemoteBackgroundUpdate = null,
   onRemoteUpdate,
   onUsersChange,
   onStatusChange,
@@ -69,16 +76,23 @@ function startCollaboration({
 
   currentRoomId = roomId.trim();
   localEditorRef = editor;
+  currentTargetTabId = targetTabId;
+  isTargetActiveFn = typeof isTargetActive === 'function' ? isTargetActive : () => true;
+  onRemoteBackgroundUpdateRef = onRemoteBackgroundUpdate;
 
   ydoc = new Y.Doc();
   yText = ydoc.getText('markdown-content');
 
-  // Solo se siamo noi ad avviare la sessione (host/creatore) e l'editor ha del testo,
+  // Solo se siamo noi ad avviare la sessione (host/creatore) e abbiamo del testo,
   // popoliamo inizialmente il documento condiviso. Se ci stiamo unendo, aspettiamo i dati della stanza.
-  if (!isJoining && editor.value && editor.value.trim().length > 0) {
+  const startingContent = initialContent !== null && initialContent !== undefined
+    ? initialContent
+    : (editor && editor.value ? editor.value : '');
+
+  if (!isJoining && startingContent && startingContent.trim().length > 0) {
     ydoc.transact(() => {
       if (yText.length === 0) {
-        yText.insert(0, editor.value);
+        yText.insert(0, startingContent);
       }
     }, 'local');
   }
@@ -121,8 +135,18 @@ function startCollaboration({
   } catch (_) {}
 
   function applyRemoteTextToEditor() {
-    if (isApplyingRemote || !yText || !editor) return;
+    if (isApplyingRemote || !yText) return;
     const remoteText = yText.toString();
+
+    const isCurrentActive = isTargetActiveFn ? isTargetActiveFn() : true;
+    if (!isCurrentActive) {
+      if (onRemoteBackgroundUpdateRef) {
+        onRemoteBackgroundUpdateRef(remoteText);
+      }
+      return;
+    }
+
+    if (!editor) return;
     if (editor.value === remoteText) return;
 
     isApplyingRemote = true;
@@ -170,13 +194,23 @@ function startCollaboration({
     }
   });
 
-  // Ascolta le modifiche remote da Y.Text e aggiorna l'editor
+  // Ascolta le modifiche remote da Y.Text e aggiorna l'editor o la tab in background
   yText.observe((event) => {
     if (event.transaction.origin === 'local') {
       return; // È una nostra modifica locale, ignoriamo
     }
 
     const newText = yText.toString();
+    const isCurrentActive = isTargetActiveFn ? isTargetActiveFn() : true;
+
+    if (!isCurrentActive) {
+      if (onRemoteBackgroundUpdateRef) {
+        onRemoteBackgroundUpdateRef(newText);
+      }
+      return;
+    }
+
+    if (!editor) return;
     if (editor.value === newText) return;
 
     isApplyingRemote = true;
@@ -217,6 +251,12 @@ function startCollaboration({
   // Ascolta le modifiche locali dall'utente sull'editor e le sincronizza su Y.Text
   inputHandlerRef = () => {
     if (isApplyingRemote || !yText) return;
+
+    // Se l'utente sta modificando un'altra scheda, non sincronizziamo con la sessione condivisa
+    if (isTargetActiveFn && !isTargetActiveFn()) {
+      return;
+    }
+
     const currentVal = editor.value;
     const yVal = yText.toString();
     if (currentVal === yVal) return;
@@ -230,6 +270,7 @@ function startCollaboration({
 
   return {
     roomId: currentRoomId,
+    targetTabId: currentTargetTabId,
     provider,
     ydoc
   };
@@ -244,6 +285,10 @@ function leaveCollaboration() {
     inputHandlerRef = null;
     localEditorRef = null;
   }
+
+  currentTargetTabId = null;
+  isTargetActiveFn = null;
+  onRemoteBackgroundUpdateRef = null;
 
   if (provider) {
     try {
@@ -285,6 +330,7 @@ function getCollabState() {
   return {
     isActive: !!provider,
     roomId: currentRoomId,
+    targetTabId: currentTargetTabId,
     userCount: provider ? provider.awareness.getStates().size : 0
   };
 }

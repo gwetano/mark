@@ -534,6 +534,95 @@ body.dark #logo {
   display: none;
 }
 
+/* --- SCHEDA CON COLLABORAZIONE CONDIVISA ATTIVA --- */
+.editor-tab:has(+ .collab-active-tab) {
+  border-right: none !important;
+}
+
+.editor-tab.collab-active-tab,
+.editor-tab.collab-active-tab:hover,
+.editor-tab.collab-active-tab.active {
+  opacity: 1;
+  border: none !important;
+  border-right: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: linear-gradient(
+    120deg,
+    rgba(167, 243, 208, 0.78) 0%,
+    rgba(165, 243, 252, 0.68) 22%,
+    rgba(254, 240, 138, 0.58) 45%,
+    rgba(251, 207, 232, 0.48) 68%,
+    rgba(134, 239, 172, 0.72) 86%,
+    rgba(167, 243, 208, 0.78) 100%
+  ) !important;
+  background-size: 260% 260% !important;
+  animation: collabRainbowGreen 7s ease-in-out infinite;
+}
+
+body.dark .editor-tab.collab-active-tab,
+body.dark .editor-tab.collab-active-tab:hover,
+body.dark .editor-tab.collab-active-tab.active {
+  border: none !important;
+  border-right: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: linear-gradient(
+    120deg,
+    rgba(16, 185, 129, 0.42) 0%,
+    rgba(14, 165, 233, 0.34) 22%,
+    rgba(234, 179, 8, 0.30) 45%,
+    rgba(192, 132, 252, 0.28) 68%,
+    rgba(34, 197, 94, 0.40) 86%,
+    rgba(16, 185, 129, 0.42) 100%
+  ) !important;
+  background-size: 260% 260% !important;
+  animation: collabRainbowGreen 7s ease-in-out infinite;
+}
+
+.editor-tab.collab-active-tab .tab-icon {
+  color: #059669;
+  opacity: 1;
+}
+
+body.dark .editor-tab.collab-active-tab .tab-icon {
+  color: #34d399;
+}
+
+.editor-tab.collab-active-tab .tab-title {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  animation: none !important;
+  font-weight: 500;
+}
+
+.editor-tab.collab-active-tab .tab-close-btn {
+  opacity: 0.65;
+}
+
+.editor-tab.collab-active-tab .tab-close-btn:hover {
+  opacity: 1;
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+body.dark .editor-tab.collab-active-tab .tab-close-btn:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+@keyframes collabRainbowGreen {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
 .tab-dirty.visible {
   display: inline-block !important;
 }
@@ -662,13 +751,7 @@ body.dark #tab-drop-indicator::after {
   height: 96px;
   object-fit: contain;
   opacity: 0.88;
-  margin-bottom: 12px;
-  transition: transform 0.2s ease, opacity 0.2s ease;
-}
-
-#empty-state-logo:hover {
-  transform: scale(1.04);
-  opacity: 1;
+  margin-bottom: 24px;
 }
 
 body.dark #empty-state-logo {
@@ -684,10 +767,7 @@ body.dark #empty-state-logo {
 }
 
 .empty-state-subtitle {
-  font-size: 13px;
-  color: var(--fg);
-  opacity: 0.55;
-  margin: 0 0 22px 0;
+  display: none;
 }
 
 .empty-state-menu {
@@ -708,14 +788,19 @@ body.dark #empty-state-logo {
   background-color: var(--explorer-bg);
   color: var(--fg);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s ease;
   font-size: 13px;
+  outline: none;
 }
 
 .empty-menu-item:hover {
   background-color: var(--explorer-hover);
-  border-color: #007acc;
-  transform: translateY(-1px);
+}
+
+.empty-menu-item:focus,
+.empty-menu-item:focus-visible {
+  outline: none;
+  border-color: var(--explorer-border);
 }
 
 .empty-item-left {
@@ -756,7 +841,13 @@ body.dark .empty-menu-item {
 }
 
 body.dark .empty-menu-item:hover {
-  border-color: #007acc;
+  background-color: var(--explorer-hover);
+}
+
+body.dark .empty-menu-item:focus,
+body.dark .empty-menu-item:focus-visible {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 body.dark .empty-item-shortcut kbd {
@@ -3888,6 +3979,31 @@ body.dark .collab-input:focus {
   gap: 4px;
   font-size: 12px;
   opacity: 0.8;
+}
+
+.collab-file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 6px 0;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background-color: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.collab-file-label {
+  opacity: 0.7;
+  font-weight: 500;
+}
+
+.collab-file-name {
+  font-weight: 600;
+  color: #10b981;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ====== POP-UP MODAL EXPORT PDF ====== */
