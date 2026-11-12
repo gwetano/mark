@@ -32,6 +32,16 @@ const {
 } = require("./collaboration.js");
 const { buildExportHtml } = require("./html-export.js");
 
+let pdfjsLib = null;
+try {
+  pdfjsLib = require("./lib/pdfjs/pdf.js");
+  if (pdfjsLib && pdfjsLib.GlobalWorkerOptions) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = path.join(__dirname, "lib/pdfjs/pdf.worker.js");
+  }
+} catch (e) {
+  console.warn("PDF.js loading error:", e);
+}
+
 // ====== UTILS PRECOCI ======
 function escapeHtml(s) { 
   if (typeof s !== 'string') return String(s);
@@ -891,6 +901,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const FOLDER_CHEVRON_SVG = `<svg class="tree-chevron-icon" width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
   const FOLDER_SVG = `<svg class="tree-item-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>`;
   const FILE_SVG = `<svg class="tree-item-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 14H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>`;
+  const PDF_FILE_SVG = `<svg class="tree-item-icon pdf-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14H8v-2h4v2zm4-4H8v-2h8v2zm0-4H8V7h8v2z"/></svg>`;
 
   // ===== UNDO HISTORY LOGIC =====
   let actionHistory = [];
@@ -1155,16 +1166,33 @@ window.addEventListener("DOMContentLoaded", () => {
   function setReadingMode(active) {
     isReadingMode = active;
     document.body.classList.toggle('reading-mode-active', active);
+
+    const activeTab = typeof getActiveTab === 'function' ? getActiveTab() : null;
+    const isPdfActive = !!(activeTab && activeTab.isPdf);
+    const pdfViewerEl = document.getElementById("pdf-viewer-container");
+
     if (active) {
       if (typeof stopTypewriterEffect === 'function') stopTypewriterEffect();
-      if (viewContainer) previousViewClass = viewContainer.className || "split-view";
       if (navbar) navbar.classList.add('reading-mode-active');
       if (footer) footer.style.display = 'none';
       if (explorerPanel) explorerPanel.classList.add('hidden');
       if (explorerResizer) explorerResizer.classList.add('hidden');
+      updateExplorerToggleBtn();
       if (tabsBar) tabsBar.classList.add('hidden');
       if (emptyState) emptyState.classList.add('hidden');
-      if (viewContainer) viewContainer.className = "solo-preview";
+
+      if (isPdfActive) {
+        if (viewContainer) viewContainer.classList.add('hidden');
+        if (pdfViewerEl) pdfViewerEl.classList.remove('hidden');
+      } else {
+        if (viewContainer) {
+          previousViewClass = viewContainer.className || "split-view";
+          viewContainer.className = "solo-preview";
+          viewContainer.classList.remove('hidden');
+        }
+        if (pdfViewerEl) pdfViewerEl.classList.add('hidden');
+      }
+
       if (appContainer) {
         appContainer.style.marginTop = '0';
         appContainer.style.marginBottom = '0';
@@ -1184,16 +1212,32 @@ window.addEventListener("DOMContentLoaded", () => {
       if (footer) footer.style.display = 'flex';
       if (tabsBar && tabs.length > 0) tabsBar.classList.remove('hidden');
       if (emptyState && tabs.length === 0) emptyState.classList.remove('hidden');
-      if (viewContainer) viewContainer.className = previousViewClass;
+      updateExplorerToggleBtn();
+
+      if (isPdfActive) {
+        if (viewContainer) viewContainer.classList.add('hidden');
+        if (pdfViewerEl) pdfViewerEl.classList.remove('hidden');
+      } else {
+        if (viewContainer) {
+          viewContainer.className = previousViewClass;
+          viewContainer.classList.remove('hidden');
+        }
+        if (pdfViewerEl) pdfViewerEl.classList.add('hidden');
+      }
+
       if (appContainer) {
         appContainer.style.marginTop = '55px';
         appContainer.style.marginBottom = '35px';
         appContainer.style.height = 'calc(100% - 55px - 35px)';
       }
       refreshSearchIfOpen();
-      if (editor && editor.value.length === 0 && typeof startTypewriterEffect === 'function') {
+      if (!isPdfActive && editor && editor.value.length === 0 && typeof startTypewriterEffect === 'function') {
         startTypewriterEffect();
       }
+    }
+
+    if (isPdfActive && typeof updatePdfToolbarUI === 'function') {
+      updatePdfToolbarUI(activeTab);
     }
   }
 
@@ -1225,12 +1269,22 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  function updateExplorerToggleBtn() {
+    if (!btnToggleExplorer) return;
+    const isClosed = !explorerPanel || explorerPanel.classList.contains('hidden');
+    btnToggleExplorer.textContent = isClosed ? '>' : '<';
+  }
+
   if (btnToggleExplorer) {
     btnToggleExplorer.addEventListener('click', () => {
-      if (explorerPanel) explorerPanel.classList.toggle('hidden');
-      if (explorerResizer) explorerResizer.classList.toggle('hidden', explorerPanel.classList.contains('hidden'));
+      if (explorerPanel) {
+        explorerPanel.classList.toggle('hidden');
+        if (explorerResizer) explorerResizer.classList.toggle('hidden', explorerPanel.classList.contains('hidden'));
+        updateExplorerToggleBtn();
+      }
     });
   }
+  updateExplorerToggleBtn();
 
   // --- LOGICA RIDIMENSIONAMENTO (RESIZER) ---
   let isExplorerResizing = false;
@@ -1414,6 +1468,14 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   collapseAllBtn && collapseAllBtn.addEventListener("click", () => collapseAllFolders());
   refreshExplorerBtn && refreshExplorerBtn.addEventListener("click", () => { if (currentFolderPath) openFolder(currentFolderPath); });
+
+  folderPathEl && folderPathEl.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (currentFolderPath) {
+      showOpenFolderPathContextMenu(currentFolderPath);
+    }
+  });
 
   // ===== WORD COUNT =====
   const updateWordCount = () => {
@@ -3679,6 +3741,12 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  ipcRenderer.on("load-pdf", (event, filePath) => {
+    if (typeof openFileInTab === 'function') {
+      openFileInTab(filePath);
+    }
+  });
+
   ipcRenderer.on("export-pdf", () => exportToPdf());
   ipcRenderer.on("pdf-saved", () => {
     showNotification(i18n.t("notif_pdf_saved") || "PDF file exported successfully", "success");
@@ -3695,7 +3763,18 @@ window.addEventListener("DOMContentLoaded", () => {
       closeTab(activeTabId);
     }
   });
-  ipcRenderer.on("toggle-explorer", () => { const p = document.getElementById("explorer-panel"); p && p.classList.toggle("hidden"); });
+  ipcRenderer.on("toggle-explorer", () => {
+    const p = document.getElementById("explorer-panel");
+    const r = document.getElementById("explorer-resizer");
+    if (p) {
+      p.classList.toggle("hidden");
+      if (r) r.classList.toggle("hidden", p.classList.contains("hidden"));
+      updateExplorerToggleBtn();
+    }
+  });
+  ipcRenderer.on("close-folder", () => {
+    if (typeof closeFolder === 'function') closeFolder();
+  });
   const toggleViewMode = (targetMode) => {
     if (typeof tabs !== 'undefined' && tabs.length === 0) return;
     const container = document.getElementById("container");
@@ -4154,6 +4233,167 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function isHeadingOrTitle(el) {
+    if (!el) return false;
+    if (/^H[1-6]$/i.test(el.tagName)) return true;
+    if (el.tagName.toLowerCase() === 'p') {
+      const text = el.textContent.trim();
+      if (text.length > 0 && text.length < 120) {
+        const firstChild = el.firstElementChild;
+        if (firstChild && (firstChild.tagName === 'STRONG' || firstChild.tagName === 'B')) {
+          const strongText = firstChild.textContent.trim();
+          if (strongText === text || (text.startsWith(strongText) && text.length <= strongText.length + 4)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  function preventOrphanHeadings(container) {
+    if (!container) return;
+
+    const candidates = Array.from(container.querySelectorAll('h1, h2, h3, h4, h5, h6, p'));
+    const headings = candidates.filter(isHeadingOrTitle);
+
+    for (let i = 0; i < headings.length; i++) {
+      const heading = headings[i];
+      if (heading.closest('.table-of-contents') || heading.closest('.heading-keep-group')) {
+        continue;
+      }
+
+      // Raggruppa eventuali titoli consecutivi (es. h1 seguito subito da h2 o titolo in grassetto)
+      const consecutiveHeadings = [heading];
+      let sibling = heading.nextElementSibling;
+      while (sibling && isHeadingOrTitle(sibling)) {
+        consecutiveHeadings.push(sibling);
+        sibling = sibling.nextElementSibling;
+      }
+
+      // Salta ed elimina eventuali nodi vuoti o interruzioni spurie
+      while (sibling && (sibling.tagName === 'BR' || (sibling.textContent.trim() === '' && !sibling.querySelector('img, svg, canvas, table')))) {
+        const toRemove = sibling;
+        sibling = sibling.nextElementSibling;
+        toRemove.remove();
+      }
+
+      // Crea il wrapper per impedire che il titolo rimanga orfano a fine pagina
+      const groupWrapper = document.createElement('div');
+      groupWrapper.className = 'heading-keep-group';
+      groupWrapper.setAttribute('style', 'break-inside: avoid !important; page-break-inside: avoid !important; margin: 0 !important; padding: 0 !important; display: block !important;');
+
+      heading.parentNode.insertBefore(groupWrapper, heading);
+
+      for (const h of consecutiveHeadings) {
+        groupWrapper.appendChild(h);
+      }
+
+      if (!sibling) {
+        continue;
+      }
+
+      const tagName = sibling.tagName.toLowerCase();
+
+      if (tagName === 'ul' || tagName === 'ol') {
+        const list = sibling;
+        const items = Array.from(list.children).filter(el => el.tagName.toLowerCase() === 'li');
+
+        if (items.length <= 2) {
+          // Meno o uguale a 2 elementi: tieni l'intera lista con il titolo
+          groupWrapper.appendChild(list);
+        } else {
+          // Più di 2 elementi: sposta i primi 2 elementi insieme al titolo
+          const firstList = document.createElement(tagName);
+          for (const attr of list.attributes) {
+            firstList.setAttribute(attr.name, attr.value);
+          }
+          firstList.style.marginBottom = '0px';
+          firstList.style.paddingBottom = '0px';
+
+          firstList.appendChild(items[0]);
+          firstList.appendChild(items[1]);
+          groupWrapper.appendChild(firstList);
+
+          list.style.marginTop = '0px';
+          list.style.paddingTop = '0px';
+          if (tagName === 'ol') {
+            const originalStart = parseInt(list.getAttribute('start') || '1', 10);
+            list.setAttribute('start', (originalStart + 2).toString());
+          }
+        }
+      } else if (tagName === 'p') {
+        const p = sibling;
+        const text = p.textContent.trim();
+
+        // Se il paragrafo ha circa 2-3 righe (fino a 240 caratteri) o meno, mantieni l'intero paragrafo
+        if (text.length <= 240) {
+          groupWrapper.appendChild(p);
+        } else {
+          // Se il paragrafo è più lungo, estrai almeno 2 righe (~120-180 caratteri)
+          let splitIndex = -1;
+          const sentenceMatch = text.slice(110, 220).search(/[.!?]\s+/);
+          if (sentenceMatch !== -1) {
+            splitIndex = 110 + sentenceMatch + 1;
+          } else {
+            const spaceMatch = text.slice(130, 190).search(/\s+/);
+            if (spaceMatch !== -1) {
+              splitIndex = 130 + spaceMatch;
+            }
+          }
+
+          if (splitIndex > 50 && splitIndex < text.length - 20) {
+            try {
+              const range = document.createRange();
+              let charCount = 0;
+              let targetNode = null;
+              let targetOffset = 0;
+
+              const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT, null, false);
+              let node;
+              while ((node = walker.nextNode())) {
+                const nextCount = charCount + node.textContent.length;
+                if (splitIndex <= nextCount) {
+                  targetNode = node;
+                  targetOffset = splitIndex - charCount;
+                  break;
+                }
+                charCount = nextCount;
+              }
+
+              if (targetNode) {
+                range.setStart(p, 0);
+                range.setEnd(targetNode, targetOffset);
+                const extractedFragment = range.extractContents();
+
+                const leadP = document.createElement('p');
+                for (const attr of p.attributes) {
+                  leadP.setAttribute(attr.name, attr.value);
+                }
+                leadP.style.marginBottom = '0px';
+                leadP.appendChild(extractedFragment);
+                groupWrapper.appendChild(leadP);
+
+                p.style.marginTop = '0px';
+                p.style.textIndent = '0px';
+              } else {
+                groupWrapper.appendChild(p);
+              }
+            } catch (e) {
+              groupWrapper.appendChild(p);
+            }
+          } else {
+            groupWrapper.appendChild(p);
+          }
+        }
+      } else if (tagName === 'blockquote' || tagName === 'pre' || tagName === 'table' || tagName === 'figure') {
+        groupWrapper.appendChild(sibling);
+      } else {
+        groupWrapper.appendChild(sibling);
+      }
+    }
+  }
+
   function getPreparedPdfHtml() {
     if (!preview) return '';
 
@@ -4213,6 +4453,8 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     });
 
+    preventOrphanHeadings(tempDiv);
+
     return tempDiv.innerHTML;
   }
 
@@ -4238,131 +4480,311 @@ window.addEventListener("DOMContentLoaded", () => {
     ipcRenderer.send("print-to-pdf", content, docTitle, exportPdfSettings, targetFilePath || null);
   }
 
-  // ===== HTML export =====
-  function exportToHtml() {
-    if (!preview) return;
+  // ===== HTML export data preparation =====
+  function getPreparedHtmlDataForExport() {
+    if (!preview) return { bodyHtml: '', headings: [], filename: 'document.md' };
 
-    try {
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = preview.innerHTML;
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = preview.innerHTML;
 
-      // 1. Rimuovi eventuali bottoni di copia o colore già presenti nella preview per pulire l'HTML
-      tempDiv.querySelectorAll('.code-copy-btn').forEach(btn => btn.remove());
-      tempDiv.querySelectorAll('.callout-color-btn').forEach(btn => btn.remove());
+    // 1. Rimuovi eventuali bottoni di copia o colore già presenti nella preview per pulire l'HTML
+    tempDiv.querySelectorAll('.code-copy-btn').forEach(btn => btn.remove());
+    tempDiv.querySelectorAll('.callout-color-btn').forEach(btn => btn.remove());
 
-      // 2. Converti immagini locali / relative in Base64 data URLs
-      const imgs = tempDiv.querySelectorAll('img');
-      imgs.forEach(img => {
-        img.removeAttribute('loading');
-        const src = img.getAttribute('src');
-        if (!src) return;
+    // 2. Converti immagini locali / relative in Base64 data URLs
+    const imgs = tempDiv.querySelectorAll('img');
+    imgs.forEach(img => {
+      img.removeAttribute('loading');
+      const src = img.getAttribute('src');
+      if (!src) return;
 
-        if (/^data:/i.test(src) || /^https?:\/\//i.test(src)) {
+      if (/^data:/i.test(src) || /^https?:\/\//i.test(src)) {
+        return;
+      }
+
+      let filePath = src;
+
+      try {
+        if (/^file:\/\//i.test(src)) {
+          const u = new URL(src);
+          filePath = decodeURIComponent(u.pathname);
+          if (process.platform === 'win32' && filePath.startsWith('/')) {
+            filePath = filePath.slice(1);
+          }
+        } else if (currentFilePath) {
+          const folder = path.dirname(currentFilePath);
+          filePath = path.resolve(folder, decodeURIComponent(src));
+        }
+
+        if (!fs.existsSync(filePath)) {
+          console.warn('[HTML export] Immagine non trovata:', filePath);
           return;
         }
 
-        let filePath = src;
+        const buffer = fs.readFileSync(filePath);
+        const base64 = buffer.toString('base64');
 
-        try {
-          if (/^file:\/\//i.test(src)) {
-            const u = new URL(src);
-            filePath = decodeURIComponent(u.pathname);
-            if (process.platform === 'win32' && filePath.startsWith('/')) {
-              filePath = filePath.slice(1);
-            }
-          } else if (currentFilePath) {
-            const folder = path.dirname(currentFilePath);
-            filePath = path.resolve(folder, decodeURIComponent(src));
-          }
+        const ext = (path.extname(filePath) || '').toLowerCase();
+        let mime = 'image/png';
+        if (ext === '.jpg' || ext === '.jpeg') mime = 'image/jpeg';
+        else if (ext === '.gif') mime = 'image/gif';
+        else if (ext === '.svg') mime = 'image/svg+xml';
+        else if (ext === '.webp') mime = 'image/webp';
 
-          if (!fs.existsSync(filePath)) {
-            console.warn('[HTML export] Immagine non trovata:', filePath);
-            return;
-          }
+        img.setAttribute('src', `data:${mime};base64,${base64}`);
+      } catch (err) {
+        console.error('[HTML export] Errore nel leggere/convertire immagine:', src, err);
+      }
+    });
 
-          const buffer = fs.readFileSync(filePath);
-          const base64 = buffer.toString('base64');
+    // 3. Estrai titoli (h1..h6), assegna ID univoci per il Table of Contents e scroll-spy
+    const headingEls = tempDiv.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    const headings = [];
+    const usedIds = new Set();
 
-          const ext = (path.extname(filePath) || '').toLowerCase();
-          let mime = 'image/png';
-          if (ext === '.jpg' || ext === '.jpeg') mime = 'image/jpeg';
-          else if (ext === '.gif') mime = 'image/gif';
-          else if (ext === '.svg') mime = 'image/svg+xml';
-          else if (ext === '.webp') mime = 'image/webp';
+    headingEls.forEach((h, idx) => {
+      let text = (h.textContent || '').trim();
+      if (!text) text = `Heading ${idx + 1}`;
+      let baseId = text.toLowerCase()
+        .replace(/[^\w\s-]/g, '')
+        .trim()
+        .replace(/\s+/g, '-');
+      if (!baseId) baseId = `heading-${idx + 1}`;
+      let id = baseId;
+      let count = 1;
+      while (usedIds.has(id)) {
+        id = `${baseId}-${count++}`;
+      }
+      usedIds.add(id);
+      h.id = id;
+      const level = parseInt(h.tagName.substring(1), 10) || 1;
+      headings.push({ id, level, text });
+    });
 
-          img.setAttribute('src', `data:${mime};base64,${base64}`);
-        } catch (err) {
-          console.error('[HTML export] Errore nel leggere/convertire immagine:', src, err);
-        }
-      });
+    preventOrphanHeadings(tempDiv);
 
-      // 3. Estrai titoli (h1..h6), assegna ID univoci per il Table of Contents e scroll-spy
-      const headingEls = tempDiv.querySelectorAll('h1, h2, h3, h4, h5, h6');
-      const headings = [];
-      const usedIds = new Set();
+    const currentName = currentFilePath ? path.basename(currentFilePath) : "document.md";
+    return {
+      bodyHtml: tempDiv.innerHTML,
+      headings,
+      filename: currentName
+    };
+  }
 
-      headingEls.forEach((h, idx) => {
-        let text = (h.textContent || '').trim();
-        if (!text) text = `Heading ${idx + 1}`;
-        let baseId = text.toLowerCase()
-          .replace(/[^\w\s-]/g, '')
-          .trim()
-          .replace(/\s+/g, '-');
-        if (!baseId) baseId = `heading-${idx + 1}`;
-        let id = baseId;
-        let count = 1;
-        while (usedIds.has(id)) {
-          id = `${baseId}-${count++}`;
-        }
-        usedIds.add(id);
-        h.id = id;
-        const level = parseInt(h.tagName.substring(1), 10) || 1;
-        headings.push({ id, level, text });
-      });
+  function getDefaultHtmlFileName() {
+    let docName = '';
+    if (currentFilePath) {
+      docName = path.basename(currentFilePath).replace(/\.[^/.]+$/, '');
+    } else {
+      const firstHeading = preview ? preview.querySelector('h1') : null;
+      if (firstHeading && firstHeading.textContent.trim()) {
+        docName = firstHeading.textContent.trim().replace(/[\\/:*?"<>|]/g, '').slice(0, 40);
+      }
+    }
+    return `${docName || 'document'}.html`;
+  }
 
-      // 4. Determina percorso di salvataggio
-      const currentName = currentFilePath ? path.basename(currentFilePath) : "document.md";
-      const defaultName = currentName.replace(/\.[^/.]+$/, "") + ".html";
-      let defaultPath = defaultName;
-      if (currentFilePath) {
-        defaultPath = path.join(path.dirname(currentFilePath), defaultName);
+  // ===== HTML EXPORT MODAL LOGIC =====
+  const htmlExportModal = document.getElementById('html-export-modal');
+  const htmlExportOverlay = document.getElementById('html-export-overlay');
+  const btnCloseHtmlExportModal = document.getElementById('btn-close-html-export-modal');
+  const btnCancelHtmlExport = document.getElementById('btn-cancel-html-export');
+  const btnConfirmHtmlExport = document.getElementById('btn-confirm-html-export');
+  const btnBrowseHtmlLocation = document.getElementById('btn-browse-html-location');
+  const htmlExportPathInput = document.getElementById('html-export-path-input');
+
+  const htmlSelectFont = document.getElementById('html-select-font');
+  const htmlSelectTextAlign = document.getElementById('html-select-text-align');
+  const htmlSelectToc = document.getElementById('html-select-toc');
+
+  const btnHtmlFontDec = document.getElementById('btn-html-font-dec');
+  const btnHtmlFontInc = document.getElementById('btn-html-font-inc');
+  const htmlFontSizeVal = document.getElementById('html-font-size-val');
+  const htmlPreviewIframe = document.getElementById('html-preview-iframe');
+
+  let cachedPreparedHtmlData = null;
+  let htmlPreviewDebounceTimer = null;
+
+  function getSavedHtmlFontSize() {
+    return parseInt(localStorage.getItem('mark.exportHtmlFontSize'), 10) || 16;
+  }
+
+  function setHtmlFontSize(size) {
+    const clamped = Math.max(12, Math.min(28, size));
+    localStorage.setItem('mark.exportHtmlFontSize', String(clamped));
+    if (htmlFontSizeVal) {
+      htmlFontSizeVal.textContent = `${clamped} px`;
+    }
+    updateHtmlPreview();
+  }
+
+  btnHtmlFontDec?.addEventListener('click', () => {
+    setHtmlFontSize(getSavedHtmlFontSize() - 1);
+  });
+
+  btnHtmlFontInc?.addEventListener('click', () => {
+    setHtmlFontSize(getSavedHtmlFontSize() + 1);
+  });
+
+  function buildHtmlExportString(isForPreview = false) {
+    const data = cachedPreparedHtmlData || getPreparedHtmlDataForExport();
+    const fontVal = htmlSelectFont ? htmlSelectFont.value : (localStorage.getItem('mark.exportHtmlFont') || 'inter');
+    const font = (fontVal === 'jetbrains') ? 'jetbrains' : 'inter';
+    const fontSize = getSavedHtmlFontSize();
+    const textAlignVal = htmlSelectTextAlign ? htmlSelectTextAlign.value : (localStorage.getItem('mark.exportHtmlTextAlign') || 'left');
+    const textAlign = (textAlignVal === 'justify') ? 'justify' : 'left';
+    const includeToc = htmlSelectToc ? (htmlSelectToc.value === 'true') : (localStorage.getItem('mark.exportHtmlToc') !== 'false');
+    const theme = document.body.classList.contains('dark') ? 'dark' : 'light';
+    const lang = (typeof i18n.getLanguage === 'function') ? i18n.getLanguage() : (localStorage.getItem('mark.lang') || 'en');
+
+    return buildExportHtml({
+      filename: data.filename,
+      bodyHtml: data.bodyHtml,
+      headings: data.headings,
+      theme,
+      lang,
+      font,
+      fontSize,
+      textAlign,
+      includeToc,
+      isForPreview
+    });
+  }
+
+  function updateHtmlPreview() {
+    clearTimeout(htmlPreviewDebounceTimer);
+    htmlPreviewDebounceTimer = setTimeout(() => {
+      if (!htmlPreviewIframe) return;
+      try {
+        const fullHtml = buildHtmlExportString(true);
+        htmlPreviewIframe.srcdoc = fullHtml;
+      } catch (err) {
+        console.error('Error generating HTML preview:', err);
+      }
+    }, 60);
+  }
+
+  function openHtmlExportModal() {
+    if (!htmlExportModal) return;
+
+    cachedPreparedHtmlData = getPreparedHtmlDataForExport();
+
+    const defaultFileName = getDefaultHtmlFileName();
+    if (htmlExportPathInput) {
+      if (currentFolderPath) {
+        htmlExportPathInput.value = path.join(currentFolderPath, defaultFileName);
       } else {
         try {
-          const docsDir = remote.app.getPath("documents");
-          if (docsDir) defaultPath = path.join(docsDir, defaultName);
-        } catch (_) {}
+          const docsDir = remote.app.getPath('documents');
+          htmlExportPathInput.value = docsDir ? path.join(docsDir, defaultFileName) : defaultFileName;
+        } catch (_) {
+          htmlExportPathInput.value = defaultFileName;
+        }
       }
+    }
 
-      const savePath = dialog.showSaveDialogSync({
+    if (htmlSelectFont) {
+      const savedFont = localStorage.getItem('mark.exportHtmlFont');
+      htmlSelectFont.value = (savedFont === 'jetbrains') ? 'jetbrains' : 'inter';
+    }
+    if (htmlFontSizeVal) {
+      htmlFontSizeVal.textContent = `${getSavedHtmlFontSize()} px`;
+    }
+    if (htmlSelectTextAlign) {
+      const savedAlign = localStorage.getItem('mark.exportHtmlTextAlign');
+      htmlSelectTextAlign.value = (savedAlign === 'justify') ? 'justify' : 'left';
+    }
+    if (htmlSelectToc) {
+      htmlSelectToc.value = (localStorage.getItem('mark.exportHtmlToc') !== 'false') ? 'true' : 'false';
+    }
+
+    updateHtmlPreview();
+
+    htmlExportModal.classList.remove('hidden');
+    if (htmlExportPathInput) {
+      htmlExportPathInput.focus();
+    }
+  }
+
+  function closeHtmlExportModal() {
+    if (htmlExportModal) {
+      htmlExportModal.classList.add('hidden');
+    }
+  }
+
+  htmlSelectFont?.addEventListener('change', () => {
+    localStorage.setItem('mark.exportHtmlFont', htmlSelectFont.value);
+    updateHtmlPreview();
+  });
+
+  htmlSelectTextAlign?.addEventListener('change', () => {
+    localStorage.setItem('mark.exportHtmlTextAlign', htmlSelectTextAlign.value);
+    updateHtmlPreview();
+  });
+
+  htmlSelectToc?.addEventListener('change', () => {
+    localStorage.setItem('mark.exportHtmlToc', htmlSelectToc.value);
+    updateHtmlPreview();
+  });
+
+  btnCloseHtmlExportModal?.addEventListener('click', closeHtmlExportModal);
+  btnCancelHtmlExport?.addEventListener('click', closeHtmlExportModal);
+  htmlExportOverlay?.addEventListener('click', closeHtmlExportModal);
+
+  btnBrowseHtmlLocation?.addEventListener('click', () => {
+    const defaultFileName = getDefaultHtmlFileName();
+    const currentVal = htmlExportPathInput?.value.trim();
+    const suggestedPath = currentVal || (currentFolderPath ? path.join(currentFolderPath, defaultFileName) : defaultFileName);
+    const result = dialog.showSaveDialogSync({
+      title: i18n.t("dialog_save_html_title") || "Save HTML",
+      defaultPath: suggestedPath,
+      filters: [
+        { name: "HTML Files (*.html, *.htm)", extensions: ["html", "htm"] },
+        { name: "All Files", extensions: ["*"] }
+      ]
+    });
+    if (result && htmlExportPathInput) {
+      htmlExportPathInput.value = result;
+    }
+  });
+
+  function performHtmlExport(targetFilePath) {
+    try {
+      const fullHtml = buildHtmlExportString(false);
+      fs.writeFileSync(targetFilePath, fullHtml, 'utf8');
+      showNotification(i18n.t("notif_html_saved") || "HTML file exported successfully", "success");
+    } catch (err) {
+      console.error('[HTML export] Export error:', err);
+      showNotification(i18n.t("notif_html_export_error", { msg: err.message }) || ("Error: " + err.message), "error");
+    }
+  }
+
+  btnConfirmHtmlExport?.addEventListener('click', () => {
+    let targetPath = htmlExportPathInput?.value.trim();
+    if (!targetPath) {
+      const defaultFileName = getDefaultHtmlFileName();
+      const suggestedPath = currentFolderPath ? path.join(currentFolderPath, defaultFileName) : defaultFileName;
+      const result = dialog.showSaveDialogSync({
         title: i18n.t("dialog_save_html_title") || "Save HTML",
-        defaultPath: defaultPath,
+        defaultPath: suggestedPath,
         filters: [
           { name: "HTML Files (*.html, *.htm)", extensions: ["html", "htm"] },
           { name: "All Files", extensions: ["*"] }
         ]
       });
-
-      if (!savePath) return;
-
-      // 5. Genera standalone HTML
-      const isDark = document.body.classList.contains("dark");
-      const lang = (typeof i18n.getLanguage === 'function') ? i18n.getLanguage() : (localStorage.getItem('mark.lang') || 'en');
-
-      const fullHtml = buildExportHtml({
-        filename: currentName,
-        bodyHtml: tempDiv.innerHTML,
-        headings,
-        theme: isDark ? "dark" : "light",
-        lang
-      });
-
-      // 6. Scrivi file su disco e mostra notifica
-      fs.writeFileSync(savePath, fullHtml, "utf8");
-      showNotification(i18n.t("notif_html_saved") || "HTML file exported successfully", "success");
-    } catch (err) {
-      console.error('[HTML export] Errore esportazione:', err);
-      showNotification(i18n.t("notif_html_export_error", { msg: err.message }) || ("Error: " + err.message), "error");
+      if (!result) return;
+      targetPath = result;
+      if (htmlExportPathInput) {
+        htmlExportPathInput.value = targetPath;
+      }
     }
+
+    closeHtmlExportModal();
+    performHtmlExport(targetPath);
+  });
+
+  function exportToHtml() {
+    openHtmlExportModal();
   }
 
   // ===== FLOATING PREVIEW EXPORT WIDGET =====
@@ -4533,7 +4955,92 @@ window.addEventListener("DOMContentLoaded", () => {
     const explorerResizer = document.getElementById('explorer-resizer');
     if (explorerResizer) explorerResizer.classList.remove('hidden');
 
+    updateExplorerToggleBtn();
+
     createFileTree(folderPath, fileTree);
+  }
+
+  async function closeFolder() {
+    if (!currentFolderPath && tabs.length === 0) return true;
+
+    // Safety check: verifica se ci sono modifiche non salvate nei tab aperti
+    for (let i = 0; i < tabs.length; i++) {
+      const tab = tabs[i];
+      if (tab.id === activeTabId && editor && !tab.isPdf) {
+        tab.content = editor.value;
+        if (isDirty) tab.isDirty = true;
+      }
+      if (tab.isDirty) {
+        switchToTab(tab.id);
+        const messageText = i18n.t('dialog_unsaved_tab_message', { name: tab.title }) ||
+          `Do you want to save the changes you made to "${tab.title}"?`;
+
+        const answer = dialog.showMessageBoxSync({
+          type: 'question',
+          buttons: [i18n.t('dialog_save'), i18n.t('dialog_dont_save'), i18n.t('dialog_cancel')],
+          defaultId: 0,
+          cancelId: 2,
+          title: i18n.t('dialog_unsaved_title'),
+          message: messageText
+        });
+
+        if (answer === 0) { // Save
+          const saved = await saveSpecificTab(tab);
+          if (!saved) return false;
+        } else if (answer === 1) { // Don't Save
+          tab.isDirty = false;
+        } else { // Cancel
+          return false;
+        }
+      }
+    }
+
+    // Se c'è una sessione di collaborazione attiva, chiudila
+    if (getCollabState().isActive) {
+      leaveCollaboration();
+      collabTabId = null;
+      const bCollab = document.getElementById("btn-collab");
+      bCollab?.classList.remove("active-collab");
+      const sContainer = document.getElementById("collab-status-container");
+      sContainer?.classList.add("hidden");
+      if (typeof updateCollabModalView === 'function') updateCollabModalView();
+    }
+
+    // Chiudi tutte le schede e azzera lo stato dell'editor
+    tabs = [];
+    activeTabId = null;
+    currentFilePath = null;
+    isDirty = false;
+    currentPdfTabState = null;
+
+    if (editor) editor.value = '';
+    if (preview) preview.innerHTML = '';
+    if (typeof stopTypewriterEffect === 'function') stopTypewriterEffect();
+
+    // Reset stato cartella aperta nell'explorer
+    currentFolderPath = null;
+    if (folderPathEl) {
+      folderPathEl.innerHTML = '';
+      folderPathEl.title = '';
+      folderPathEl.classList.add('hidden');
+    }
+    if (fileTree) {
+      fileTree.innerHTML = '';
+    }
+    clearExplorerSelection();
+
+    // Chiudi explorer e aggiorna simbolo su '>'
+    if (explorerPanel) explorerPanel.classList.add('hidden');
+    if (explorerResizer) explorerResizer.classList.add('hidden');
+    updateExplorerToggleBtn();
+
+    // Notifica il processo principale
+    ipcRenderer.send('folder-closed');
+
+    // Torna alla schermata iniziale senza schede aperte
+    renderTabs();
+
+    return true;
   }
 
   // ===== COLLABORATION GUARD CONTRO CREAZIONE/JOIN DI UNA NUOVA SESSIONE =====
@@ -4600,7 +5107,14 @@ window.addEventListener("DOMContentLoaded", () => {
 
   function saveStateForActiveTab() {
     const activeTab = getActiveTab();
-    if (activeTab && editor) {
+    if (!activeTab) return;
+    if (activeTab.isPdf) {
+      const viewportEl = document.getElementById("pdf-pages-viewport");
+      if (viewportEl) {
+        activeTab.pdfScrollTop = viewportEl.scrollTop;
+        activeTab.pdfScrollLeft = viewportEl.scrollLeft;
+      }
+    } else if (editor) {
       activeTab.content = editor.value;
       activeTab.scrollTop = editor.scrollTop;
       activeTab.selectionStart = editor.selectionStart;
@@ -4631,16 +5145,31 @@ window.addEventListener("DOMContentLoaded", () => {
     tabsScrollArea.innerHTML = '';
 
     const hasTabs = tabs.length > 0;
+    const activeTab = getActiveTab();
+    const isPdfActive = !!(activeTab && activeTab.isPdf);
+
     const btnViewEditorEl = document.getElementById("btn-view-editor");
     const btnViewSplitEl = document.getElementById("btn-view-split");
     const btnViewPreviewEl = document.getElementById("btn-view-preview");
-    if (btnViewEditorEl) btnViewEditorEl.disabled = !hasTabs;
-    if (btnViewSplitEl) btnViewSplitEl.disabled = !hasTabs;
-    if (btnViewPreviewEl) btnViewPreviewEl.disabled = !hasTabs;
+    if (btnViewEditorEl) {
+      btnViewEditorEl.disabled = !hasTabs || isPdfActive;
+      btnViewEditorEl.classList.toggle('disabled', isPdfActive);
+    }
+    if (btnViewSplitEl) {
+      btnViewSplitEl.disabled = !hasTabs || isPdfActive;
+      btnViewSplitEl.classList.toggle('disabled', isPdfActive);
+    }
+    if (btnViewPreviewEl) {
+      btnViewPreviewEl.disabled = !hasTabs || isPdfActive;
+      btnViewPreviewEl.classList.toggle('disabled', isPdfActive);
+    }
+
+    const pdfViewerEl = document.getElementById("pdf-viewer-container");
 
     if (tabs.length === 0) {
       if (tabsBar) tabsBar.classList.add('hidden');
       if (viewContainer) viewContainer.classList.add('hidden');
+      if (pdfViewerEl) pdfViewerEl.classList.add('hidden');
       if (emptyState) emptyState.classList.remove('hidden');
       if (wordCountEl) wordCountEl.textContent = i18n.t('word_count', { count: 0 });
       document.querySelectorAll('.tree-item').forEach(item => item.classList.remove('active'));
@@ -4649,11 +5178,19 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     if (tabsBar && !isReadingMode) tabsBar.classList.remove('hidden');
-    if (viewContainer) viewContainer.classList.remove('hidden');
     if (emptyState) emptyState.classList.add('hidden');
+
+    if (isPdfActive) {
+      if (viewContainer) viewContainer.classList.add('hidden');
+      if (pdfViewerEl) pdfViewerEl.classList.remove('hidden');
+    } else {
+      if (viewContainer) viewContainer.classList.remove('hidden');
+      if (pdfViewerEl) pdfViewerEl.classList.add('hidden');
+    }
 
     tabs.forEach(tab => {
       const isCollab = (collabTabId && tab.id === collabTabId);
+      const isPdfTab = !!tab.isPdf;
       const tabEl = document.createElement('div');
       tabEl.className = 'editor-tab' +
         (tab.id === activeTabId ? ' active' : '') +
@@ -4662,7 +5199,7 @@ window.addEventListener("DOMContentLoaded", () => {
       tabEl.title = (isCollab ? `[${i18n.t('collab_session_active') || 'Active session'}] ` : '') + (tab.filePath || tab.title);
 
       tabEl.innerHTML = `
-        <span class="tab-icon">${FILE_SVG}</span>
+        <span class="tab-icon ${isPdfTab ? 'tab-icon-pdf' : ''}">${isPdfTab ? PDF_FILE_SVG : FILE_SVG}</span>
         <span class="tab-title">${escapeHtml(tab.title)}</span>
         <span class="tab-dirty ${tab.isDirty ? 'visible' : ''}">*</span>
         <button class="tab-close-btn" data-tab-id="${tab.id}" title="${escapeHtml(i18n.t('tab_close_btn') || 'Close')}">
@@ -4709,7 +5246,6 @@ window.addEventListener("DOMContentLoaded", () => {
       tabsScrollArea.appendChild(tabEl);
     });
 
-    const activeTab = getActiveTab();
     document.querySelectorAll('.tree-item').forEach(item => {
       item.classList.remove('active');
       if (activeTab && activeTab.filePath && item.dataset.path === activeTab.filePath) {
@@ -4930,42 +5466,71 @@ window.addEventListener("DOMContentLoaded", () => {
     currentFilePath = targetTab.filePath;
     isDirty = targetTab.isDirty;
 
-    if (editor) {
-      isProgrammaticEdit = true;
-      editor.value = targetTab.content;
-      lastKnownEditorValue = targetTab.lastKnownEditorValue !== undefined ? targetTab.lastKnownEditorValue : targetTab.content;
-      actionHistory = Array.isArray(targetTab.actionHistory) ? targetTab.actionHistory : [];
-      isProgrammaticEdit = false;
+    const pdfViewerEl = document.getElementById("pdf-viewer-container");
 
-      updatePreview();
-      updateWordCount();
-      updateEditorOverlay();
-
-      editor.scrollTop = targetTab.scrollTop || 0;
-      const sStart = targetTab.selectionStart !== undefined ? targetTab.selectionStart : 0;
-      const sEnd = targetTab.selectionEnd !== undefined ? targetTab.selectionEnd : 0;
-      try {
-        editor.setSelectionRange(sStart, sEnd);
-      } catch (_) {}
-
-      if (targetTab.hasUserCursor && targetTab.userCaret) {
-        editorHasUserCursor = true;
-        editorUserCaret = targetTab.userCaret;
-      } else {
-        editorHasUserCursor = false;
-        editorUserCaret = null;
+    if (targetTab.isPdf) {
+      if (container) container.classList.add('hidden');
+      if (pdfViewerEl) pdfViewerEl.classList.remove('hidden');
+      if (wordCountEl) {
+        wordCountEl.textContent = i18n.t('pdf_document') || 'PDF Document';
       }
-      requestAnimationFrame(() => {
-        buildScrollMap();
-        if (autoscrollEnabled && preview) {
-          preview.scrollTop = getPreviewScrollForEditor(editor.scrollTop);
-        }
-      });
+      if (typeof stopTypewriterEffect === 'function') {
+        stopTypewriterEffect();
+      }
 
-      if (editor.value.length === 0) {
-        if (typeof startTypewriterEffect === 'function') startTypewriterEffect();
+      const pagesContainer = document.getElementById("pdf-pages-canvas-container");
+      const viewportEl = document.getElementById("pdf-pages-viewport");
+      if (pagesContainer && pagesContainer.dataset.renderedTabId === targetTab.id) {
+        // Fast instant restore without re-rendering or white flash
+        updatePdfToolbarUI(targetTab);
+        if (viewportEl && targetTab.pdfScrollTop !== undefined) {
+          viewportEl.scrollTop = targetTab.pdfScrollTop;
+          viewportEl.scrollLeft = targetTab.pdfScrollLeft || 0;
+        }
       } else {
-        if (typeof stopTypewriterEffect === 'function') stopTypewriterEffect();
+        renderPdfActiveTab();
+      }
+    } else {
+      if (container) container.classList.remove('hidden');
+      if (pdfViewerEl) pdfViewerEl.classList.add('hidden');
+
+      if (editor) {
+        isProgrammaticEdit = true;
+        editor.value = targetTab.content;
+        lastKnownEditorValue = targetTab.lastKnownEditorValue !== undefined ? targetTab.lastKnownEditorValue : targetTab.content;
+        actionHistory = Array.isArray(targetTab.actionHistory) ? targetTab.actionHistory : [];
+        isProgrammaticEdit = false;
+
+        updatePreview();
+        updateWordCount();
+        updateEditorOverlay();
+
+        editor.scrollTop = targetTab.scrollTop || 0;
+        const sStart = targetTab.selectionStart !== undefined ? targetTab.selectionStart : 0;
+        const sEnd = targetTab.selectionEnd !== undefined ? targetTab.selectionEnd : 0;
+        try {
+          editor.setSelectionRange(sStart, sEnd);
+        } catch (_) {}
+
+        if (targetTab.hasUserCursor && targetTab.userCaret) {
+          editorHasUserCursor = true;
+          editorUserCaret = targetTab.userCaret;
+        } else {
+          editorHasUserCursor = false;
+          editorUserCaret = null;
+        }
+        requestAnimationFrame(() => {
+          buildScrollMap();
+          if (autoscrollEnabled && preview) {
+            preview.scrollTop = getPreviewScrollForEditor(editor.scrollTop);
+          }
+        });
+
+        if (editor.value.length === 0) {
+          if (typeof startTypewriterEffect === 'function') startTypewriterEffect();
+        } else {
+          if (typeof stopTypewriterEffect === 'function') stopTypewriterEffect();
+        }
       }
     }
 
@@ -5008,6 +5573,7 @@ window.addEventListener("DOMContentLoaded", () => {
   function openFileInTab(filePath, content = null) {
     if (!filePath) return null;
     const normalPath = path.resolve(filePath);
+    const isPdf = typeof isPdfFile === 'function' ? isPdfFile(normalPath) : normalPath.toLowerCase().endsWith('.pdf');
 
     // If already open, switch to it
     const existing = tabs.find(t => t.filePath && path.resolve(t.filePath) === normalPath);
@@ -5016,13 +5582,25 @@ window.addEventListener("DOMContentLoaded", () => {
       return existing;
     }
 
-    let fileContent = content;
-    if (fileContent === null) {
+    let fileContent = '';
+    let pdfBuffer = null;
+
+    if (isPdf) {
       try {
-        fileContent = fs.readFileSync(normalPath, 'utf8');
+        pdfBuffer = fs.readFileSync(normalPath);
       } catch (err) {
         dialog.showErrorBox(i18n.t('notif_error', { msg: err.message }) || 'Error', err.message);
         return null;
+      }
+    } else {
+      fileContent = content;
+      if (fileContent === null) {
+        try {
+          fileContent = fs.readFileSync(normalPath, 'utf8');
+        } catch (err) {
+          dialog.showErrorBox(i18n.t('notif_error', { msg: err.message }) || 'Error', err.message);
+          return null;
+        }
       }
     }
 
@@ -5030,9 +5608,14 @@ window.addEventListener("DOMContentLoaded", () => {
     if (tabs.length === 1 && !tabs[0].filePath && !tabs[0].isDirty && (tabs[0].content === '' || (editor && editor.value === ''))) {
       tabs[0].filePath = normalPath;
       tabs[0].title = path.basename(normalPath);
-      tabs[0].content = fileContent;
+      tabs[0].isPdf = isPdf;
+      tabs[0].pdfBuffer = pdfBuffer;
+      tabs[0].pageLayout = 'single';
+      tabs[0].zoom = 1.0;
+      tabs[0].currentPage = 1;
+      tabs[0].content = isPdf ? '' : fileContent;
       tabs[0].isDirty = false;
-      tabs[0].lastKnownEditorValue = fileContent;
+      tabs[0].lastKnownEditorValue = isPdf ? '' : fileContent;
       tabs[0].actionHistory = [];
       activeTabId = null;
       switchToTab(tabs[0].id);
@@ -5050,13 +5633,18 @@ window.addEventListener("DOMContentLoaded", () => {
       id: 'tab-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
       filePath: normalPath,
       title: path.basename(normalPath),
-      content: fileContent,
+      isPdf: isPdf,
+      pdfBuffer: pdfBuffer,
+      pageLayout: 'single',
+      zoom: 1.0,
+      currentPage: 1,
+      content: isPdf ? '' : fileContent,
       isDirty: false,
       scrollTop: 0,
       selectionStart: 0,
       selectionEnd: 0,
       actionHistory: [],
-      lastKnownEditorValue: fileContent
+      lastKnownEditorValue: isPdf ? '' : fileContent
     };
 
     tabs.push(newTab);
@@ -5069,9 +5657,20 @@ window.addEventListener("DOMContentLoaded", () => {
     return newTab;
   }
 
-  function saveSpecificTab(tab) {
+  async function saveSpecificTab(tab) {
     if (!tab) return false;
-    if (tab.id === activeTabId && editor) {
+
+    if (tab.isPdf) {
+      // PDF documents are strictly view-only
+      tab.isDirty = false;
+      if (tab.id === activeTabId) {
+        isDirty = false;
+      }
+      updateTabDirtyIndicator(tab.id, false);
+      return true;
+    }
+
+    if (tab.id === activeTabId && editor && !tab.isPdf) {
       tab.content = editor.value;
     }
 
@@ -5117,10 +5716,10 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function saveCurrentFile() {
+  async function saveCurrentFile() {
     const activeTab = getActiveTab();
     if (!activeTab) return false;
-    return saveSpecificTab(activeTab);
+    return await saveSpecificTab(activeTab);
   }
 
   function createNewFile() {
@@ -5129,13 +5728,13 @@ window.addEventListener("DOMContentLoaded", () => {
 
   let isClosingTab = false;
 
-  function closeTab(tabId) {
+  async function closeTab(tabId) {
     if (isClosingTab) return false;
     const tabIndex = tabs.findIndex(t => t.id === tabId);
     if (tabIndex === -1) return true;
     const tab = tabs[tabIndex];
 
-    if (tab.id === activeTabId && editor) {
+    if (tab.id === activeTabId && editor && !tab.isPdf) {
       tab.content = editor.value;
       if (isDirty) tab.isDirty = true;
     }
@@ -5159,7 +5758,7 @@ window.addEventListener("DOMContentLoaded", () => {
       });
 
       if (answer === 0) { // Save
-        const saved = saveSpecificTab(tab);
+        const saved = await saveSpecificTab(tab);
         if (!saved) return false;
       } else if (answer === 1) { // Don't Save
         tab.isDirty = false;
@@ -5189,6 +5788,12 @@ window.addEventListener("DOMContentLoaded", () => {
 
     tabs.splice(tabIndex, 1);
 
+    const pagesContainer = document.getElementById("pdf-pages-canvas-container");
+    if (pagesContainer && pagesContainer.dataset.renderedTabId === tabId) {
+      pagesContainer.innerHTML = '';
+      pagesContainer.dataset.renderedTabId = '';
+    }
+
     if (tab.id === activeTabId) {
       if (tabs.length > 0) {
         const nextIdx = Math.min(tabIndex, tabs.length - 1);
@@ -5203,6 +5808,13 @@ window.addEventListener("DOMContentLoaded", () => {
         isDirty = false;
         if (editor) editor.value = '';
         if (preview) preview.innerHTML = '';
+        const pdfViewerEl = document.getElementById("pdf-viewer-container");
+        if (pdfViewerEl) pdfViewerEl.classList.add('hidden');
+        if (pagesContainer) {
+          pagesContainer.innerHTML = '';
+          pagesContainer.dataset.renderedTabId = '';
+        }
+        if (container) container.classList.remove('hidden');
         if (typeof stopTypewriterEffect === 'function') stopTypewriterEffect();
         renderTabs();
       }
@@ -5330,6 +5942,47 @@ window.addEventListener("DOMContentLoaded", () => {
     menu.popup();
   }
 
+  function showOpenFolderPathContextMenu(folderPath) {
+    if (!folderPath) return;
+    const { Menu, MenuItem } = require('@electron/remote');
+    const menu = new Menu();
+    const isDarwin = platform === 'darwin';
+
+    menu.append(new MenuItem({
+      label: isDarwin ? (i18n.t('ctx_reveal_mac') || 'Reveal in Finder') : (i18n.t('ctx_reveal_win') || 'Reveal in File Explorer'),
+      click: () => {
+        shell.showItemInFolder(folderPath);
+      }
+    }));
+
+    menu.append(new MenuItem({
+      label: i18n.t('ctx_copy_path') || 'Copy Path',
+      click: () => {
+        clipboard.writeText(folderPath);
+        showNotification(i18n.t('notif_path_copied') || 'Path copied to clipboard', 'info');
+      }
+    }));
+
+    menu.append(new MenuItem({
+      label: i18n.t('ctx_copy_rel_path') || 'Copy Relative Path',
+      click: () => {
+        clipboard.writeText(path.basename(folderPath));
+        showNotification(i18n.t('notif_path_copied') || 'Path copied to clipboard', 'info');
+      }
+    }));
+
+    menu.append(new MenuItem({ type: 'separator' }));
+
+    menu.append(new MenuItem({
+      label: i18n.t('menu_close_folder') || 'Close Folder',
+      click: () => {
+        closeFolder();
+      }
+    }));
+
+    menu.popup();
+  }
+
   function showFolderContextMenu(folderPath) {
     const { Menu, MenuItem } = require('@electron/remote');
     const menu = new Menu();
@@ -5349,6 +6002,25 @@ window.addEventListener("DOMContentLoaded", () => {
         showNotification(i18n.t('notif_path_copied') || 'Path copied to clipboard', 'info');
       }
     }));
+
+    menu.append(new MenuItem({
+      label: i18n.t('ctx_copy_rel_path') || 'Copy Relative Path',
+      click: () => {
+        const relPath = currentFolderPath ? path.relative(currentFolderPath, folderPath) : path.basename(folderPath);
+        clipboard.writeText(relPath || '.');
+        showNotification(i18n.t('notif_path_copied') || 'Path copied to clipboard', 'info');
+      }
+    }));
+
+    if (currentFolderPath && path.resolve(folderPath) === path.resolve(currentFolderPath)) {
+      menu.append(new MenuItem({ type: 'separator' }));
+      menu.append(new MenuItem({
+        label: i18n.t('menu_close_folder') || 'Close Folder',
+        click: () => {
+          closeFolder();
+        }
+      }));
+    }
 
     menu.popup();
   }
@@ -5420,6 +6092,11 @@ window.addEventListener("DOMContentLoaded", () => {
             newName = newName.slice(0, -1);
           }
           newName += '.md';
+        } else if (!newName.toLowerCase().endsWith('.pdf') && currentName.toLowerCase().endsWith('.pdf')) {
+          if (newName.endsWith('.')) {
+            newName = newName.slice(0, -1);
+          }
+          newName += '.pdf';
         }
 
         if (newName === currentName) {
@@ -5553,7 +6230,10 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function isMarkdownFile(filePath) { return filePath.toLowerCase().endsWith('.md'); }
+  function isMarkdownFile(filePath) { return typeof filePath === 'string' && filePath.toLowerCase().endsWith('.md'); }
+  function isPdfFile(filePath) { return typeof filePath === 'string' && filePath.toLowerCase().endsWith('.pdf'); }
+  function isSupportedExplorerFile(filePath) { return isMarkdownFile(filePath) || isPdfFile(filePath); }
+
   function createFileTree(folderPath, parentElement) {
     if (!parentElement) return;
     try {
@@ -5595,22 +6275,23 @@ window.addEventListener("DOMContentLoaded", () => {
             showFolderContextMenu(itemPath);
           });
         });
-      // Files (.md)
+      // Files (.md and .pdf)
       items
         .filter(item => {
           const itemPath = path.join(folderPath, item);
-          return fs.statSync(itemPath).isFile() && isMarkdownFile(itemPath);
+          return fs.statSync(itemPath).isFile() && isSupportedExplorerFile(itemPath);
         })
         .sort((a, b) => a.localeCompare(b))
         .forEach(item => {
           const itemPath = path.join(folderPath, item);
+          const isPdf = isPdfFile(itemPath);
           const fileElement = document.createElement('div');
-          fileElement.className = 'tree-item tree-file';
+          fileElement.className = 'tree-item tree-file' + (isPdf ? ' tree-file-pdf' : '');
           fileElement.title = item;
           fileElement.dataset.path = itemPath;
           fileElement.tabIndex = -1;
           fileElement.innerHTML = `
-            <span class="tree-file-icon">${FILE_SVG}</span>
+            <span class="tree-file-icon ${isPdf ? 'pdf-icon' : ''}">${isPdf ? PDF_FILE_SVG : FILE_SVG}</span>
             <span class="tree-label">${item}</span>
           `;
           fileElement.addEventListener('click', (e) => {
@@ -5619,7 +6300,7 @@ window.addEventListener("DOMContentLoaded", () => {
             try { fileElement.focus(); } catch (_) {}
           });
           fileElement.addEventListener('dblclick', () => {
-            if (editor) {
+            if (!isPdf && editor) {
               editor.focus();
             }
           });
@@ -5830,6 +6511,7 @@ window.addEventListener("DOMContentLoaded", () => {
       'new-file': isMac ? ['⌘', 'N'] : ['Ctrl', 'N'],
       'open-file': isMac ? ['⌘', 'O'] : ['Ctrl', 'O'],
       'open-folder': isMac ? ['⇧', '⌘', 'O'] : ['Ctrl', 'Shift', 'O'],
+      'close-folder': isMac ? ['⌥', '⌘', 'O'] : ['Ctrl', 'Alt', 'O'],
       'save-file': isMac ? ['⌘', 'S'] : ['Ctrl', 'S'],
       'close-tab': isMac ? ['⌘', 'W'] : ['Ctrl', 'W'],
       'import-file': isMac ? ['⌥', '⌘', 'I'] : ['Ctrl', 'Alt', 'I'],
@@ -6950,6 +7632,12 @@ window.addEventListener("DOMContentLoaded", () => {
         e.preventDefault();
         return;
       }
+      const htmlExportModal = document.getElementById('html-export-modal');
+      if (htmlExportModal && !htmlExportModal.classList.contains('hidden')) {
+        htmlExportModal.classList.add('hidden');
+        e.preventDefault();
+        return;
+      }
 
       const settingsModal = document.getElementById('settings-modal');
       
@@ -7003,6 +7691,8 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   btnViewEditor && btnViewEditor.addEventListener("click", () => {
+    const activeTab = getActiveTab();
+    if (activeTab && activeTab.isPdf) return;
     if (!tabs || tabs.length === 0) return;
     if (container) container.className = "solo-editor";
     refreshSearchIfOpen();
@@ -7012,6 +7702,8 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   btnViewSplit && btnViewSplit.addEventListener("click", () => {
+    const activeTab = getActiveTab();
+    if (activeTab && activeTab.isPdf) return;
     if (!tabs || tabs.length === 0) return;
     if (container) container.className = "split-view";
     refreshSearchIfOpen();
@@ -7029,6 +7721,8 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   btnViewPreview && btnViewPreview.addEventListener("click", () => {
+    const activeTab = getActiveTab();
+    if (activeTab && activeTab.isPdf) return;
     if (!tabs || tabs.length === 0) return;
     if (container) container.className = "solo-preview";
     refreshSearchIfOpen();
@@ -7072,7 +7766,11 @@ window.addEventListener("DOMContentLoaded", () => {
   emptyBtnNewFile && emptyBtnNewFile.addEventListener("click", () => createNewTab());
   emptyBtnOpenFile && emptyBtnOpenFile.addEventListener("click", async () => {
     const result = await dialog.showOpenDialog({
-      filters: [{ name: "Markdown", extensions: ["md"] }],
+      filters: [
+        { name: "Documenti supportati", extensions: ["md", "pdf"] },
+        { name: "Markdown", extensions: ["md"] },
+        { name: "PDF", extensions: ["pdf"] }
+      ],
       properties: ["openFile", "multiSelections"]
     });
     if (!result.canceled && result.filePaths.length > 0) {
@@ -7093,6 +7791,17 @@ window.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       if (activeTabId && typeof closeTab === 'function') {
         closeTab(activeTabId);
+      }
+    }
+  });
+
+  // Keyboard shortcut Cmd+Alt+O / Ctrl+Alt+O to close folder
+  document.addEventListener('keydown', (e) => {
+    const isCmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
+    if (isCmdOrCtrl && e.altKey && e.key.toLowerCase() === 'o') {
+      e.preventDefault();
+      if (typeof closeFolder === 'function') {
+        closeFolder();
       }
     }
   });
@@ -7119,8 +7828,7 @@ window.addEventListener("DOMContentLoaded", () => {
       document.activeElement === selectedExplorerElement ||
       selectedExplorerElement?.contains(document.activeElement) ||
       document.getElementById('file-tree')?.contains(document.activeElement) ||
-      document.getElementById('explorer-panel')?.contains(document.activeElement) ||
-      document.activeElement === document.body;
+      document.getElementById('explorer-panel')?.contains(document.activeElement);
 
     if (!isExplorerFocused) {
       return;
@@ -7275,7 +7983,11 @@ window.addEventListener("DOMContentLoaded", () => {
           case 'open-file':
             try {
               const result = await dialog.showOpenDialog({
-                filters: [{ name: "Markdown", extensions: ["md"] }],
+                filters: [
+                  { name: "Documenti supportati", extensions: ["md", "pdf"] },
+                  { name: "Markdown", extensions: ["md"] },
+                  { name: "PDF", extensions: ["pdf"] }
+                ],
                 properties: ["openFile", "multiSelections"]
               });
               if (!result.canceled && result.filePaths.length > 0) {
@@ -7297,6 +8009,10 @@ window.addEventListener("DOMContentLoaded", () => {
             } catch (err) {
               console.error('[Titlebar] Error opening folder:', err);
             }
+            break;
+
+          case 'close-folder':
+            if (typeof closeFolder === 'function') closeFolder();
             break;
 
           case 'save-file':
@@ -7436,7 +8152,662 @@ window.addEventListener("DOMContentLoaded", () => {
     updateTitlebarTitle();
   }
 
+  // ====== INTEGRATED PDF VIEWER ENGINE ======
+  let currentPdfRenderTasks = [];
+  let pdfRenderGeneration = 0;
+  let pdfRenderDebounceTimer = null;
+
+  function getPageViewport(page, scale) {
+    try {
+      const vp = page.getViewport({ scale });
+      if (vp && !isNaN(vp.width)) return vp;
+    } catch (_) {}
+    try {
+      const vp = page.getViewport(scale);
+      if (vp && !isNaN(vp.width)) return vp;
+    } catch (_) {}
+    return page.getViewport({ scale });
+  }
+
+  function updatePdfToolbarUI(tab) {
+    const pageInput = document.getElementById("pdf-current-page-input");
+    const totalPgEl = document.getElementById("pdf-total-pages");
+    const zoomLevelText = document.getElementById("pdf-zoom-level-text");
+    const btnPrev = document.getElementById("pdf-btn-prev-page");
+    const btnNext = document.getElementById("pdf-btn-next-page");
+    const btnLayout = document.getElementById("pdf-btn-page-layout");
+    const layoutLabel = document.getElementById("pdf-layout-label");
+
+    if (!tab || !tab.isPdf) return;
+
+    const totalPages = tab.totalPages || 1;
+    const curPage = tab.currentPage || 1;
+    const zoom = tab.zoom || 1.0;
+    const isDouble = tab.pageLayout === 'double';
+
+    if (pageInput && document.activeElement !== pageInput) {
+      pageInput.value = curPage;
+    }
+    if (totalPgEl) totalPgEl.textContent = totalPages;
+    if (zoomLevelText) zoomLevelText.textContent = `${Math.round(zoom * 100)}%`;
+
+    if (btnPrev) btnPrev.disabled = curPage <= 1;
+    if (btnNext) btnNext.disabled = curPage >= totalPages;
+
+    if (btnLayout) {
+      btnLayout.classList.toggle('active', isDouble);
+      const titleText = isDouble
+        ? (i18n.t('pdf_layout_double') || 'Doppia pagina (clicca per 1 sola pagina)')
+        : (i18n.t('pdf_layout_single') || '1 sola pagina (clicca per doppia pagina)');
+      btnLayout.title = titleText;
+      if (layoutLabel) {
+        layoutLabel.textContent = isDouble
+          ? (i18n.t('pdf_layout_double_label') || 'Double Page')
+          : (i18n.t('pdf_layout_single_label') || 'Single Page');
+      }
+    }
+  }
+
+  function togglePdfPageLayout(forcedLayout) {
+    const tab = getActiveTab();
+    if (!tab || !tab.isPdf) return;
+
+    const newLayout = forcedLayout || (tab.pageLayout === 'double' ? 'single' : 'double');
+    tab.pageLayout = newLayout;
+
+    const pagesContainer = document.getElementById("pdf-pages-canvas-container");
+    if (pagesContainer) {
+      pagesContainer.classList.toggle('layout-double-page', newLayout === 'double');
+    }
+
+    updatePdfToolbarUI(tab);
+    goToPdfPage(tab.currentPage || 1, false);
+  }
+
+  function goToPdfPage(pageNum, smooth = true) {
+    const tab = getActiveTab();
+    if (!tab || !tab.isPdf) return;
+    const total = tab.totalPages || 1;
+    const target = Math.max(1, Math.min(total, pageNum));
+    tab.currentPage = target;
+    updatePdfToolbarUI(tab);
+
+    const targetPageEl = document.querySelector(`.pdf-page-wrapper[data-page-num="${target}"]`);
+    if (targetPageEl) {
+      targetPageEl.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
+    }
+  }
+
+  function goToNextPdfPage() {
+    const tab = getActiveTab();
+    if (!tab || !tab.isPdf) return;
+    if ((tab.currentPage || 1) < (tab.totalPages || 1)) {
+      goToPdfPage((tab.currentPage || 1) + 1, true);
+    }
+  }
+
+  function goToPrevPdfPage() {
+    const tab = getActiveTab();
+    if (!tab || !tab.isPdf) return;
+    if ((tab.currentPage || 1) > 1) {
+      goToPdfPage((tab.currentPage || 1) - 1, true);
+    }
+  }
+
+  function handlePdfFitWidth() {
+    const tab = getActiveTab();
+    if (!tab || !tab.isPdf) return;
+    const viewportEl = document.getElementById("pdf-pages-viewport");
+    if (!viewportEl) return;
+
+    const firstWrapper = document.querySelector('.pdf-page-wrapper');
+    if (!firstWrapper) return;
+
+    const currentZoom = tab.zoom || 1.0;
+    const isDouble = tab.pageLayout === 'double';
+    const basePageWidth = firstWrapper.offsetWidth / currentZoom;
+    const availWidth = Math.max(200, viewportEl.clientWidth - 56);
+    const targetWidth = isDouble ? (basePageWidth * 2 + 24) : basePageWidth;
+    const fitZoom = Math.max(0.35, Math.min(3.5, availWidth / targetWidth));
+
+    handlePdfZoom(fitZoom);
+  }
+
+  function handlePdfZoom(targetZoom, anchorClientX, anchorClientY) {
+    const tab = getActiveTab();
+    if (!tab || !tab.isPdf) return;
+
+    const viewportEl = document.getElementById("pdf-pages-viewport");
+    const pagesContainer = document.getElementById("pdf-pages-canvas-container");
+    if (!viewportEl || !pagesContainer) return;
+
+    const oldZoom = tab.zoom || 1.0;
+    const newZoom = Math.min(3.5, Math.max(0.35, Math.round(targetZoom * 100) / 100));
+    if (Math.abs(newZoom - oldZoom) < 0.005) return;
+
+    const vpRect = viewportEl.getBoundingClientRect();
+
+    // Determine anchor point relative to viewport visible area
+    let anchorX, anchorY;
+    if (anchorClientX !== undefined && anchorClientY !== undefined) {
+      anchorX = anchorClientX - vpRect.left;
+      anchorY = anchorClientY - vpRect.top;
+    } else {
+      anchorX = vpRect.width / 2;
+      anchorY = vpRect.height / 2;
+    }
+
+    // Coordinates in the scrolled document space before zoom
+    const contentX = viewportEl.scrollLeft + anchorX;
+    const contentY = viewportEl.scrollTop + anchorY;
+
+    // Projected new scroll coordinates to keep the exact anchor point under the cursor
+    const ratio = newZoom / oldZoom;
+    const targetScrollLeft = Math.max(0, (contentX * ratio) - anchorX);
+    const targetScrollTop = Math.max(0, (contentY * ratio) - anchorY);
+
+    tab.zoom = newZoom;
+    updatePdfToolbarUI(tab);
+
+    renderPdfActiveTab({ targetScroll: { left: targetScrollLeft, top: targetScrollTop } });
+  }
+
+  async function renderPdfActiveTab(options = {}) {
+    const tab = getActiveTab();
+    if (!tab || !tab.isPdf || !tab.pdfBuffer) return;
+
+    const pagesContainer = document.getElementById("pdf-pages-canvas-container");
+    const viewportEl = document.getElementById("pdf-pages-viewport");
+    if (!pagesContainer || !viewportEl) return;
+
+    const thisGen = ++pdfRenderGeneration;
+
+    // Cancel in-flight render tasks
+    currentPdfRenderTasks.forEach(task => {
+      try { task.cancel(); } catch (_) {}
+    });
+    currentPdfRenderTasks = [];
+
+    if (!pdfjsLib) {
+      pagesContainer.innerHTML = '<div style="padding: 40px; color: #ef4444; font-size: 14px;">PDF.js library not available.</div>';
+      return;
+    }
+
+    let pdfDoc = tab.cachedPdfDoc;
+    if (!pdfDoc) {
+      try {
+        const data = new Uint8Array(tab.pdfBuffer);
+        const loadingTask = pdfjsLib.getDocument({ data });
+        pdfDoc = await loadingTask.promise;
+        tab.cachedPdfDoc = pdfDoc;
+      } catch (err) {
+        console.error('Error loading PDF document:', err);
+        pagesContainer.innerHTML = `<div style="padding: 40px; color: #ef4444; font-size: 14px;">Error loading PDF: ${escapeHtml(err.message)}</div>`;
+        return;
+      }
+    }
+
+    if (thisGen !== pdfRenderGeneration) return;
+
+    tab.totalPages = pdfDoc.numPages;
+    if (!tab.currentPage || tab.currentPage > tab.totalPages) {
+      tab.currentPage = 1;
+    }
+    if (!tab.zoom) tab.zoom = 1.0;
+    if (!tab.pageLayout) tab.pageLayout = 'single';
+
+    updatePdfToolbarUI(tab);
+
+    const zoom = tab.zoom;
+    const dpr = window.devicePixelRatio || 1;
+
+    // Check if DOM can be preserved/reused for smooth zoom with 0 white-flash
+    const existingWrappers = pagesContainer.querySelectorAll('.pdf-page-wrapper');
+    const isReusingDom = (pagesContainer.dataset.renderedTabId === tab.id) &&
+                         (existingWrappers.length === pdfDoc.numPages);
+
+    // Pre-calculate page viewports
+    const pageDataList = [];
+    for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+      const page = await pdfDoc.getPage(pageNum);
+      if (thisGen !== pdfRenderGeneration) return;
+      const cssViewport = getPageViewport(page, zoom);
+      const renderViewport = getPageViewport(page, zoom * dpr);
+      pageDataList.push({ pageNum, page, cssViewport, renderViewport });
+    }
+
+    if (thisGen !== pdfRenderGeneration) return;
+
+    if (isReusingDom) {
+      pagesContainer.classList.toggle('layout-double-page', tab.pageLayout === 'double');
+
+      // Synchronously update wrapper and canvas display dimensions
+      for (let i = 0; i < pageDataList.length; i++) {
+        const { cssViewport } = pageDataList[i];
+        const pageWrapper = existingWrappers[i];
+        if (!pageWrapper) continue;
+        const canvas = pageWrapper.querySelector('.pdf-page-canvas');
+        const textLayerDiv = pageWrapper.querySelector('.textLayer');
+
+        const cssW = Math.floor(cssViewport.width);
+        const cssH = Math.floor(cssViewport.height);
+
+        pageWrapper.style.width = `${cssW}px`;
+        pageWrapper.style.height = `${cssH}px`;
+        if (canvas) {
+          canvas.style.width = `${cssW}px`;
+          canvas.style.height = `${cssH}px`;
+        }
+        if (textLayerDiv) {
+          textLayerDiv.style.width = `${cssW}px`;
+          textLayerDiv.style.height = `${cssH}px`;
+        }
+      }
+
+      // Immediately restore or set target anchored scroll coordinates
+      if (options.targetScroll) {
+        viewportEl.scrollLeft = options.targetScroll.left;
+        viewportEl.scrollTop = options.targetScroll.top;
+      }
+
+      // Debounce high-DPI rasterization and textLayer sync so rapid zooming is silky smooth
+      clearTimeout(pdfRenderDebounceTimer);
+      pdfRenderDebounceTimer = setTimeout(async () => {
+        if (thisGen !== pdfRenderGeneration) return;
+        for (let i = 0; i < pageDataList.length; i++) {
+          if (thisGen !== pdfRenderGeneration) return;
+          const { page, cssViewport, renderViewport } = pageDataList[i];
+          const pageWrapper = existingWrappers[i];
+          if (!pageWrapper) continue;
+          const canvas = pageWrapper.querySelector('.pdf-page-canvas');
+          const textLayerDiv = pageWrapper.querySelector('.textLayer');
+
+          if (canvas) {
+            const rw = Math.floor(renderViewport.width);
+            const rh = Math.floor(renderViewport.height);
+
+            if (canvas.width !== rw || canvas.height !== rh) {
+              canvas.width = rw;
+              canvas.height = rh;
+            }
+
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const renderContext = {
+              canvasContext: ctx,
+              viewport: renderViewport
+            };
+
+            const renderTask = page.render(renderContext);
+            currentPdfRenderTasks.push(renderTask);
+            await renderTask.promise.catch(() => {});
+          }
+
+          // Re-render textLayer cleanly with transparent selectable spans
+          if (textLayerDiv) {
+            textLayerDiv.innerHTML = '';
+            try {
+              const textContent = await page.getTextContent();
+              if (thisGen !== pdfRenderGeneration) return;
+              if (textContent && textContent.items && textContent.items.length > 0) {
+                textLayerDiv.innerHTML = '';
+                const textTask = pdfjsLib.renderTextLayer({
+                  textContent: textContent,
+                  container: textLayerDiv,
+                  viewport: cssViewport,
+                  textDivs: []
+                });
+                currentPdfRenderTasks.push(textTask);
+                await textTask.promise.catch(() => {});
+              }
+            } catch (_) {}
+          }
+        }
+      }, 35);
+    } else {
+      // First render for this tab: build full layout with spreads
+      pagesContainer.innerHTML = '';
+      pagesContainer.dataset.renderedTabId = tab.id;
+      pagesContainer.classList.toggle('layout-double-page', tab.pageLayout === 'double');
+
+      function createPageWrapper(pageData) {
+        const { pageNum, cssViewport, renderViewport } = pageData;
+        const pageIndex = pageNum - 1;
+        const cssW = Math.floor(cssViewport.width);
+        const cssH = Math.floor(cssViewport.height);
+
+        const pageWrapper = document.createElement('div');
+        pageWrapper.className = 'pdf-page-wrapper';
+        pageWrapper.dataset.pageNum = pageNum;
+        pageWrapper.dataset.pageIndex = pageIndex;
+        pageWrapper.style.width = `${cssW}px`;
+        pageWrapper.style.height = `${cssH}px`;
+
+        const canvas = document.createElement('canvas');
+        canvas.className = 'pdf-page-canvas';
+        canvas.width = Math.floor(renderViewport.width);
+        canvas.height = Math.floor(renderViewport.height);
+        canvas.style.width = `${cssW}px`;
+        canvas.style.height = `${cssH}px`;
+
+        const textLayerDiv = document.createElement('div');
+        textLayerDiv.className = 'textLayer';
+        textLayerDiv.dataset.pageIndex = pageIndex;
+        textLayerDiv.style.width = `${cssW}px`;
+        textLayerDiv.style.height = `${cssH}px`;
+
+        pageWrapper.appendChild(canvas);
+        pageWrapper.appendChild(textLayerDiv);
+        return pageWrapper;
+      }
+
+      for (let i = 0; i < pageDataList.length; i += 2) {
+        const spreadEl = document.createElement('div');
+        spreadEl.className = 'pdf-page-spread';
+        spreadEl.appendChild(createPageWrapper(pageDataList[i]));
+        if (i + 1 < pageDataList.length) {
+          spreadEl.appendChild(createPageWrapper(pageDataList[i + 1]));
+        }
+        pagesContainer.appendChild(spreadEl);
+      }
+
+      // Apply initial scroll
+      if (options.targetScroll) {
+        viewportEl.scrollLeft = options.targetScroll.left;
+        viewportEl.scrollTop = options.targetScroll.top;
+      } else if (tab.pdfScrollTop !== undefined) {
+        viewportEl.scrollTop = tab.pdfScrollTop;
+        viewportEl.scrollLeft = tab.pdfScrollLeft || 0;
+      }
+
+      // Render canvases and text layers
+      const allWrappers = pagesContainer.querySelectorAll('.pdf-page-wrapper');
+      for (let i = 0; i < pageDataList.length; i++) {
+        if (thisGen !== pdfRenderGeneration) return;
+        const { page, cssViewport, renderViewport } = pageDataList[i];
+        const pageWrapper = allWrappers[i];
+        if (!pageWrapper) continue;
+        const canvas = pageWrapper.querySelector('.pdf-page-canvas');
+        const textLayerDiv = pageWrapper.querySelector('.textLayer');
+
+        if (canvas) {
+          const ctx = canvas.getContext('2d');
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          const renderContext = {
+            canvasContext: ctx,
+            viewport: renderViewport
+          };
+
+          const renderTask = page.render(renderContext);
+          currentPdfRenderTasks.push(renderTask);
+          await renderTask.promise.catch(() => {});
+        }
+
+        if (textLayerDiv) {
+          textLayerDiv.innerHTML = '';
+          try {
+            const textContent = await page.getTextContent();
+            if (thisGen !== pdfRenderGeneration) return;
+            if (textContent && textContent.items && textContent.items.length > 0) {
+              textLayerDiv.innerHTML = '';
+              const textTask = pdfjsLib.renderTextLayer({
+                textContent: textContent,
+                container: textLayerDiv,
+                viewport: cssViewport,
+                textDivs: []
+              });
+              currentPdfRenderTasks.push(textTask);
+              await textTask.promise.catch(() => {});
+            }
+          } catch (_) {}
+        }
+      }
+    }
+  }
+
+  function initPdfViewerControls() {
+    const btnPrev = document.getElementById("pdf-btn-prev-page");
+    const btnNext = document.getElementById("pdf-btn-next-page");
+    const pageInput = document.getElementById("pdf-current-page-input");
+    const btnZoomIn = document.getElementById("pdf-btn-zoom-in");
+    const btnZoomOut = document.getElementById("pdf-btn-zoom-out");
+    const btnZoomLevel = document.getElementById("pdf-zoom-level");
+    const zoomMenu = document.getElementById("pdf-zoom-menu");
+    const btnLayout = document.getElementById("pdf-btn-page-layout");
+    const viewportEl = document.getElementById("pdf-pages-viewport");
+
+    btnPrev?.addEventListener("click", () => {
+      goToPrevPdfPage();
+    });
+
+    btnNext?.addEventListener("click", () => {
+      goToNextPdfPage();
+    });
+
+    btnLayout?.addEventListener("click", () => {
+      togglePdfPageLayout();
+    });
+
+    const pdfViewerEl = document.getElementById("pdf-viewer-container");
+    if (pdfViewerEl && !pdfViewerEl.dataset.hasContextListener) {
+      pdfViewerEl.dataset.hasContextListener = "true";
+      pdfViewerEl.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const { Menu, MenuItem, getCurrentWindow } = require('@electron/remote');
+        const menu = new Menu();
+        const activeTab = getActiveTab();
+
+        if (!isReadingMode) {
+          menu.append(new MenuItem({
+            label: i18n.t('view_reading_mode') || 'Modalità lettura',
+            click: () => { setReadingMode(true); }
+          }));
+        } else {
+          menu.append(new MenuItem({
+            label: i18n.t('exit_reading_mode') || 'Disattiva modalità lettura',
+            click: () => { setReadingMode(false); }
+          }));
+        }
+
+        menu.append(new MenuItem({ type: 'separator' }));
+
+        if (activeTab && activeTab.isPdf) {
+          const isDouble = activeTab.pageLayout === 'double';
+          menu.append(new MenuItem({
+            label: isDouble ? (i18n.t('pdf_layout_single_menu') || 'Passa a 1 sola pagina') : (i18n.t('pdf_layout_double_menu') || 'Passa a doppia pagina'),
+            click: () => { togglePdfPageLayout(); }
+          }));
+
+          menu.append(new MenuItem({
+            label: i18n.t('pdf_zoom_fit') || 'Adatta alla larghezza',
+            click: () => { handlePdfFitWidth(); }
+          }));
+        }
+
+        menu.popup({ window: getCurrentWindow() });
+      });
+    }
+
+    if (pageInput) {
+      pageInput.addEventListener("keydown", (e) => {
+        e.stopPropagation();
+        if (e.key === "Enter") {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          const val = parseInt(pageInput.value.trim(), 10);
+          if (!isNaN(val)) {
+            goToPdfPage(val, true);
+          }
+          pageInput.blur();
+        } else if (e.key === "Escape") {
+          const tab = getActiveTab();
+          pageInput.value = (tab && tab.currentPage) || 1;
+          pageInput.blur();
+        }
+      });
+
+      pageInput.addEventListener("blur", () => {
+        const tab = getActiveTab();
+        if (!tab || !tab.isPdf) return;
+        const val = parseInt(pageInput.value.trim(), 10);
+        if (!isNaN(val) && val !== tab.currentPage) {
+          goToPdfPage(val, true);
+        } else {
+          pageInput.value = tab.currentPage || 1;
+        }
+      });
+
+      pageInput.addEventListener("focus", () => {
+        pageInput.select();
+      });
+    }
+
+    btnZoomIn?.addEventListener("click", () => {
+      const tab = getActiveTab();
+      if (!tab || !tab.isPdf) return;
+      handlePdfZoom((tab.zoom || 1.0) + 0.15);
+    });
+
+    btnZoomOut?.addEventListener("click", () => {
+      const tab = getActiveTab();
+      if (!tab || !tab.isPdf) return;
+      handlePdfZoom((tab.zoom || 1.0) - 0.15);
+    });
+
+    btnZoomLevel?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (zoomMenu) {
+        zoomMenu.classList.toggle("hidden");
+      }
+    });
+
+    zoomMenu?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const option = e.target.closest(".pdf-zoom-menu-item");
+      if (!option) return;
+
+      const zoomTarget = option.dataset.zoom;
+      if (zoomTarget === "fit") {
+        handlePdfFitWidth();
+      } else {
+        const parsed = parseFloat(zoomTarget);
+        if (!isNaN(parsed)) {
+          handlePdfZoom(parsed);
+        }
+      }
+      zoomMenu.classList.add("hidden");
+    });
+
+    document.addEventListener("click", (e) => {
+      if (zoomMenu && !zoomMenu.classList.contains("hidden")) {
+        if (!e.target.closest(".pdf-zoom-selector-wrapper")) {
+          zoomMenu.classList.add("hidden");
+        }
+      }
+    });
+
+    if (viewportEl) {
+      let scrollTimeout = null;
+      viewportEl.addEventListener("scroll", () => {
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(() => {
+          const tab = getActiveTab();
+          if (!tab || !tab.isPdf) return;
+          const pageWrappers = document.querySelectorAll('.pdf-page-wrapper');
+          const vpRect = viewportEl.getBoundingClientRect();
+          let closestPage = tab.currentPage || 1;
+          let minDiff = Infinity;
+
+          pageWrappers.forEach(pw => {
+            const rect = pw.getBoundingClientRect();
+            const diff = Math.abs(rect.top - vpRect.top - 20);
+            if (diff < minDiff) {
+              minDiff = diff;
+              closestPage = parseInt(pw.dataset.pageNum, 10);
+            }
+          });
+
+          if (closestPage !== tab.currentPage) {
+            tab.currentPage = closestPage;
+            updatePdfToolbarUI(tab);
+          }
+        }, 50);
+      });
+
+      viewportEl.addEventListener("wheel", (e) => {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          const tab = getActiveTab();
+          if (!tab || !tab.isPdf) return;
+
+          const oldZoom = tab.zoom || 1.0;
+          let factor;
+          if (Math.abs(e.deltaY) < 25) {
+            factor = Math.exp(-e.deltaY * 0.015);
+          } else {
+            factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+          }
+          const newZoom = oldZoom * factor;
+          handlePdfZoom(newZoom, e.clientX, e.clientY);
+        }
+      }, { passive: false });
+    }
+
+    // Keyboard navigation for PDF: Arrow keys, PageUp/Down, Home/End, Zoom shortcuts
+    window.addEventListener('keydown', (e) => {
+      const tab = getActiveTab();
+      if (!tab || !tab.isPdf) return;
+
+      // Don't intercept if user is typing in an input/textarea or if a modal is open
+      const activeEl = document.activeElement;
+      const tag = activeEl ? activeEl.tagName.toLowerCase() : '';
+      if (tag === 'input' || tag === 'textarea' || (activeEl && activeEl.isContentEditable)) {
+        return;
+      }
+      if (document.querySelector('.modal:not(.hidden)')) {
+        return;
+      }
+
+      const viewport = document.getElementById("pdf-pages-viewport");
+      if (!viewport) return;
+
+      const isCmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
+
+      if (isCmdOrCtrl && (e.key === '=' || e.key === '+')) {
+        e.preventDefault();
+        handlePdfZoom((tab.zoom || 1.0) + 0.15);
+      } else if (isCmdOrCtrl && (e.key === '-' || e.key === '_')) {
+        e.preventDefault();
+        handlePdfZoom((tab.zoom || 1.0) - 0.15);
+      } else if (isCmdOrCtrl && e.key === '0') {
+        e.preventDefault();
+        handlePdfZoom(1.0);
+      } else if (e.key === 'ArrowRight' || e.key === 'PageDown') {
+        e.preventDefault();
+        goToNextPdfPage();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault();
+        goToPrevPdfPage();
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        viewport.scrollBy({ top: 120, behavior: 'smooth' });
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        viewport.scrollBy({ top: -120, behavior: 'smooth' });
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        goToPdfPage(1, true);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        goToPdfPage(tab.totalPages || 1, true);
+      }
+    });
+  }
+
   initTitlebar();
+  initPdfViewerControls();
 
   // Re-render quando cambiamo cartella (per risolvere include relativi)
   const observer = new MutationObserver(() => { /* noop, ma potresti forzare update se serve */ });

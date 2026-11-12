@@ -162,14 +162,22 @@ function buildApplicationMenu() {
           accelerator: "CmdOrCtrl+O",
           click: async () => {
             const result = await dialog.showOpenDialog(win, {
-              filters: [{ name: "Markdown", extensions: ["md"] }],
+              filters: [
+                { name: "Documenti supportati", extensions: ["md", "pdf"] },
+                { name: "Markdown", extensions: ["md"] },
+                { name: "PDF", extensions: ["pdf"] }
+              ],
               properties: ["openFile", "multiSelections"]
             });
 
             if (!result.canceled && result.filePaths.length > 0) {
               for (const filePath of result.filePaths) {
-                const content = fs.readFileSync(filePath, "utf8");
-                win.webContents.send("load-md", filePath, content);
+                if (filePath.toLowerCase().endsWith('.pdf')) {
+                  win.webContents.send("load-pdf", filePath);
+                } else {
+                  const content = fs.readFileSync(filePath, "utf8");
+                  win.webContents.send("load-md", filePath, content);
+                }
               }
             }
           }
@@ -219,6 +227,13 @@ function buildApplicationMenu() {
               const folderPath = result.filePaths[0];
               win.webContents.send("open-folder", folderPath);
             }
+          }
+        },
+        {
+          label: i18n.t("menu_close_folder"),
+          accelerator: "CmdOrCtrl+Alt+O",
+          click: () => {
+            win.webContents.send("close-folder");
           }
         },
         {
@@ -560,6 +575,10 @@ ipcMain.on("print-to-pdf", async (event, content, title, exportSettings, targetP
     console.error("Errore nella generazione del PDF:", error);
     event.reply('pdf-export-error', error.message);
   }
+});
+
+ipcMain.on("folder-closed", () => {
+  openFolderPath = null;
 });
 
 app.whenReady().then(() => {

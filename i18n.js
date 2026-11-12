@@ -120,8 +120,10 @@ const translations = {
     settings_export_align_center: "Center",
     settings_export_align_right: "Right",
 
-    // PDF Export Modal
+    // PDF & HTML Export Modal
     export_modal_title: "Export PDF",
+    export_html_modal_title: "Export HTML",
+    export_html_modal_theme: "Theme",
     export_modal_location_label: "Save destination",
     export_modal_location_placeholder: "Select destination path...",
     export_modal_browse: "Browse...",
@@ -156,6 +158,7 @@ const translations = {
     shortcut_new_file: "New document",
     shortcut_open_file: "Open document",
     shortcut_open_folder: "Open folder",
+    shortcut_close_folder: "Close folder",
     shortcut_save: "Save file",
     shortcut_close_tab: "Close active tab",
     shortcut_import: "Import document",
@@ -260,6 +263,22 @@ const translations = {
     untitled_file: "untitled",
     tab_close_btn: "Close",
 
+    // PDF Viewer
+    pdf_document: "PDF Document",
+    pdf_prev_page: "Previous page",
+    pdf_next_page: "Next page",
+    pdf_zoom_in: "Zoom in",
+    pdf_zoom_out: "Zoom out",
+    pdf_reset_zoom: "Reset zoom (100%)",
+    pdf_layout_single: "Single page (click for double page)",
+    pdf_layout_double: "Double page (click for single page)",
+    pdf_layout_single_label: "Single Page",
+    pdf_layout_double_label: "Double Page",
+    pdf_layout_single_menu: "Switch to Single Page",
+    pdf_layout_double_menu: "Switch to Double Page",
+    pdf_zoom_fit: "Fit to width",
+    exit_reading_mode: "Exit Reading Mode",
+
     // File Drop Overlay
     drop_file_title: "Drop file to insert",
     drop_file_subtitle: "Images and code files will be inserted directly into your document",
@@ -296,6 +315,9 @@ const translations = {
     menu_close_tab: "Close Tab",
     menu_import: "Import from PDF/Word/HTML",
     menu_open_folder: "Open folder",
+    menu_close_folder: "Close folder",
+    close_folder: "Close folder",
+    ctx_close_folder: "Close Folder",
     menu_save: "Save...",
     menu_export_pdf: "Export as PDF",
     menu_export_html: "Export as HTML",
@@ -443,8 +465,10 @@ const translations = {
     settings_export_align_center: "Centrato",
     settings_export_align_right: "Destra",
 
-    // PDF Export Modal
+    // PDF & HTML Export Modal
     export_modal_title: "Esporta PDF",
+    export_html_modal_title: "Esporta HTML",
+    export_html_modal_theme: "Tema",
     export_modal_location_label: "Destinazione di salvataggio",
     export_modal_location_placeholder: "Seleziona percorso di salvataggio...",
     export_modal_browse: "Sfoglia...",
@@ -479,6 +503,7 @@ const translations = {
     shortcut_new_file: "Nuovo documento",
     shortcut_open_file: "Apri documento",
     shortcut_open_folder: "Apri cartella o workspace",
+    shortcut_close_folder: "Chiudi cartella",
     shortcut_save: "Salva file corrente",
     shortcut_close_tab: "Chiudi scheda attiva",
     shortcut_import: "Importa file (PDF, Word, ecc.)",
@@ -583,6 +608,22 @@ const translations = {
     untitled_file: "untitled",
     tab_close_btn: "Chiudi",
 
+    // PDF Viewer
+    pdf_document: "Documento PDF",
+    pdf_prev_page: "Pagina precedente",
+    pdf_next_page: "Pagina successiva",
+    pdf_zoom_in: "Ingrandisci",
+    pdf_zoom_out: "Riduci",
+    pdf_reset_zoom: "Reimposta zoom (100%)",
+    pdf_layout_single: "1 sola pagina (clicca per doppia pagina)",
+    pdf_layout_double: "Doppia pagina (clicca per 1 sola pagina)",
+    pdf_layout_single_label: "Single Page",
+    pdf_layout_double_label: "Double Page",
+    pdf_layout_single_menu: "Passa a 1 sola pagina",
+    pdf_layout_double_menu: "Passa a doppia pagina",
+    pdf_zoom_fit: "Adatta alla larghezza",
+    exit_reading_mode: "Disattiva modalità lettura",
+
     // File Drop Overlay
     drop_file_title: "Rilascia il file da inserire",
     drop_file_subtitle: "Immagini e file di codice verranno inseriti direttamente nel documento",
@@ -619,6 +660,9 @@ const translations = {
     menu_close_tab: "Chiudi scheda",
     menu_import: "Importa da PDF/Word/HTML",
     menu_open_folder: "Apri cartella",
+    menu_close_folder: "Chiudi cartella",
+    close_folder: "Chiudi cartella",
+    ctx_close_folder: "Chiudi cartella",
     menu_save: "Salva...",
     menu_export_pdf: "Esporta come PDF",
     menu_export_html: "Esporta come HTML",

@@ -2,6 +2,49 @@
 const path = require('path');
 const fs = require('fs');
 
+// Module-level caches for offline assets
+const fontBase64Cache = {};
+let katexCssCache = null;
+
+function getLocalFontBase64(subfolder, filename) {
+  const key = `${subfolder}/${filename}`;
+  if (fontBase64Cache[key]) {
+    return fontBase64Cache[key];
+  }
+  try {
+    const fullPath = path.join(__dirname, 'fonts', subfolder, filename);
+    if (fs.existsSync(fullPath)) {
+      const data = fs.readFileSync(fullPath).toString('base64');
+      fontBase64Cache[key] = data;
+      return data;
+    }
+  } catch (err) {
+    console.error(`[html-export] Error reading local font ${key}:`, err);
+  }
+  return null;
+}
+
+function getLocalKatexAssets() {
+  if (katexCssCache !== null) return katexCssCache;
+  try {
+    let css = '';
+    const minCssPath = path.join(__dirname, 'api', 'katex.min.css');
+    const fontsCssPath = path.join(__dirname, 'api', 'katex-fonts.css');
+    if (fs.existsSync(minCssPath)) {
+      css += fs.readFileSync(minCssPath, 'utf8') + '\n';
+    }
+    if (fs.existsSync(fontsCssPath)) {
+      css += fs.readFileSync(fontsCssPath, 'utf8') + '\n';
+    }
+    katexCssCache = css;
+    return katexCssCache;
+  } catch (err) {
+    console.error('[html-export] Error reading local KaTeX assets:', err);
+    katexCssCache = '';
+    return '';
+  }
+}
+
 /**
  * Escapes HTML characters.
  */
@@ -13,12 +56,13 @@ function escapeHtml(s) {
 /**
  * Generates a full standalone HTML page with:
  * - Minimalist monochrome aesthetic inspired by mark website
- * - Table of contents on the left with hierarchy and scroll-spy
+ * - Table of contents on the left with hierarchy and scroll-spy (if enabled)
  * - Ability to toggle/hide the TOC sidebar and center the preview document
- * - Fixed top header with brand / filename and Light/Dark mode toggle
+ * - Clean floating controls (Theme toggle & TOC toggle) with no fixed header bar
  * - Preview markdown formatting, math, syntax highlighting
  * - Interactive code copy buttons
- * - Custom footer with link to Mark on GitHub and 2026 MIT License
+ * - Offline-first embedded fonts (Inter, JetBrains Mono)
+ * - Footer with link to Mark on GitHub ("Made with Mark")
  * 
  * @param {Object} options
  * @param {string} options.filename - Name of the file being exported (e.g. document.md)
@@ -26,22 +70,107 @@ function escapeHtml(s) {
  * @param {Array<{id: string, level: number, text: string}>} options.headings - List of extracted headings
  * @param {string} options.theme - 'light' or 'dark'
  * @param {string} options.lang - 'en' or 'it'
+ * @param {string} options.font - 'inter' or 'jetbrains'
+ * @param {number|string} options.fontSize - font size in px (e.g. 16)
+ * @param {string} options.textAlign - 'left' or 'justify'
+ * @param {boolean} options.includeToc - whether to include the table of contents
+ * @param {boolean} options.isForPreview - whether this HTML is rendered in the in-app desktop preview
  * @returns {string} Standalone HTML document
  */
-function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [], theme = 'dark', lang = 'en' }) {
+function buildExportHtml({
+  filename = 'document.md',
+  bodyHtml = '',
+  headings = [],
+  theme = 'dark',
+  lang = 'en',
+  font = 'inter',
+  fontSize = 16,
+  textAlign = 'left',
+  includeToc = true,
+  isForPreview = false
+}) {
   const isIt = lang === 'it';
   const tocTitle = isIt ? 'Indice' : 'Contents';
-  const madeWith = isIt ? 'Creato con' : 'Made with';
 
-  // Build Table of Contents navigation items
-  let tocItemsHtml = '';
-  if (headings.length > 0) {
-    tocItemsHtml = headings.map((h, i) => {
-      const activeClass = i === 0 ? ' active' : '';
-      return `<li><a href="#${escapeHtml(h.id)}" class="docs-menu-item${activeClass}" data-level="${h.level}" title="${escapeHtml(h.text)}">${escapeHtml(h.text)}</a></li>`;
-    }).join('\n        ');
+  // Title: Clean filename without .md followed by " - Mark"
+  const cleanName = (filename || 'document').replace(/\.md$/i, '');
+  const pageTitle = `${cleanName} - Mark`;
+
+  // Offline-first Font Resolution & Embedding
+  const isJetBrains = (font === 'jetbrains');
+  const jetbrainsB64 = getLocalFontBase64('jetbrains', 'JetBrainsMono-Regular.ttf');
+  const interRegB64 = !isJetBrains ? getLocalFontBase64('inter', 'Inter-Regular.ttf') : null;
+  const interSemiB64 = !isJetBrains ? getLocalFontBase64('inter', 'Inter-SemiBold.ttf') : null;
+
+  let localFontFaceCss = '';
+  if (isJetBrains) {
+    if (jetbrainsB64) {
+      localFontFaceCss = `
+    @font-face {
+      font-family: 'JetBrains Mono';
+      src: url('data:font/truetype;charset=utf-8;base64,${jetbrainsB64}') format('truetype');
+      font-weight: 100 900;
+      font-style: normal;
+      font-display: swap;
+    }`;
+    }
   } else {
-    tocItemsHtml = `<li class="toc-empty">${isIt ? 'Nessun titolo presente' : 'No headings found'}</li>`;
+    if (interRegB64) {
+      localFontFaceCss += `
+    @font-face {
+      font-family: 'Inter';
+      src: url('data:font/truetype;charset=utf-8;base64,${interRegB64}') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }`;
+    }
+    if (interSemiB64) {
+      localFontFaceCss += `
+    @font-face {
+      font-family: 'Inter';
+      src: url('data:font/truetype;charset=utf-8;base64,${interSemiB64}') format('truetype');
+      font-weight: 600 800;
+      font-style: normal;
+      font-display: swap;
+    }`;
+    }
+    if (jetbrainsB64) {
+      localFontFaceCss += `
+    @font-face {
+      font-family: 'JetBrains Mono';
+      src: url('data:font/truetype;charset=utf-8;base64,${jetbrainsB64}') format('truetype');
+      font-weight: 400 700;
+      font-style: normal;
+      font-display: swap;
+    }`;
+    }
+  }
+
+  const fontFamilyCss = isJetBrains
+    ? `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`
+    : `'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+
+  const fontMonoCss = `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`;
+
+  // Local KaTeX CSS if math formulas are present (100% offline)
+  const hasMath = bodyHtml && (bodyHtml.includes('katex') || bodyHtml.includes('class="math'));
+  const localKatexCss = hasMath ? getLocalKatexAssets() : '';
+
+  const parsedFontSize = parseInt(fontSize, 10) || 16;
+  const alignment = (textAlign === 'justify') ? 'justify' : 'left';
+
+  // Build Table of Contents navigation items if TOC is included
+  let tocItemsHtml = '';
+  if (includeToc) {
+    if (headings.length > 0) {
+      tocItemsHtml = headings.map((h, i) => {
+        const activeClass = i === 0 ? ' active' : '';
+        return `<li><a href="#${escapeHtml(h.id)}" class="docs-menu-item${activeClass}" data-level="${h.level}" title="${escapeHtml(h.text)}">${escapeHtml(h.text)}</a></li>`;
+      }).join('\n        ');
+    } else {
+      tocItemsHtml = `<li class="toc-empty">${isIt ? 'Nessun titolo presente' : 'No headings found'}</li>`;
+    }
   }
 
   return `<!DOCTYPE html>
@@ -49,21 +178,18 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(filename)} — Mark</title>
-  
-  <!-- Preconnect and Google Fonts: Inter -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  
-  <!-- KaTeX CSS for mathematical formulas -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <title>${escapeHtml(pageTitle)}</title>
   
   <style>
     /* ==========================================================================
-       Mark Export — Pure Minimalist Monochrome Design
-       Inspired by Mark Website Documentation
+       Mark Export — Offline-First Minimalist Monochrome Design
        ========================================================================== */
+
+    /* Embedded Local Fonts (Offline) */
+    ${localFontFaceCss}
+
+    /* Embedded KaTeX Styles (Offline) */
+    ${localKatexCss}
 
     :root {
       --bg: #000000;
@@ -82,8 +208,9 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
       --accent-active: #ffffff;
       --accent-active-text: #000000;
       
-      --font: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --font: ${fontFamilyCss};
+      --font-mono: ${fontMonoCss};
+      --font-size-base: ${parsedFontSize}px;
       
       --radius-sm: 6px;
       --radius-md: 10px;
@@ -97,10 +224,9 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
       --code-text: #f0f0f0;
       --code-inline-bg: #161616;
 
-      --btn-bg: #111111;
+      --btn-bg: rgba(17, 17, 17, 0.85);
       --btn-hover: #1c1c1c;
 
-      --header-bg: rgba(0, 0, 0, 0.85);
       --link-color: #3b82f6;
       --link-color-hover: #60a5fa;
     }
@@ -129,10 +255,9 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
       --code-text: #1f2328;
       --code-inline-bg: #f3f4f6;
 
-      --btn-bg: #f3f4f6;
+      --btn-bg: rgba(243, 244, 246, 0.88);
       --btn-hover: #e5e7eb;
 
-      --header-bg: rgba(255, 255, 255, 0.88);
       --link-color: #007bff;
       --link-color-hover: #0056b3;
     }
@@ -153,9 +278,8 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
       --code-bg: #0d0d0d;
       --code-text: #f0f0f0;
       --code-inline-bg: #161616;
-      --btn-bg: #111111;
+      --btn-bg: rgba(17, 17, 17, 0.85);
       --btn-hover: #1c1c1c;
-      --header-bg: rgba(0, 0, 0, 0.85);
       --link-color: #3b82f6;
       --link-color-hover: #60a5fa;
     }
@@ -192,101 +316,53 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
       color: var(--accent-active-text);
     }
 
-    /* ====== HEADER NAVIGATION ====== */
-    .site-header {
-      position: sticky;
-      top: 0;
+    /* ====== FLOATING CONTROLS (TOP-RIGHT: THEME ONLY) ====== */
+    .floating-controls {
+      position: fixed;
+      top: 18px;
+      right: 22px;
       z-index: 100;
-      background: var(--header-bg);
-      border-bottom: 1px solid var(--border);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      width: 100%;
-      transition: background-color 0.25s ease, border-color 0.25s ease;
-    }
-
-    .header-inner {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      height: 64px;
-      gap: 16px;
-      max-width: 1160px;
-      margin: 0 auto;
-      padding: 0 28px;
-      box-sizing: border-box;
-      transition: max-width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    body.toc-hidden .header-inner {
-      max-width: 860px;
-    }
-
-    .nav-brand {
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-weight: 700;
-      font-size: 1.12rem;
-      letter-spacing: -0.03em;
-      color: var(--text-primary);
-      flex-shrink: 0;
-      user-select: none;
+      gap: 8px;
     }
 
-    .brand-logo {
-      color: var(--text-primary);
-      flex-shrink: 0;
-    }
-
-    .nav-brand-sub {
-      font-weight: 400;
-      color: var(--text-muted);
-      font-size: 0.9em;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: min(50vw, 380px);
-      display: inline-block;
-      vertical-align: bottom;
-    }
-
-    .header-actions {
-      display: flex;
+    /* ====== LEFT FLOATING TOC SPAWN BUTTON ====== */
+    .btn-toc-spawn {
+      position: fixed;
+      top: 18px;
+      left: 22px;
+      z-index: 100;
+      width: 36px;
+      height: 36px;
+      display: none;
       align-items: center;
-      gap: 10px;
-      flex-shrink: 0;
-    }
-
-    .btn-header-action {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      padding: 7px 15px;
+      justify-content: center;
       background: var(--btn-bg);
       border: 1px solid var(--border);
       color: var(--text-secondary);
       border-radius: var(--radius-full);
-      font-size: 0.84rem;
-      font-weight: 600;
       cursor: pointer;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: var(--shadow-sm);
       transition: all 0.2s ease;
-      font-family: var(--font);
+      padding: 0;
       user-select: none;
     }
 
-    .btn-header-action:hover {
+    .btn-toc-spawn:hover {
       color: var(--text-primary);
       border-color: var(--border-hover);
       background: var(--btn-hover);
+      transform: scale(1.05);
     }
 
-    body.toc-hidden .btn-header-action {
-      border-style: dashed;
-      color: var(--text-muted);
+    body.toc-hidden .btn-toc-spawn {
+      display: inline-flex;
     }
 
-    .btn-header-icon {
+    .btn-floating-icon {
       background: var(--btn-bg);
       border: 1px solid var(--border);
       color: var(--text-secondary);
@@ -297,12 +373,15 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
       align-items: center;
       justify-content: center;
       cursor: pointer;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: var(--shadow-sm);
       transition: all 0.2s ease;
       padding: 0;
       user-select: none;
     }
 
-    .btn-header-icon:hover {
+    .btn-floating-icon:hover {
       color: var(--text-primary);
       border-color: var(--border-hover);
       background: var(--btn-hover);
@@ -311,7 +390,7 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
 
     /* ====== CONTAINER & DOCS LAYOUT ====== */
     .container-doc-page {
-      max-width: 1160px;
+      max-width: ${includeToc ? '1160px' : '860px'};
       margin: 0 auto;
       padding: 0 28px;
       width: 100%;
@@ -320,12 +399,10 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
     }
 
     .docs-layout {
-      display: grid;
-      grid-template-columns: 240px minmax(0, 1fr);
-      gap: 48px;
-      padding-top: 36px;
+      ${includeToc ? `display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 48px;` : `display: block; max-width: 860px; margin: 0 auto;`}
+      padding-top: 48px;
       padding-bottom: 60px;
-      min-height: calc(100vh - 64px);
+      min-height: 100vh;
       box-sizing: border-box;
       transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     }
@@ -353,9 +430,9 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
     /* ====== LEFT TOC SIDEBAR ====== */
     .docs-sidebar {
       position: sticky;
-      top: 84px;
+      top: 36px;
       height: fit-content;
-      max-height: calc(100vh - 100px);
+      max-height: calc(100vh - 60px);
       overflow-y: auto;
       padding-right: 10px;
       box-sizing: border-box;
@@ -484,12 +561,20 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
     .markdown-body {
       font-family: var(--font);
       color: var(--text-secondary);
-      font-size: 0.95rem;
+      font-size: var(--font-size-base, 16px);
       line-height: 1.65;
       width: 100%;
       word-wrap: break-word;
       overflow-wrap: break-word;
       word-break: break-word;
+      text-align: ${alignment};
+      ${alignment === 'justify' ? 'text-justify: inter-word; -webkit-hyphens: auto; hyphens: auto;' : 'text-justify: auto; -webkit-hyphens: manual; hyphens: manual;'}
+    }
+
+    .markdown-body pre,
+    .markdown-body code,
+    .markdown-body table {
+      text-align: left;
     }
 
     .markdown-body h1,
@@ -505,7 +590,7 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
     }
 
     .markdown-body h1 {
-      font-size: 2.2rem;
+      font-size: 2.1em;
       font-weight: 800;
       letter-spacing: -0.035em;
       margin-top: 10px;
@@ -515,7 +600,7 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
     }
 
     .markdown-body h2 {
-      font-size: 1.5rem;
+      font-size: 1.5em;
       font-weight: 700;
       letter-spacing: -0.025em;
       margin-top: 38px;
@@ -525,7 +610,7 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
     }
 
     .markdown-body h3 {
-      font-size: 1.25rem;
+      font-size: 1.25em;
       font-weight: 700;
       letter-spacing: -0.02em;
       margin-top: 30px;
@@ -533,7 +618,7 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
     }
 
     .markdown-body h4 {
-      font-size: 1.05rem;
+      font-size: 1.1em;
       font-weight: 600;
       margin-top: 24px;
       margin-bottom: 10px;
@@ -541,7 +626,7 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
 
     .markdown-body h5,
     .markdown-body h6 {
-      font-size: 0.95rem;
+      font-size: 1em;
       font-weight: 600;
       color: var(--text-muted);
       margin-top: 20px;
@@ -550,13 +635,12 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
 
     .markdown-body p {
       color: var(--text-secondary);
-      font-size: 0.95rem;
+      font-size: inherit;
       line-height: 1.65;
       margin-top: 0;
       margin-bottom: 18px;
-      text-align: justify;
-      -webkit-hyphens: auto;
-      hyphens: auto;
+      text-align: ${alignment};
+      ${alignment === 'justify' ? 'text-justify: inter-word; -webkit-hyphens: auto; hyphens: auto;' : 'text-justify: auto; -webkit-hyphens: manual; hyphens: manual;'}
     }
 
     .markdown-body strong,
@@ -591,7 +675,7 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
       background: var(--bg-card);
       border-left: 3px solid var(--text-primary);
       padding: 14px 18px;
-      font-size: 0.92rem;
+      font-size: 0.95em;
       color: var(--text-secondary);
       border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
       margin: 0 0 18px 0;
@@ -600,6 +684,14 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
       border-right: 1px solid var(--border);
       border-bottom: 1px solid var(--border);
       font-style: normal;
+      text-align: ${alignment};
+      ${alignment === 'justify' ? 'text-justify: inter-word; -webkit-hyphens: auto; hyphens: auto;' : 'text-justify: auto; -webkit-hyphens: manual; hyphens: manual;'}
+    }
+
+    .markdown-body blockquote p {
+      font-size: inherit;
+      text-align: ${alignment};
+      ${alignment === 'justify' ? 'text-justify: inter-word; -webkit-hyphens: auto; hyphens: auto;' : 'text-justify: auto; -webkit-hyphens: manual; hyphens: manual;'}
     }
 
     .markdown-body blockquote p:last-child {
@@ -626,7 +718,7 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
       align-items: center;
       gap: 8px;
       font-weight: 700;
-      font-size: 0.92rem;
+      font-size: 0.95em;
       letter-spacing: 0.3px;
       margin-bottom: 8px;
       color: var(--callout-color, #10b981);
@@ -650,16 +742,22 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.6px;
-      font-size: 0.88rem;
+      font-size: 0.9em;
     }
 
     .markdown-body .callout-content {
       color: var(--text-secondary);
       line-height: 1.6;
+      font-size: inherit;
+      text-align: ${alignment};
+      ${alignment === 'justify' ? 'text-justify: inter-word; -webkit-hyphens: auto; hyphens: auto;' : 'text-justify: auto; -webkit-hyphens: manual; hyphens: manual;'}
     }
 
     .markdown-body .callout-content p {
       margin: 0 0 8px 0;
+      font-size: inherit;
+      text-align: ${alignment};
+      ${alignment === 'justify' ? 'text-justify: inter-word; -webkit-hyphens: auto; hyphens: auto;' : 'text-justify: auto; -webkit-hyphens: manual; hyphens: manual;'}
     }
 
     .markdown-body .callout-content p:last-child {
@@ -671,11 +769,15 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
       padding-left: 24px;
       margin-bottom: 18px;
       color: var(--text-secondary);
+      font-size: inherit;
     }
 
     .markdown-body li {
       margin-bottom: 6px;
       line-height: 1.65;
+      font-size: inherit;
+      text-align: ${alignment};
+      ${alignment === 'justify' ? 'text-justify: inter-word; -webkit-hyphens: auto; hyphens: auto;' : 'text-justify: auto; -webkit-hyphens: manual; hyphens: manual;'}
     }
 
     .markdown-body li::marker {
@@ -770,7 +872,7 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
       border-radius: var(--radius-md);
       padding: 18px;
       font-family: var(--font-mono);
-      font-size: 0.88rem;
+      font-size: 0.88em;
       line-height: 1.55;
       color: var(--code-text);
       margin-bottom: 22px;
@@ -781,7 +883,7 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
 
     .markdown-body code {
       font-family: var(--font-mono);
-      font-size: 0.84rem;
+      font-size: 0.86em;
       background: var(--code-inline-bg);
       border: 1px solid var(--border);
       border-radius: 4px;
@@ -871,7 +973,7 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
     .markdown-body table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.88rem;
+      font-size: 0.9em;
       margin-bottom: 24px;
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
@@ -951,11 +1053,12 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
     /* ====== FOOTER ====== */
     .export-footer {
       border-top: 1px solid var(--border);
-      margin-top: 64px;
-      padding: 36px 0 24px 0;
-      font-size: 0.88rem;
+      margin-top: 52px;
+      padding: 22px 0 18px 0;
+      font-size: 0.72rem;
       color: var(--text-muted);
       width: 100%;
+      letter-spacing: 0.2px;
     }
 
     .footer-inner {
@@ -964,31 +1067,65 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
     }
 
     .mark-footer-link {
-      color: #3b82f6;
-      font-weight: 600;
-      text-decoration: none;
+      color: var(--link-color);
+      font-weight: 500;
+      text-decoration: underline;
+      text-underline-offset: 2.5px;
       transition: color 0.15s ease;
     }
 
     .mark-footer-link:hover {
-      text-decoration: underline;
-      color: #60a5fa;
+      color: var(--link-color-hover);
     }
 
-    body:not(.dark) .mark-footer-link {
-      color: #007bff;
+    ${isForPreview ? `
+    /* ====== FORCED DESKTOP LAYOUT (IN-APP PREVIEW) ====== */
+    .container-doc-page {
+      max-width: 100% !important;
+      padding: 0 20px !important;
     }
 
-    body:not(.dark) .mark-footer-link:hover {
-      color: #0056b3;
+    .docs-layout {
+      ${includeToc ? `display: grid !important; grid-template-columns: 210px minmax(0, 1fr) !important; gap: 28px !important;` : `display: block !important; max-width: 820px !important; margin: 0 auto !important;`}
+      padding-top: 24px !important;
+      padding-bottom: 40px !important;
     }
 
-    /* ====== RESPONSIVE ENHANCEMENTS ====== */
+    .docs-sidebar {
+      display: block !important;
+      position: sticky !important;
+      top: 20px !important;
+      width: 210px !important;
+      max-height: calc(100vh - 40px) !important;
+      flex-shrink: 0 !important;
+    }
+
+    .docs-main {
+      min-width: 0 !important;
+      width: 100% !important;
+    }
+
+    body.toc-hidden .docs-sidebar {
+      display: none !important;
+    }
+
+    body.toc-hidden .docs-layout {
+      grid-template-columns: 100% !important;
+      gap: 0 !important;
+    }
+
+    body.toc-hidden .btn-toc-spawn {
+      display: inline-flex !important;
+    }
+
+    body.toc-hidden .docs-main {
+      max-width: 820px !important;
+      margin: 0 auto !important;
+    }
+    ` : `
+    /* ====== RESPONSIVE ENHANCEMENTS (STANDALONE EXPORT) ====== */
     @media (max-width: 768px) {
       .container-doc-page {
-        padding: 0 18px;
-      }
-      .header-inner {
         padding: 0 18px;
       }
       .docs-layout {
@@ -999,16 +1136,24 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
       .docs-sidebar {
         display: none;
       }
+      .btn-toc-spawn {
+        display: inline-flex;
+      }
+      body.toc-mobile-open .btn-toc-spawn {
+        display: none !important;
+      }
       body.toc-mobile-open .docs-sidebar {
         display: block !important;
         position: fixed;
-        top: 64px;
+        top: 0;
         left: 0;
-        right: 0;
         bottom: 0;
-        max-height: calc(100vh - 64px);
+        width: 280px;
+        max-width: 85vw;
         background: var(--bg);
-        z-index: 99;
+        border-right: 1px solid var(--border);
+        box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+        z-index: 150;
         padding: 24px 20px;
       }
       .markdown-body h1 { font-size: 1.85rem; }
@@ -1016,57 +1161,96 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
       .markdown-body pre { font-size: 0.82rem; padding: 14px; }
       .markdown-body table th, .markdown-body table td { padding: 9px 12px; font-size: 0.82rem; }
     }
+    `}
+
+    @media print {
+      .heading-keep-group {
+        display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+
+      h1, h2, h3, h4, h5, h6 {
+        break-after: avoid-page !important;
+        break-after: avoid !important;
+        page-break-after: avoid !important;
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+
+      h1 + *, h2 + *, h3 + *, h4 + *, h5 + *, h6 + * {
+        break-before: avoid-page !important;
+        break-before: avoid !important;
+        page-break-before: avoid !important;
+      }
+
+      h1 + ul > li:first-child, h2 + ul > li:first-child, h3 + ul > li:first-child,
+      h4 + ul > li:first-child, h5 + ul > li:first-child, h6 + ul > li:first-child,
+      h1 + ol > li:first-child, h2 + ol > li:first-child, h3 + ol > li:first-child,
+      h4 + ol > li:first-child, h5 + ol > li:first-child, h6 + ol > li:first-child,
+      h1 + ul > li:nth-child(2), h2 + ul > li:nth-child(2), h3 + ul > li:nth-child(2),
+      h4 + ul > li:nth-child(2), h5 + ul > li:nth-child(2), h6 + ul > li:nth-child(2),
+      h1 + ol > li:nth-child(2), h2 + ol > li:nth-child(2), h3 + ol > li:nth-child(2),
+      h4 + ol > li:nth-child(2), h5 + ol > li:nth-child(2), h6 + ol > li:nth-child(2) {
+        break-before: avoid !important;
+        page-break-before: avoid !important;
+      }
+
+      p, li, blockquote, dd, dt {
+        orphans: 3 !important;
+        widows: 3 !important;
+      }
+
+      .table-of-contents-sidebar,
+      .toc-floating-spawn-btn,
+      .floating-controls {
+        display: none !important;
+      }
+    }
   </style>
 </head>
-<body class="${theme === 'dark' ? 'dark' : ''}">
+<body class="${theme === 'dark' ? 'dark' : ''}${isForPreview ? ' html-preview-mode' : ''}">
 
-  <!-- SITE HEADER NAVIGATION -->
-  <header class="site-header">
-    <div class="header-inner">
-      <div class="nav-brand">
-        <svg class="brand-logo" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm1 14h-2v2h-2v-2H9v-2h2v-2h2v2h2v2zm-2-8V3.5L18.5 9H13z"/>
-        </svg>
-        <span>mark <span class="nav-brand-sub">/ ${escapeHtml(filename)}</span></span>
-      </div>
-      
-      <div class="header-actions">
-        <!-- Toggle Sidebar / Index Button -->
-        <button id="toc-toggle-btn" class="btn-header-action" type="button" title="${isIt ? 'Mostra / Nascondi indice' : 'Toggle Table of Contents'}" aria-label="Toggle Table of Contents">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-            <line x1="9" y1="3" x2="9" y2="21"></line>
-          </svg>
-          <span class="btn-label">${escapeHtml(tocTitle)}</span>
-        </button>
+  ${includeToc ? `
+  <!-- LEFT FLOATING TOC SPAWN BUTTON (APPEARS WHEN TOC IS CLOSED) -->
+  <button id="toc-open-btn" class="btn-toc-spawn" type="button" title="${isIt ? 'Mostra indice' : 'Show Table of Contents'}" aria-label="Show Table of Contents">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+      <line x1="9" y1="3" x2="9" y2="21"></line>
+    </svg>
+  </button>
+  ` : ''}
 
-        <!-- Toggle Theme Button -->
-        <button id="theme-toggle-btn" class="btn-header-icon" type="button" title="${isIt ? 'Cambia tema' : 'Toggle Theme'}" aria-label="Toggle Theme">
-          <!-- Sun icon (shown in dark mode) -->
-          <svg id="sun-icon" style="display:${theme === 'dark' ? 'block' : 'none'};" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="5"></circle>
-            <line x1="12" y1="1" x2="12" y2="3"></line>
-            <line x1="12" y1="21" x2="12" y2="23"></line>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-            <line x1="1" y1="12" x2="3" y2="12"></line>
-            <line x1="21" y1="12" x2="23" y2="12"></line>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-          </svg>
-          <!-- Moon icon (shown in light mode) -->
-          <svg id="moon-icon" style="display:${theme === 'dark' ? 'none' : 'block'};" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-          </svg>
-        </button>
-      </div>
-    </div>
-  </header>
+  <!-- FLOATING CONTROLS (TOP-RIGHT: THEME ONLY) -->
+  <div class="floating-controls">
+    <!-- Toggle Theme Button -->
+    <button id="theme-toggle-btn" class="btn-floating-icon" type="button" title="${isIt ? 'Cambia tema' : 'Toggle Theme'}" aria-label="Toggle Theme">
+      <!-- Sun icon (shown in dark mode) -->
+      <svg id="sun-icon" style="display:${theme === 'dark' ? 'block' : 'none'};" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="5"></circle>
+        <line x1="12" y1="1" x2="12" y2="3"></line>
+        <line x1="12" y1="21" x2="12" y2="23"></line>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+        <line x1="1" y1="12" x2="3" y2="12"></line>
+        <line x1="21" y1="12" x2="23" y2="12"></line>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+      </svg>
+      <!-- Moon icon (shown in light mode) -->
+      <svg id="moon-icon" style="display:${theme === 'dark' ? 'none' : 'block'};" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+      </svg>
+    </button>
+  </div>
 
   <!-- CONTAINER & DOCUMENTATION LAYOUT -->
   <div class="container-doc-page">
     <div class="docs-layout" id="docs-layout">
       
+      ${includeToc ? `
       <!-- LEFT SIDEBAR TOC -->
       <aside class="docs-sidebar" id="docs-sidebar">
         <div class="docs-sidebar-header">
@@ -1082,6 +1266,7 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
           ${tocItemsHtml}
         </ul>
       </aside>
+      ` : ''}
 
       <!-- MAIN DOCUMENTATION CONTENT -->
       <main class="docs-main" id="docs-main">
@@ -1092,7 +1277,7 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
         <!-- FOOTER -->
         <footer class="export-footer">
           <div class="footer-inner">
-            ${escapeHtml(madeWith)} <a href="https://github.com/gwetano/mark" target="_blank" rel="noopener noreferrer" class="mark-footer-link">Mark</a> · 2026 — MIT License
+            Made with <a href="https://github.com/gwetano/mark" target="_blank" rel="noopener noreferrer" class="mark-footer-link">Mark</a>
           </div>
         </footer>
       </main>
@@ -1104,7 +1289,7 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
   <script>
     // ====== TOC TOGGLE & STORAGE ======
     (function() {
-      const toggleBtn = document.getElementById('toc-toggle-btn');
+      const openBtn = document.getElementById('toc-open-btn');
       const closeBtn = document.getElementById('sidebar-close-btn');
 
       function setTocHidden(hidden) {
@@ -1130,27 +1315,33 @@ function buildExportHtml({ filename = 'document.md', bodyHtml = '', headings = [
         }
       } catch (_) {}
 
-      toggleBtn && toggleBtn.addEventListener('click', () => {
-        if (window.innerWidth <= 768) {
-          const isOpen = document.body.classList.contains('toc-mobile-open');
-          if (isOpen) {
-            document.body.classList.remove('toc-mobile-open');
-          } else {
-            document.body.classList.remove('toc-hidden');
-            document.body.classList.add('toc-mobile-open');
-          }
-          return;
-        }
-        const isHidden = document.body.classList.contains('toc-hidden');
-        setTocHidden(!isHidden);
-      });
-
-      closeBtn && closeBtn.addEventListener('click', () => {
-        if (window.innerWidth <= 768) {
+      // Click "X" in sidebar header -> hides sidebar and spawns left button
+      closeBtn && closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (${!isForPreview} && window.innerWidth <= 768) {
           document.body.classList.remove('toc-mobile-open');
         } else {
           setTocHidden(true);
         }
+      });
+
+      // Click left spawn button -> hides button and shows sidebar
+      openBtn && openBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (${!isForPreview} && window.innerWidth <= 768) {
+          document.body.classList.add('toc-mobile-open');
+        } else {
+          setTocHidden(false);
+        }
+      });
+
+      // On mobile, clicking any TOC item closes the mobile drawer
+      document.querySelectorAll('.docs-menu-item').forEach(item => {
+        item.addEventListener('click', () => {
+          if (window.innerWidth <= 768) {
+            document.body.classList.remove('toc-mobile-open');
+          }
+        });
       });
     })();
 

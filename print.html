@@ -422,8 +422,63 @@
       text-align: justify;
     }
 
+    .heading-keep-group {
+      display: block !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+
+    .heading-keep-group > h1,
+    .heading-keep-group > h2,
+    .heading-keep-group > h3,
+    .heading-keep-group > h4,
+    .heading-keep-group > h5,
+    .heading-keep-group > h6,
+    .heading-keep-group > p {
+      break-after: avoid !important;
+      page-break-after: avoid !important;
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+
+    .heading-keep-group > ul,
+    .heading-keep-group > ol {
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+
     h1, h2, h3, h4, h5, h6 {
       text-align: left;
+      break-after: avoid-page !important;
+      break-after: avoid !important;
+      page-break-after: avoid !important;
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+
+    h1 + *, h2 + *, h3 + *, h4 + *, h5 + *, h6 + * {
+      break-before: avoid-page !important;
+      break-before: avoid !important;
+      page-break-before: avoid !important;
+    }
+
+    h1 + ul > li:first-child, h2 + ul > li:first-child, h3 + ul > li:first-child,
+    h4 + ul > li:first-child, h5 + ul > li:first-child, h6 + ul > li:first-child,
+    h1 + ol > li:first-child, h2 + ol > li:first-child, h3 + ol > li:first-child,
+    h4 + ol > li:first-child, h5 + ol > li:first-child, h6 + ol > li:first-child,
+    h1 + ul > li:nth-child(2), h2 + ul > li:nth-child(2), h3 + ul > li:nth-child(2),
+    h4 + ul > li:nth-child(2), h5 + ul > li:nth-child(2), h6 + ul > li:nth-child(2),
+    h1 + ol > li:nth-child(2), h2 + ol > li:nth-child(2), h3 + ol > li:nth-child(2),
+    h4 + ol > li:nth-child(2), h5 + ol > li:nth-child(2), h6 + ol > li:nth-child(2) {
+      break-before: avoid !important;
+      page-break-before: avoid !important;
+    }
+
+    p, li, blockquote, dd, dt {
+      orphans: 3 !important;
+      widows: 3 !important;
     }
 
     th {
@@ -459,6 +514,64 @@
       .page-break {
         page-break-before: always;
         break-before: page;
+      }
+
+      .heading-keep-group {
+        display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+
+      .heading-keep-group > h1,
+      .heading-keep-group > h2,
+      .heading-keep-group > h3,
+      .heading-keep-group > h4,
+      .heading-keep-group > h5,
+      .heading-keep-group > h6,
+      .heading-keep-group > p {
+        break-after: avoid !important;
+        page-break-after: avoid !important;
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+
+      .heading-keep-group > ul,
+      .heading-keep-group > ol {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+
+      h1, h2, h3, h4, h5, h6 {
+        break-after: avoid-page !important;
+        break-after: avoid !important;
+        page-break-after: avoid !important;
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+
+      h1 + *, h2 + *, h3 + *, h4 + *, h5 + *, h6 + * {
+        break-before: avoid-page !important;
+        break-before: avoid !important;
+        page-break-before: avoid !important;
+      }
+
+      h1 + ul > li:first-child, h2 + ul > li:first-child, h3 + ul > li:first-child,
+      h4 + ul > li:first-child, h5 + ul > li:first-child, h6 + ul > li:first-child,
+      h1 + ol > li:first-child, h2 + ol > li:first-child, h3 + ol > li:first-child,
+      h4 + ol > li:first-child, h5 + ol > li:first-child, h6 + ol > li:first-child,
+      h1 + ul > li:nth-child(2), h2 + ul > li:nth-child(2), h3 + ul > li:nth-child(2),
+      h4 + ul > li:nth-child(2), h5 + ul > li:nth-child(2), h6 + ul > li:nth-child(2),
+      h1 + ol > li:nth-child(2), h2 + ol > li:nth-child(2), h3 + ol > li:nth-child(2),
+      h4 + ol > li:nth-child(2), h5 + ol > li:nth-child(2), h6 + ol > li:nth-child(2) {
+        break-before: avoid !important;
+        page-break-before: avoid !important;
+      }
+
+      p, li, blockquote, dd, dt {
+        orphans: 3 !important;
+        widows: 3 !important;
       }
 
       li {
@@ -703,12 +816,176 @@
       return tempDiv.innerHTML;
     }
 
+    function isHeadingOrTitle(el) {
+      if (!el) return false;
+      if (/^H[1-6]$/i.test(el.tagName)) return true;
+      if (el.tagName.toLowerCase() === 'p') {
+        const text = el.textContent.trim();
+        if (text.length > 0 && text.length < 120) {
+          const firstChild = el.firstElementChild;
+          if (firstChild && (firstChild.tagName === 'STRONG' || firstChild.tagName === 'B')) {
+            const strongText = firstChild.textContent.trim();
+            if (strongText === text || (text.startsWith(strongText) && text.length <= strongText.length + 4)) {
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+
+    function preventOrphanHeadings(container) {
+      if (!container) return;
+
+      const candidates = Array.from(container.querySelectorAll('h1, h2, h3, h4, h5, h6, p'));
+      const headings = candidates.filter(isHeadingOrTitle);
+
+      for (let i = 0; i < headings.length; i++) {
+        const heading = headings[i];
+        if (heading.closest('.table-of-contents') || heading.closest('.heading-keep-group')) {
+          continue;
+        }
+
+        // Raggruppa eventuali titoli consecutivi (es. h1 seguito subito da h2 o titolo in grassetto)
+        const consecutiveHeadings = [heading];
+        let sibling = heading.nextElementSibling;
+        while (sibling && isHeadingOrTitle(sibling)) {
+          consecutiveHeadings.push(sibling);
+          sibling = sibling.nextElementSibling;
+        }
+
+        // Salta ed elimina eventuali nodi vuoti o interruzioni spurie
+        while (sibling && (sibling.tagName === 'BR' || (sibling.textContent.trim() === '' && !sibling.querySelector('img, svg, canvas, table')))) {
+          const toRemove = sibling;
+          sibling = sibling.nextElementSibling;
+          toRemove.remove();
+        }
+
+        // Crea il wrapper per impedire che il titolo rimanga orfano a fine pagina
+        const groupWrapper = document.createElement('div');
+        groupWrapper.className = 'heading-keep-group';
+        groupWrapper.setAttribute('style', 'break-inside: avoid !important; page-break-inside: avoid !important; margin: 0 !important; padding: 0 !important; display: block !important;');
+
+        heading.parentNode.insertBefore(groupWrapper, heading);
+
+        for (const h of consecutiveHeadings) {
+          groupWrapper.appendChild(h);
+        }
+
+        if (!sibling) {
+          continue;
+        }
+
+        const tagName = sibling.tagName.toLowerCase();
+
+        if (tagName === 'ul' || tagName === 'ol') {
+          const list = sibling;
+          const items = Array.from(list.children).filter(el => el.tagName.toLowerCase() === 'li');
+
+          if (items.length <= 2) {
+            // Meno o uguale a 2 elementi: tieni l'intera lista con il titolo
+            groupWrapper.appendChild(list);
+          } else {
+            // Più di 2 elementi: sposta i primi 2 elementi insieme al titolo
+            const firstList = document.createElement(tagName);
+            for (const attr of list.attributes) {
+              firstList.setAttribute(attr.name, attr.value);
+            }
+            firstList.style.marginBottom = '0px';
+            firstList.style.paddingBottom = '0px';
+
+            firstList.appendChild(items[0]);
+            firstList.appendChild(items[1]);
+            groupWrapper.appendChild(firstList);
+
+            list.style.marginTop = '0px';
+            list.style.paddingTop = '0px';
+            if (tagName === 'ol') {
+              const originalStart = parseInt(list.getAttribute('start') || '1', 10);
+              list.setAttribute('start', (originalStart + 2).toString());
+            }
+          }
+        } else if (tagName === 'p') {
+          const p = sibling;
+          const text = p.textContent.trim();
+
+          // Se il paragrafo ha circa 2-3 righe (fino a 240 caratteri) o meno, mantieni l'intero paragrafo
+          if (text.length <= 240) {
+            groupWrapper.appendChild(p);
+          } else {
+            // Se il paragrafo è più lungo, estrai almeno 2 righe (~120-180 caratteri)
+            let splitIndex = -1;
+            const sentenceMatch = text.slice(110, 220).search(/[.!?]\s+/);
+            if (sentenceMatch !== -1) {
+              splitIndex = 110 + sentenceMatch + 1;
+            } else {
+              const spaceMatch = text.slice(130, 190).search(/\s+/);
+              if (spaceMatch !== -1) {
+                splitIndex = 130 + spaceMatch;
+              }
+            }
+
+            if (splitIndex > 50 && splitIndex < text.length - 20) {
+              try {
+                const range = document.createRange();
+                let charCount = 0;
+                let targetNode = null;
+                let targetOffset = 0;
+
+                const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT, null, false);
+                let node;
+                while ((node = walker.nextNode())) {
+                  const nextCount = charCount + node.textContent.length;
+                  if (splitIndex <= nextCount) {
+                    targetNode = node;
+                    targetOffset = splitIndex - charCount;
+                    break;
+                  }
+                  charCount = nextCount;
+                }
+
+                if (targetNode) {
+                  range.setStart(p, 0);
+                  range.setEnd(targetNode, targetOffset);
+                  const extractedFragment = range.extractContents();
+
+                  const leadP = document.createElement('p');
+                  for (const attr of p.attributes) {
+                    leadP.setAttribute(attr.name, attr.value);
+                  }
+                  leadP.style.marginBottom = '0px';
+                  leadP.appendChild(extractedFragment);
+                  groupWrapper.appendChild(leadP);
+
+                  p.style.marginTop = '0px';
+                  p.style.textIndent = '0px';
+                } else {
+                  groupWrapper.appendChild(p);
+                }
+              } catch (e) {
+                groupWrapper.appendChild(p);
+              }
+            } else {
+              groupWrapper.appendChild(p);
+            }
+          }
+        } else if (tagName === 'blockquote' || tagName === 'pre' || tagName === 'table' || tagName === 'figure') {
+          groupWrapper.appendChild(sibling);
+        } else {
+          groupWrapper.appendChild(sibling);
+        }
+      }
+    }
+
     ipcRenderer.on('print-content', (event, content, exportSettings) => {
       const includeToc = Boolean(exportSettings && exportSettings.toc === true);
       let processedContent = includeToc ? generateTableOfContentsForPDF(content, exportSettings) : content;
 
       processedContent = processMdImage(processedContent);
-      document.getElementById('content').innerHTML = processedContent;
+      const contentEl = document.getElementById('content');
+      contentEl.innerHTML = processedContent;
+
+      preventOrphanHeadings(contentEl);
 
       const fontFamily = (exportSettings && exportSettings.font) || 'inter';
       if (fontFamily === 'jetbrains') {

@@ -66,6 +66,10 @@
                 <span data-i18n="menu_open_folder">Open folder...</span>
                 <span class="titlebar-menu-shortcut">Ctrl+Shift+O</span>
               </button>
+              <button type="button" class="titlebar-menu-item" data-action="close-folder">
+                <span data-i18n="menu_close_folder">Close folder</span>
+                <span class="titlebar-menu-shortcut">Ctrl+Alt+O</span>
+              </button>
               <button type="button" class="titlebar-menu-item" data-action="save-file">
                 <span data-i18n="menu_save">Save...</span>
                 <span class="titlebar-menu-shortcut">Ctrl+S</span>
@@ -214,7 +218,7 @@
 
     <div id="navbar">
       <div class="navbar-left">
-        <button id="btn-toggle-explorer" class="icon-btn" data-i18n-title="toggle_explorer" title="Toggle Explorer">&lt;</button>
+        <button id="btn-toggle-explorer" class="icon-btn" data-i18n-title="toggle_explorer" title="Toggle Explorer">&gt;</button>
         <span id="title" style="display: none;"></span>
       </div>
 
@@ -274,13 +278,13 @@
     </div>
 
     <div id="app-container">
-      <div id="explorer-panel">
+      <div id="explorer-panel" class="hidden">
         <div id="explorer-header">
           <span class="explorer-title" data-i18n="explorer_title">Explorer</span>
           <div class="explorer-actions">
             <button id="new-file" class="explorer-action-btn" data-i18n-title="new_file" title="New file">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm1 14h-2v2h-2v-2H9v-2h2v-2h2v2h2v2zm-2-8V3.5L18.5 9H13z"/>
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
               </svg>
             </button>
             <button id="open-folder" class="explorer-action-btn" data-i18n-title="open_folder" title="Open folder">
@@ -295,7 +299,7 @@
             </button>
             <button id="collapse-all" class="explorer-action-btn" data-i18n-title="collapse_folders" title="Collapse all folders">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                <path d="M19 13H5v-2h14v2z"/>
               </svg>
             </button>
           </div>
@@ -303,7 +307,7 @@
         <div id="folder-path" class="folder-path hidden"></div>
         <div id="file-tree"></div>
       </div>
-      <div id="explorer-resizer"></div>
+      <div id="explorer-resizer" class="hidden"></div>
       <div id="main-stage">
         <!-- TABS BAR -->
         <div id="tabs-bar">
@@ -388,6 +392,65 @@
                 <span>HTML (.html)</span>
               </button>
             </div>
+          </div>
+        </div>
+
+        <!-- DEDICATED PDF VIEWER CONTAINER -->
+        <div id="pdf-viewer-container" class="pdf-viewer-container hidden">
+          <!-- SQUARED PDF TOP TOOLBAR -->
+          <div id="pdf-top-toolbar" class="pdf-top-toolbar">
+            <!-- FAR LEFT: PAGE NAVIGATION / COUNTER -->
+            <div class="pdf-toolbar-left">
+              <button id="pdf-btn-prev-page" class="pdf-tool-btn-sq" data-i18n-title="pdf_prev_page" title="Previous page">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+              </button>
+              <div class="pdf-page-indicator-sq">
+                <input type="text" id="pdf-current-page-input" class="pdf-page-input-sq" value="1" title="Go to page" aria-label="Page number" />
+                <span class="pdf-page-separator">/</span>
+                <span id="pdf-total-pages">1</span>
+              </div>
+              <button id="pdf-btn-next-page" class="pdf-tool-btn-sq" data-i18n-title="pdf_next_page" title="Next page">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+              </button>
+            </div>
+
+            <!-- PERFECT CENTER: ZOOM CONTROLS -->
+            <div class="pdf-toolbar-center">
+              <button id="pdf-btn-zoom-out" class="pdf-tool-btn-sq" data-i18n-title="pdf_zoom_out" title="Zoom out">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13H5v-2h14v2z"/></svg>
+              </button>
+              <div class="pdf-zoom-selector-wrapper">
+                <button type="button" id="pdf-zoom-level" class="pdf-zoom-badge-sq" data-i18n-title="pdf_zoom_options" title="Zoom options">
+                  <span id="pdf-zoom-level-text">100%</span>
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" style="opacity: 0.6; margin-left: 2px;"><path d="M7 10l5 5 5-5z"/></svg>
+                </button>
+                <div id="pdf-zoom-menu" class="pdf-zoom-menu hidden">
+                  <button type="button" class="pdf-zoom-menu-item" data-zoom="fit">Fit</button>
+                  <div class="pdf-zoom-menu-divider"></div>
+                  <button type="button" class="pdf-zoom-menu-item" data-zoom="0.5">50%</button>
+                  <button type="button" class="pdf-zoom-menu-item" data-zoom="0.75">75%</button>
+                  <button type="button" class="pdf-zoom-menu-item" data-zoom="1.0">100%</button>
+                  <button type="button" class="pdf-zoom-menu-item" data-zoom="1.25">125%</button>
+                  <button type="button" class="pdf-zoom-menu-item" data-zoom="1.5">150%</button>
+                  <button type="button" class="pdf-zoom-menu-item" data-zoom="2.0">200%</button>
+                </div>
+              </div>
+              <button id="pdf-btn-zoom-in" class="pdf-tool-btn-sq" data-i18n-title="pdf_zoom_in" title="Zoom in">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              </button>
+            </div>
+
+            <!-- FAR RIGHT: SINGLE/DOUBLE PAGE TOGGLE (TEXT) -->
+            <div class="pdf-toolbar-right">
+              <button id="pdf-btn-page-layout" class="pdf-tool-btn-sq pdf-layout-btn-text" title="Single Page / Double Page">
+                <span id="pdf-layout-label">Single Page</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- PDF PAGES VIEWPORT -->
+          <div id="pdf-pages-viewport" class="pdf-pages-viewport" tabindex="0">
+            <div id="pdf-pages-canvas-container" class="pdf-pages-canvas-container"></div>
           </div>
         </div>
       </div>
@@ -726,6 +789,10 @@
                     <span class="shortcut-keys" data-shortcut="open-folder"></span>
                   </div>
                   <div class="shortcut-item">
+                    <span class="shortcut-action" data-i18n="shortcut_close_folder">Close folder</span>
+                    <span class="shortcut-keys" data-shortcut="close-folder"></span>
+                  </div>
+                  <div class="shortcut-item">
                     <span class="shortcut-action" data-i18n="shortcut_save">Save file</span>
                     <span class="shortcut-keys" data-shortcut="save-file"></span>
                   </div>
@@ -944,6 +1011,96 @@
       <div class="modal-footer pdf-export-modal-footer">
         <button type="button" id="btn-cancel-pdf-export" class="pdf-export-btn-cancel" data-i18n="export_modal_btn_cancel">Cancel</button>
         <button type="button" id="btn-confirm-pdf-export" class="pdf-export-btn-confirm" data-i18n="export_modal_btn_export">Export</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- POP-UP MODAL EXPORT HTML -->
+  <div id="html-export-modal" class="modal hidden">
+    <div class="modal-overlay" id="html-export-overlay"></div>
+    <div class="modal-content html-export-modal-content">
+      <div class="modal-header html-export-header">
+        <div class="html-export-header-left">
+          <h2 data-i18n="export_html_modal_title">Export HTML</h2>
+        </div>
+        <button id="btn-close-html-export-modal" class="collab-close-btn" data-i18n-title="win_close" title="Close">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-body html-export-modal-body">
+        <!-- LEFT PANEL: CONTROLS -->
+        <div class="html-export-controls-panel">
+          <!-- LOCATION SECTION -->
+          <div class="html-export-section">
+            <label class="html-export-label" for="html-export-path-input" data-i18n="export_modal_location_label">Save destination</label>
+            <div class="html-export-location-row">
+              <input type="text" id="html-export-path-input" class="collab-input html-export-path-input" data-i18n-placeholder="export_modal_location_placeholder" placeholder="Select destination path..." spellcheck="false" />
+              <button type="button" id="btn-browse-html-location" class="collab-icon-btn html-export-browse-btn" data-i18n-title="export_modal_browse" title="Browse...">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- SETTINGS SECTION -->
+          <div class="html-export-section">
+            <span class="html-export-label" data-i18n="export_modal_settings_title">Export Settings</span>
+            <div class="html-settings-list">
+              <div class="html-setting-row">
+                <label class="html-setting-label" for="html-select-font" data-i18n="export_modal_font">Font</label>
+                <select id="html-select-font" class="html-setting-select">
+                  <option value="inter">Inter</option>
+                  <option value="jetbrains">JetBrains Mono</option>
+                </select>
+              </div>
+
+              <div class="html-setting-row">
+                <label class="html-setting-label" data-i18n="export_modal_font_size">Font size</label>
+                <div class="html-stepper">
+                  <button type="button" id="btn-html-font-dec" class="html-stepper-btn" aria-label="Decrease font size">−</button>
+                  <span id="html-font-size-val" class="html-stepper-val">16 px</span>
+                  <button type="button" id="btn-html-font-inc" class="html-stepper-btn" aria-label="Increase font size">+</button>
+                </div>
+              </div>
+
+              <div class="html-setting-row">
+                <label class="html-setting-label" for="html-select-text-align" data-i18n="export_modal_text_align">Text alignment</label>
+                <select id="html-select-text-align" class="html-setting-select">
+                  <option value="left" data-i18n="settings_align_left">Left</option>
+                  <option value="justify" data-i18n="settings_align_justify">Justified</option>
+                </select>
+              </div>
+
+              <div class="html-setting-row">
+                <label class="html-setting-label" for="html-select-toc" data-i18n="export_modal_toc">Table of contents</label>
+                <select id="html-select-toc" class="html-setting-select">
+                  <option value="true" data-i18n="export_modal_toc_enabled">Included</option>
+                  <option value="false" data-i18n="export_modal_toc_disabled">Excluded</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT PANEL: REAL-TIME PREVIEW -->
+        <div class="html-export-preview-panel">
+          <div class="html-preview-toolbar">
+            <span class="html-preview-title" data-i18n="export_modal_preview_title">Preview</span>
+          </div>
+          <div class="html-preview-viewport" id="html-preview-viewport">
+            <iframe id="html-preview-iframe" class="html-preview-iframe" sandbox="allow-same-origin allow-scripts"></iframe>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL FOOTER: IN BASSO A DESTRA -->
+      <div class="modal-footer html-export-modal-footer">
+        <button type="button" id="btn-cancel-html-export" class="html-export-btn-cancel" data-i18n="export_modal_btn_cancel">Cancel</button>
+        <button type="button" id="btn-confirm-html-export" class="html-export-btn-confirm" data-i18n="export_modal_btn_export">Export</button>
       </div>
     </div>
   </div>
