@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, dialog, clipboard, ipcMain } = require("electron");
+const { app, BrowserWindow, Menu, MenuItem, dialog, clipboard, ipcMain } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const remoteMain = require("@electron/remote/main");
@@ -91,6 +91,74 @@ ipcMain.on('is-window-maximized', (event) => {
   event.returnValue = (win && !win.isDestroyed()) ? win.isMaximized() : false;
 });
 
+// ===== CUSTOM DICTIONARY (Offline & Session/Folder Persistent) =====
+let customWords = [];
+let dictPath = '';
+
+function getDictPath() {
+  if (!dictPath) {
+    try {
+      dictPath = path.join(app.getPath('userData'), 'custom-dictionary.json');
+    } catch (_) {
+      dictPath = path.resolve(__dirname, 'custom-dictionary.json');
+    }
+  }
+  return dictPath;
+}
+
+function loadCustomDictionary() {
+  try {
+    const p = getDictPath();
+    if (fs.existsSync(p)) {
+      const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+      if (Array.isArray(data)) customWords = data;
+    }
+  } catch (err) {
+    console.error('Error loading custom dictionary:', err);
+    customWords = [];
+  }
+}
+
+function initCustomDictionary(targetSession) {
+  loadCustomDictionary();
+  const sess = targetSession || (win && !win.isDestroyed() && win.webContents ? win.webContents.session : null);
+  if (!sess) return;
+  for (const word of customWords) {
+    try {
+      sess.addWordToSpellCheckerDictionary(word);
+    } catch (_) {}
+  }
+}
+
+function addWordToCustomDictionary(word) {
+  if (!word || typeof word !== 'string') return;
+  const trimmed = word.trim();
+  if (!trimmed) return;
+  const sess = win && !win.isDestroyed() && win.webContents ? win.webContents.session : null;
+  if (sess) {
+    try {
+      sess.addWordToSpellCheckerDictionary(trimmed);
+    } catch (_) {}
+  }
+  if (!customWords.includes(trimmed)) {
+    customWords.push(trimmed);
+    try {
+      fs.writeFileSync(getDictPath(), JSON.stringify(customWords, null, 2), 'utf8');
+    } catch (err) {
+      console.error('Error saving custom dictionary:', err);
+    }
+  }
+}
+
+ipcMain.handle('add-word-to-dictionary', (event, word) => {
+  addWordToCustomDictionary(word);
+  return true;
+});
+
+ipcMain.handle('get-custom-dictionary', () => {
+  return customWords;
+});
+
 function createWindow() {
 
   initializeRemote();
@@ -108,13 +176,110 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
-      clipboard: true
+      clipboard: true,
+      spellcheck: true
     }
   };
 
   win = new BrowserWindow(windowOptions);
 
   remoteMain.enable(win.webContents);
+
+  // Spellchecker setup (macOS native offline / Hunspell + custom dictionary)
+  const session = win.webContents.session;
+  try {
+    const currentLang = i18n.getLanguage() === 'it' ? ['it-IT', 'it', 'en-US', 'en'] : ['en-US', 'en', 'it-IT', 'it'];
+    session.setSpellCheckerLanguages(currentLang);
+  } catch (e) {
+    console.error('Error setting spellchecker languages:', e);
+  }
+  initCustomDictionary(session);
+
+  // Context Menu with Spellchecker Suggestions & Add to Dictionary
+  win.webContents.on('context-menu', (event, params) => {
+    if (params.defaultPrevented) return;
+    if (!params.isEditable && !params.selectionText && !params.misspelledWord) return;
+
+    const menu = new Menu();
+
+    // 1. Suggerimenti ortografici se cliccato su parola con errore
+    if (params.misspelledWord) {
+      if (params.dictionarySuggestions && params.dictionarySuggestions.length > 0) {
+        for (const suggestion of params.dictionarySuggestions) {
+          menu.append(new MenuItem({
+            label: suggestion,
+            click: () => win.webContents.replaceMisspelling(suggestion)
+          }));
+        }
+      } else {
+        menu.append(new MenuItem({
+          label: i18n.t('context_no_suggestions'),
+          enabled: false
+        }));
+      }
+
+      menu.append(new MenuItem({ type: 'separator' }));
+      menu.append(new MenuItem({
+        label: i18n.t('context_add_to_dictionary'),
+        click: () => {
+          addWordToCustomDictionary(params.misspelledWord);
+          win.webContents.send('word-added-to-dictionary', params.misspelledWord);
+        }
+      }));
+      menu.append(new MenuItem({ type: 'separator' }));
+    }
+
+    // 2. Azioni di modifica standard
+    if (params.isEditable) {
+      menu.append(new MenuItem({
+        label: i18n.t('context_cut'),
+        accelerator: 'CmdOrCtrl+X',
+        role: 'cut'
+      }));
+    }
+    menu.append(new MenuItem({
+      label: i18n.t('context_copy'),
+      accelerator: 'CmdOrCtrl+C',
+      role: 'copy'
+    }));
+    if (params.isEditable) {
+      menu.append(new MenuItem({
+        label: i18n.t('context_paste'),
+        accelerator: 'CmdOrCtrl+V',
+        role: 'paste'
+      }));
+      menu.append(new MenuItem({ type: 'separator' }));
+      menu.append(new MenuItem({
+        label: i18n.t('context_format_markdown'),
+        accelerator: 'CmdOrCtrl+K',
+        click: () => win.webContents.send('format-markdown')
+      }));
+      menu.append(new MenuItem({
+        label: i18n.t('context_show_history'),
+        accelerator: 'Ctrl+Alt+Z',
+        click: () => win.webContents.send('show-undo-history')
+      }));
+    }
+
+    // 3. AI Tool se c'è testo selezionato
+    if (params.selectionText && params.selectionText.trim().length > 0) {
+      menu.append(new MenuItem({ type: 'separator' }));
+      menu.append(new MenuItem({
+        label: 'AI Tool',
+        accelerator: 'CmdOrCtrl+Shift+A',
+        click: () => win.webContents.send('trigger-ai-tool', params.selectionText.trim())
+      }));
+    }
+
+    menu.append(new MenuItem({ type: 'separator' }));
+    menu.append(new MenuItem({
+      label: i18n.t('context_select_all'),
+      accelerator: 'CmdOrCtrl+A',
+      role: 'selectAll'
+    }));
+
+    menu.popup();
+  });
 
   win.loadFile("index.html");
 
@@ -142,6 +307,12 @@ function createWindow() {
 ipcMain.on('app-language-changed', (event, lang) => {
   i18n.setLanguage(lang);
   buildApplicationMenu();
+  if (win && !win.isDestroyed()) {
+    try {
+      const langs = lang === 'it' ? ['it-IT', 'it', 'en-US', 'en'] : ['en-US', 'en', 'it-IT', 'it'];
+      win.webContents.session.setSpellCheckerLanguages(langs);
+    } catch (_) {}
+  }
 });
 
 function buildApplicationMenu() {

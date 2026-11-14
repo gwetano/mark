@@ -2578,6 +2578,13 @@ body.dark .code-figcaption {
   word-break: break-word;
 }
 
+#preview p.preview-empty-line {
+  margin: 0 !important;
+  min-height: 1.5em;
+  line-height: 1.6;
+  padding: 0 !important;
+}
+
 /* --- MODAL IMPOSTAZIONI SQUADRATO --- */
 .modal {
   position: fixed;
@@ -3075,7 +3082,8 @@ body.dark .shortcut-keys kbd {
   opacity: 1 !important;
 }
 
-#container.solo-editor .preview-export-widget {
+#container.solo-editor .preview-export-widget,
+#container.visual-mode .preview-export-widget {
   display: none !important;
 }
 
@@ -3193,6 +3201,10 @@ body.dark .preview-export-menu {
 
 #container.solo-editor {
   background-color: var(--editor-bg) !important; 
+}
+
+#container.visual-mode {
+  background-color: var(--preview-bg) !important;
 }
 
 #container.solo-preview {
@@ -3756,6 +3768,637 @@ body.dark #preview pre code {
               padding 0.38s cubic-bezier(0.2, 0.8, 0.2, 1),
               opacity 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
               visibility 0s linear 0.38s !important;
+}
+
+/* ==============================================================
+   VISUAL MODE (Obsidian-like Live Preview Single Field Editor)
+   ============================================================== */
+#container.visual-mode #editor-container,
+#container.visual-mode #preview {
+  flex: 0 0 0% !important;
+  max-width: 0 !important;
+  width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+  visibility: hidden !important;
+  display: none !important;
+}
+
+#visual-editor-container {
+  display: none !important;
+  flex: 1 1 100%;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 0 !important;
+  box-sizing: border-box;
+  background-color: var(--preview-bg) !important;
+  color: var(--fg);
+  outline: none;
+  cursor: text;
+  position: relative;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+#visual-editor-container.hidden {
+  display: none !important;
+}
+
+#visual-editor-container::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+#container.visual-mode #visual-editor-container:not(.hidden) {
+  display: block !important;
+}
+
+#visual-editor {
+  max-width: 850px;
+  width: 100%;
+  min-height: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding: 30px 24px 75vh 24px !important;
+  font-family: inherit;
+  font-size: var(--editor-font-size, 16px);
+  color: var(--fg);
+  background-color: var(--preview-bg) !important;
+  line-height: 1.6;
+  outline: none;
+  cursor: text;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Lines in Visual Mode */
+.ve-line {
+  position: relative;
+  min-height: 1.6em;
+  line-height: 1.6;
+  margin: 0;
+  padding: 1px 0;
+  outline: none;
+  word-break: break-word;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+/* Headings: Moderate, constant, stable sizing whether delimiter is shown or hidden */
+.ve-line.ve-h1 {
+  font-size: 1.55em;
+  font-weight: 600;
+  line-height: 1.3;
+  margin-top: 14px;
+  margin-bottom: 4px;
+}
+.ve-line.ve-h2 {
+  font-size: 1.35em;
+  font-weight: 600;
+  line-height: 1.35;
+  margin-top: 12px;
+  margin-bottom: 4px;
+}
+.ve-line.ve-h3 {
+  font-size: 1.18em;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-top: 10px;
+  margin-bottom: 2px;
+}
+.ve-line.ve-h4 {
+  font-size: 1.08em;
+  font-weight: 600;
+  margin-top: 8px;
+  margin-bottom: 2px;
+}
+.ve-line.ve-h5 {
+  font-size: 1.0em;
+  font-weight: 600;
+  margin-top: 6px;
+}
+.ve-line.ve-h6 {
+  font-size: 0.95em;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+/* Markdown Delimiters (Markers): collapsed when cursor outside, unfolded when cursor inside */
+.ve-delim {
+  display: inline;
+  opacity: 0.45;
+  font-family: monospace;
+  font-size: 0.92em;
+  font-weight: normal;
+  font-style: normal;
+  text-decoration: none;
+  letter-spacing: -0.5px;
+}
+
+.ve-hidden,
+.ve-delim.ve-hidden,
+.katex-inline-container.ve-hidden,
+.ve-math-raw.ve-hidden {
+  display: none !important;
+}
+
+.ve-token-math {
+  display: inline;
+}
+
+.ve-token-math .ve-math-raw {
+  font-family: var(--code-font-family, monospace);
+  font-size: 0.95em;
+  color: var(--fg);
+}
+
+/* Inline Tokens */
+.ve-token {
+  display: inline;
+}
+
+.ve-token-bold strong,
+.ve-bold {
+  font-weight: 700;
+}
+
+.ve-token-italic em,
+.ve-italic {
+  font-style: italic;
+}
+
+.ve-token-del del,
+.ve-del {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.ve-token-code code,
+.ve-inline-code {
+  font-family: var(--code-font-family, 'Consolas', 'Courier New', monospace);
+  font-size: 0.88em;
+  background-color: rgba(175, 184, 193, 0.2);
+  padding: 0.2em 0.4em;
+  border-radius: 6px;
+}
+
+body.dark .ve-token-code code,
+body.dark .ve-inline-code {
+  background-color: rgba(240, 246, 252, 0.15);
+}
+
+.ve-token-mark mark,
+.ve-mark {
+  background-color: rgba(255, 220, 40, 0.35);
+  padding: 1px 3px;
+  border-radius: 2px;
+  color: inherit;
+}
+
+.ve-token-underline u,
+u {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ve-link-text {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/* Blockquotes: Stile identico a #preview blockquote */
+blockquote.ve-blockquote-block {
+  background-color: #fcfcfc;
+  border-left: 3.5px solid var(--fg);
+  border-top: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 10px 16px;
+  margin: 16px 0;
+  color: #555;
+  font-style: normal;
+  box-sizing: border-box;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  text-align: left;
+}
+
+body.dark blockquote.ve-blockquote-block {
+  background-color: #141414;
+  border-left: 3.5px solid #eaeaea;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: #a3a3a3;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+blockquote.ve-blockquote-block .ve-line {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 2px 0 !important;
+  margin: 0 !important;
+  min-height: 1.5em;
+}
+
+.ve-line.ve-quote {
+  background-color: #fcfcfc;
+  border-left: 3.5px solid var(--fg);
+  border-top: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  border-radius: 4px;
+  color: #555;
+  font-style: normal;
+  margin: 14px 0;
+  padding: 10px 16px;
+  box-sizing: border-box;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+body.dark .ve-line.ve-quote {
+  background-color: #141414;
+  border-left: 3.5px solid #eaeaea;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: #a3a3a3;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Bullet list */
+.ve-line.ve-list-bullet .ve-bullet-dot {
+  user-select: text;
+  margin-right: 6px;
+  opacity: 0.85;
+  font-weight: bold;
+}
+
+/* Numbered list */
+.ve-line.ve-list-number .ve-number-label {
+  user-select: text;
+  margin-right: 6px;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+/* Task list */
+.ve-line.ve-task {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.ve-task-checkbox {
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  position: relative;
+  top: 1px;
+}
+.ve-line.ve-task.ve-task-done {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+/* Sublist indentations in Visual Mode */
+.ve-line.ve-indent-1 {
+  padding-left: 24px !important;
+}
+.ve-line.ve-indent-2 {
+  padding-left: 48px !important;
+}
+.ve-line.ve-indent-3 {
+  padding-left: 72px !important;
+}
+.ve-line.ve-indent-4 {
+  padding-left: 96px !important;
+}
+
+/* Divider */
+.ve-line.ve-hr-line .ve-hr {
+  height: 1px;
+  background-color: var(--explorer-border, #444);
+  border: none;
+  margin: 14px 0;
+}
+
+/* ====== MULTI-LINE CODE BLOCKS (Stile identico a #preview pre) ====== */
+.ve-block.ve-code-block {
+  margin: 12px 0;
+  padding: 0;
+  border: none;
+  position: relative;
+  border-radius: 6px;
+}
+
+.ve-code-preview {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.ve-code-preview pre {
+  position: relative;
+  background-color: #f6f8fa;
+  padding: 14px 40px 14px 14px;
+  border-radius: 6px;
+  margin: 0 !important;
+  border: 1px solid var(--explorer-border);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-align: left;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+body.dark .ve-code-preview pre {
+  background-color: #0d1117;
+}
+
+.ve-code-preview pre code {
+  font-size: 85%;
+  font-family: var(--code-font-family, monospace);
+  background-color: transparent !important;
+  padding: 0;
+  display: block;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-align: left;
+}
+
+.ve-code-preview pre:hover .code-copy-btn {
+  opacity: 0.75;
+}
+
+.ve-code-editor {
+  background-color: #f6f8fa;
+  border: 1px solid var(--explorer-border, #d0d7de);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin: 0 !important;
+  font-family: var(--code-font-family, monospace);
+  font-size: var(--editor-font-size, 16px);
+  line-height: 1.45;
+}
+
+body.dark .ve-code-editor {
+  background-color: #0d1117;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.ve-line.ve-code-fence {
+  opacity: 0.5;
+  font-size: 0.9em;
+  font-family: var(--code-font-family, monospace);
+}
+
+.ve-line.ve-code-line {
+  font-family: var(--code-font-family, monospace);
+}
+
+/* ====== VE-BLOCK WHITE-SPACE RESET (previene newlines fantasma da pre-wrap) ====== */
+.ve-block {
+  white-space: normal !important;
+  user-select: text;
+}
+
+.ve-table-preview,
+.ve-code-preview,
+.ve-math-preview,
+.ve-block pre,
+.ve-block code,
+.ve-block table {
+  user-select: text;
+}
+
+.ve-table-preview,
+.ve-code-preview,
+.ve-math-preview {
+  white-space: normal !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+}
+
+/* ====== TABLES (Stile identico a #preview table) ====== */
+.ve-block.ve-table-block {
+  margin: 16px 0;
+  padding: 0;
+  border: none;
+  cursor: default;
+}
+
+.ve-table-preview {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+}
+
+.ve-table-preview table,
+table.ve-table,
+#visual-editor table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0 !important;
+  background: #fff;
+  border: 1px solid #d0d7de;
+  font-size: var(--editor-font-size, 16px);
+  cursor: pointer;
+  white-space: normal !important;
+}
+
+body.dark .ve-table-preview table,
+body.dark table.ve-table {
+  background: #23272e;
+  border: 1px solid #3b4252;
+  color: #eaeaea;
+}
+
+.ve-table-preview th,
+.ve-table-preview td,
+table.ve-table th,
+table.ve-table td {
+  border: 1px solid #d0d7de;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+body.dark .ve-table-preview th,
+body.dark .ve-table-preview td,
+body.dark table.ve-table th,
+body.dark table.ve-table td {
+  border: 1px solid #3b4252;
+}
+
+.ve-table-preview tr:hover,
+table.ve-table tr:hover {
+  background-color: rgba(127, 127, 127, 0.05);
+}
+
+body.dark .ve-table-preview tr:hover,
+body.dark table.ve-table tr:hover {
+  background-color: #2d323b;
+}
+
+.ve-table-editor {
+  background-color: rgba(127, 127, 127, 0.05);
+  border: 1px dashed var(--explorer-border, #ccc);
+  border-radius: 4px;
+  padding: 10px 14px;
+  font-family: var(--code-font-family, monospace);
+}
+
+/* ====== KATEX MATH DISPLAY (Stile identico a #preview) ====== */
+.ve-block.ve-math-block {
+  margin: 18px 0;
+  cursor: pointer;
+  text-align: center;
+}
+
+.ve-math-editor {
+  background-color: rgba(127, 127, 127, 0.05);
+  border: 1px dashed var(--explorer-border, #ccc);
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-family: var(--code-font-family, monospace);
+  text-align: center;
+}
+
+.ve-math-live {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(127, 127, 127, 0.2);
+}
+
+.ve-math-preview.ve-math-empty {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px !important;
+  margin: 6px auto !important;
+  max-width: 130px;
+  border-radius: 6px !important;
+  background-color: rgba(127, 127, 127, 0.08) !important;
+  border: 1px dashed var(--explorer-border, rgba(127, 127, 127, 0.35)) !important;
+  cursor: pointer;
+  user-select: text;
+  transition: all 0.15s ease;
+}
+
+.ve-math-preview.ve-math-empty:hover {
+  background-color: rgba(127, 127, 127, 0.15) !important;
+  border-color: var(--fg, #555) !important;
+}
+
+.ve-math-empty-dollars {
+  font-family: var(--code-font-family, monospace);
+  font-size: 0.9em;
+  color: #888888;
+  opacity: 0.8;
+  white-space: pre;
+}
+
+body.dark .ve-math-empty-dollars {
+  color: #aaaaaa;
+}
+
+/* ====== IMAGES (Stile identico a #preview img, nessun selettore) ====== */
+.ve-line.ve-image-line {
+  min-height: auto;
+  text-align: center;
+  margin: 1.5rem 0;
+}
+
+.ve-image-wrapper {
+  position: relative;
+  display: block;
+  max-width: 100%;
+  width: 100%;
+  text-align: center;
+  user-select: text;
+}
+
+.ve-image {
+  cursor: pointer;
+  border-radius: 4px;
+  display: block !important;
+  margin: 1.5rem auto !important;
+  max-width: 100%;
+  height: auto;
+  transition: opacity 0.15s ease;
+}
+
+.ve-image:hover {
+  opacity: 0.92;
+}
+
+.ve-image.img-small,
+.ve-line.ve-image-line img.img-small { width: 25% !important; max-width: 25% !important; }
+.ve-image.img-medium,
+.ve-line.ve-image-line img.img-medium { width: 50% !important; max-width: 50% !important; }
+.ve-image.img-large,
+.ve-line.ve-image-line img.img-large { width: 75% !important; max-width: 75% !important; }
+.ve-image.img-full,
+.ve-line.ve-image-line img.img-full { width: 100% !important; max-width: 100% !important; }
+
+.ve-image-source {
+  display: block;
+  text-align: center;
+  font-family: var(--code-font-family, monospace);
+  font-size: 0.9em;
+  opacity: 0.7;
+  padding: 4px 8px;
+  background-color: rgba(127, 127, 127, 0.08);
+  border-radius: 4px;
+  margin-bottom: 6px;
+  cursor: text;
+}
+
+/* NAVBAR BUTTON: Same color as other buttons, NO BLUE */
+#btn-toggle-visual-mode {
+  position: relative;
+  color: var(--fg);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease;
+}
+
+#btn-toggle-visual-mode svg {
+  display: block;
+}
+
+#btn-toggle-visual-mode:hover {
+  background-color: var(--explorer-hover);
+}
+
+#btn-toggle-visual-mode.active {
+  background-color: var(--explorer-hover);
+  color: var(--fg) !important;
 }
 
 /* Navbar invisibile ma draggabile in Reading Mode */

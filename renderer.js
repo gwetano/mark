@@ -476,6 +476,17 @@ if (typeof marked !== 'undefined' && marked.use) {
         const line = token && token.sourceLine ? ` data-source-line="${token.sourceLine}" data-checkpoint="image"` : '';
         return html.replace(/^<img/, `<img${badgeClass}${line}`);
       },
+      space(token) {
+        const newlines = (token.raw && typeof token.raw === 'string')
+          ? (token.raw.match(/\n/g) || []).length
+          : 0;
+        const threshold = (token.sourceLine === 1) ? 1 : 2;
+        const extraLines = Math.max(0, newlines - threshold);
+        if (extraLines > 0) {
+          return '<p class="preview-empty-line"><br></p>'.repeat(extraLines);
+        }
+        return '';
+      },
       checkbox({ checked }) {
         const index = checkboxCount++;
         return `<input type="checkbox" class="task-list-item-checkbox" data-index="${index}" ${checked ? 'checked' : ''}>`;
@@ -894,8 +905,26 @@ function updateOnlineStatus() {
   else { statusIndicator.classList.add('offline'); statusText.textContent = 'Offline'; }
 }
 
+// Global application state (declared early to prevent any Temporal Dead Zone errors)
+let isReadingMode = false;
+
 // ====== DOM READY ===========================================================
 window.addEventListener("DOMContentLoaded", () => {
+
+  // ===== MULTI-TAB & VISUAL MODE STATE (Early initialized to prevent TDZ) =====
+  let tabs = [];
+  let activeTabId = null;
+  let collabTabId = null;
+  let untitledCounter = 0;
+  let isDraggingTab = false;
+
+  let isVisualModeActive = false;
+  let previousViewMode = "split-view";
+  let lastActiveLineEl = null;
+  let currentActiveBlockEl = null;
+  const btnToggleVisualMode = document.getElementById("btn-toggle-visual-mode");
+  const visualEditorContainer = document.getElementById("visual-editor-container");
+  const visualEditor = document.getElementById("visual-editor");
 
   // ===== TREE SVG ICONS (FILLED) =====
   const FOLDER_CHEVRON_SVG = `<svg class="tree-chevron-icon" width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
@@ -954,6 +983,9 @@ window.addEventListener("DOMContentLoaded", () => {
     }
     if (editor.value !== oldVal) {
       recordAction(actionName, oldVal, editor.value);
+      if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive) {
+        if (typeof syncVisualModeFromEditor === 'function') syncVisualModeFromEditor();
+      }
     } else {
       lastKnownEditorValue = editor.value;
     }
@@ -1161,7 +1193,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const viewContainer = document.getElementById("container"); // To toggle split/solo views
   
   let previousViewClass = "split-view";
-  let isReadingMode = false;
+  isReadingMode = false;
 
   function setReadingMode(active) {
     isReadingMode = active;
@@ -1861,7 +1893,8 @@ window.addEventListener("DOMContentLoaded", () => {
     const currentScrollTop = preview.scrollTop;
     isRenderingPreview = true;
 
-    const tokens = marked.lexer(raw);
+    try {
+      const tokens = marked.lexer(raw);
     function assignSourceLines(tokenList, startLine) {
       let line = startLine;
       for (const t of tokenList) {
@@ -1943,10 +1976,10 @@ window.addEventListener("DOMContentLoaded", () => {
           ];
 
           for (const s of sizeDefs) {
-            const bracketRegex = new RegExp(`\\[${s.name}\\]`, 'i');
-            const exactRegex = new RegExp(`^${s.name}$`, 'i');
-            const pipeRegex = new RegExp(`\\|\\s*${s.name}\\s*$`, 'i');
-            const dashRegex = new RegExp(`\\s+-\\s+${s.name}\\s*$`, 'i');
+            const bracketRegex = new RegExp(String.raw`\[\s*${s.name}\s*\]`, 'i');
+            const exactRegex = new RegExp(String.raw`^${s.name}$`, 'i');
+            const pipeRegex = new RegExp(String.raw`\|\s*${s.name}\s*$`, 'i');
+            const dashRegex = new RegExp(String.raw`\s+-\s+${s.name}\s*$`, 'i');
 
             if (bracketRegex.test(altTrimmed)) {
               sizeInfo = { name: s.name, percent: s.percent, cleanedAlt: altTrimmed.replace(bracketRegex, '').trim() };
@@ -2085,6 +2118,14 @@ window.addEventListener("DOMContentLoaded", () => {
          // Debounce or just call it, but be careful not to loop
          setTimeout(() => performSearch(false), 10);
       }
+    }
+    } finally {
+      requestAnimationFrame(() => {
+        isRenderingPreview = false;
+      });
+      setTimeout(() => {
+        isRenderingPreview = false;
+      }, 50);
     }
   }
 
@@ -3328,6 +3369,7 @@ window.addEventListener("DOMContentLoaded", () => {
     isSyncingScroll = true;
     preview.scrollTop = getPreviewScrollForEditor(editor.scrollTop);
     requestAnimationFrame(() => { isSyncingScroll = false; });
+    setTimeout(() => { isSyncingScroll = false; }, 50);
   });
 
   preview && preview.addEventListener('scroll', () => {
@@ -3342,6 +3384,7 @@ window.addEventListener("DOMContentLoaded", () => {
     isSyncingScroll = true;
     editor.scrollTop = getEditorScrollForPreview(preview.scrollTop);
     requestAnimationFrame(() => { isSyncingScroll = false; });
+    setTimeout(() => { isSyncingScroll = false; }, 50);
   });
 
   let resizeDebounceTimer = null;
@@ -3710,28 +3753,21 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // ===== Context Menu + AI =====
-  editor && editor.addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-    const { Menu, MenuItem } = require('@electron/remote');
-    const menu = new Menu();
-    const selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd).trim();
-    menu.append(new MenuItem({ label: 'Cut', accelerator: 'CmdOrCtrl+X', click: () => document.execCommand('cut') }));
-    menu.append(new MenuItem({ label: 'Copy', accelerator: 'CmdOrCtrl+C', click: () => document.execCommand('copy') }));
-    menu.append(new MenuItem({ label: 'Paste', accelerator: 'CmdOrCtrl+V', click: () => document.execCommand('paste') }));
-    
-    menu.append(new MenuItem({ label: 'Format', accelerator: 'CmdOrCtrl+K', click: () => formatMarkdown() }));
-    menu.append(new MenuItem({ type: 'separator' }));
-    menu.append(new MenuItem({ label: 'Show Undo History', accelerator: 'Ctrl+Alt+Z', click: () => {
-      const modal = document.getElementById("history-modal");
-      if(modal) { modal.classList.remove('hidden'); renderHistoryModal(); }
-    }}));
-
-    if (selectedText) {
-      menu.append(new MenuItem({ type: 'separator' }));
-      menu.append(new MenuItem({ label: 'AI Tool', accelerator: 'CmdOrCtrl+Shift+A', click: () => showAISearchDialog(selectedText) }));
+  // ===== IPC handlers for Context Menu (Spellcheck / Format / AI) =====
+  ipcRenderer.on('format-markdown', () => {
+    if (typeof formatMarkdown === 'function') formatMarkdown();
+  });
+  ipcRenderer.on('show-undo-history', () => {
+    const modal = document.getElementById("history-modal");
+    if (modal) { modal.classList.remove('hidden'); renderHistoryModal(); }
+  });
+  ipcRenderer.on('trigger-ai-tool', (event, text) => {
+    if (typeof showAISearchDialog === 'function') showAISearchDialog(text);
+  });
+  ipcRenderer.on('word-added-to-dictionary', (event, word) => {
+    if (typeof showNotification === 'function') {
+      showNotification(i18n.t('notif_word_added_to_dict', { word }), 'success');
     }
-    menu.popup();
   });
 
   // ===== IPC handlers (file/load/view/theme) =====
@@ -5089,13 +5125,7 @@ window.addEventListener("DOMContentLoaded", () => {
     return false;
   }
 
-  // ====== MULTI-TAB FILE MANAGEMENT ======
-  let tabs = [];
-  let activeTabId = null;
-  let collabTabId = null;
-  let untitledCounter = 0;
-  let isDraggingTab = false;
-
+  // ====== MULTI-TAB FILE MANAGEMENT (State declared at top of DOMContentLoaded) ======
   function getActiveTab() {
     return tabs.find(t => t.id === activeTabId) || null;
   }
@@ -5108,6 +5138,10 @@ window.addEventListener("DOMContentLoaded", () => {
   function saveStateForActiveTab() {
     const activeTab = getActiveTab();
     if (!activeTab) return;
+    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive) {
+      if (typeof deactivateCurrentVisualBlock === 'function') deactivateCurrentVisualBlock();
+      if (typeof syncVisualModeToEditor === 'function') syncVisualModeToEditor();
+    }
     if (activeTab.isPdf) {
       const viewportEl = document.getElementById("pdf-pages-viewport");
       if (viewportEl) {
@@ -5151,6 +5185,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const btnViewEditorEl = document.getElementById("btn-view-editor");
     const btnViewSplitEl = document.getElementById("btn-view-split");
     const btnViewPreviewEl = document.getElementById("btn-view-preview");
+    const btnToggleVisualModeEl = document.getElementById("btn-toggle-visual-mode");
     if (btnViewEditorEl) {
       btnViewEditorEl.disabled = !hasTabs || isPdfActive;
       btnViewEditorEl.classList.toggle('disabled', isPdfActive);
@@ -5163,10 +5198,17 @@ window.addEventListener("DOMContentLoaded", () => {
       btnViewPreviewEl.disabled = !hasTabs || isPdfActive;
       btnViewPreviewEl.classList.toggle('disabled', isPdfActive);
     }
+    if (btnToggleVisualModeEl) {
+      btnToggleVisualModeEl.disabled = !hasTabs || isPdfActive;
+      btnToggleVisualModeEl.classList.toggle('disabled', !hasTabs || isPdfActive);
+    }
 
     const pdfViewerEl = document.getElementById("pdf-viewer-container");
 
     if (tabs.length === 0) {
+      if (typeof setVisualMode === 'function' && typeof isVisualModeActive !== 'undefined' && isVisualModeActive) {
+        setVisualMode(false);
+      }
       if (tabsBar) tabsBar.classList.add('hidden');
       if (viewContainer) viewContainer.classList.add('hidden');
       if (pdfViewerEl) pdfViewerEl.classList.add('hidden');
@@ -5504,6 +5546,9 @@ window.addEventListener("DOMContentLoaded", () => {
         updatePreview();
         updateWordCount();
         updateEditorOverlay();
+        if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive) {
+          if (typeof syncVisualModeFromEditor === 'function') syncVisualModeFromEditor();
+        }
 
         editor.scrollTop = targetTab.scrollTop || 0;
         const sStart = targetTab.selectionStart !== undefined ? targetTab.selectionStart : 0;
@@ -6357,6 +6402,7 @@ window.addEventListener("DOMContentLoaded", () => {
   function insertMarkdownLinkBtn() { insertMarkdownLink(); }
 
   btnBold && btnBold.addEventListener("click", () => {
+    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive && applyFormattingToActiveVisualBlock('**', '**', 'text')) return;
     executeAction("Bold", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.substring(start, end);
       const text = `**${selected || 'text'}**`; editor.setRangeText(text, start, end, 'end');
@@ -6368,6 +6414,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   });
   btnItalic && btnItalic.addEventListener("click", () => {
+    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive && applyFormattingToActiveVisualBlock('*', '*', 'text')) return;
     executeAction("Italic", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.substring(start, end);
       const text = `*${selected || 'text'}*`; editor.setRangeText(text, start, end, 'end');
@@ -6378,8 +6425,15 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   });
   });
-  btnCode && btnCode.addEventListener("click", () => executeAction("Code block", () => preserveScroll(() => { formatAsCode(); })));
+  btnCode && btnCode.addEventListener("click", () => {
+    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive) {
+      insertCodeBlockInVisualMode();
+      return;
+    }
+    executeAction("Code block", () => preserveScroll(() => { formatAsCode(); }));
+  });
   btnImage && btnImage.addEventListener("click", () => {
+    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive && applyFormattingToActiveVisualBlock('![alt](', ')', 'url')) return;
     executeAction("Image", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.substring(start, end);
       const imageMd = `![alt](${selected || 'url'})`; editor.setRangeText(imageMd, start, end, 'end');
@@ -6391,6 +6445,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   });
   btnUl && btnUl.addEventListener("click", () => {
+    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive && applyFormattingToActiveVisualBlock('- ', '', 'elem')) return;
     executeAction("Bullet List", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.substring(start, end);
       const listMd = `* ${selected || 'elem'}`; editor.setRangeText(listMd, start, end, 'end');
@@ -6402,6 +6457,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   });
   btnOl && btnOl.addEventListener("click", () => {
+    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive && applyFormattingToActiveVisualBlock('1. ', '', 'elem')) return;
     executeAction("Numbered List", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.substring(start, end);
       const listMd = `1. ${selected || 'elem'}`; editor.setRangeText(listMd, start, end, 'end');
@@ -6412,8 +6468,12 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   });
   });
-  btnLink && btnLink.addEventListener("click", () => executeAction("Link", () => preserveScroll(() => insertMarkdownLinkBtn())));
+  btnLink && btnLink.addEventListener("click", () => {
+    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive && applyFormattingToActiveVisualBlock('[', '](url)', 'link text')) return;
+    executeAction("Link", () => preserveScroll(() => insertMarkdownLinkBtn()));
+  });
   btnHr && btnHr.addEventListener("click", () => {
+    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive && applyFormattingToActiveVisualBlock('---\n', '', '')) return;
     executeAction("Horizontal Rule", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd; editor.setRangeText("***\n", start, end, 'end');
       editor.focus(); editor.setSelectionRange(start + 4, start + 4);
@@ -6424,6 +6484,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   });
   btnUnderline && btnUnderline.addEventListener("click", () => {
+    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive && applyFormattingToActiveVisualBlock('<u>', '</u>', 'text')) return;
     executeAction("Underline", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.substring(start, end);
       const text = `<u>${selected || 'text'}</u>`; editor.setRangeText(text, start, end, 'end');
@@ -6435,6 +6496,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   });
   btnQuote && btnQuote.addEventListener("click", () => {
+    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive && applyFormattingToActiveVisualBlock('> ', '', 'quote')) return;
     executeAction("Quote", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.substring(start, end);
       const quoteMd = `> ${selected || 'quote'}`;
@@ -7111,6 +7173,12 @@ window.addEventListener("DOMContentLoaded", () => {
     if (preview) {
       preview.setAttribute("lang", lang);
     }
+    if (editor) {
+      editor.setAttribute("lang", lang);
+    }
+    if (visualEditor) {
+      visualEditor.setAttribute("lang", lang);
+    }
 
     if (langBtnEn && langBtnIt) {
       langBtnEn.classList.toggle("active", lang === "en");
@@ -7320,6 +7388,9 @@ window.addEventListener("DOMContentLoaded", () => {
         updatePreview();
         updateWordCount();
         updateEditorOverlay();
+        if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive) {
+          if (typeof syncVisualModeFromEditor === 'function') syncVisualModeFromEditor();
+        }
         setDirty(true);
       },
       onUsersChange: (count) => {
@@ -7586,6 +7657,10 @@ window.addEventListener("DOMContentLoaded", () => {
     if (preview) {
       preview.style.fontSize = size + 'px';
     }
+    const ve = document.getElementById('visual-editor');
+    if (ve) {
+      ve.style.fontSize = size + 'px';
+    }
   }
 
   // --- CARICAMENTO INITIALE DELLE NUOVE IMPOSTAZIONI DA LOCALSTORAGE ---
@@ -7660,6 +7735,8 @@ window.addEventListener("DOMContentLoaded", () => {
       const level = parseInt(item.dataset.level, 10);
       if (!level) return;
 
+      if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive && applyFormattingToActiveVisualBlock("#".repeat(level) + " ", "", "Title")) return;
+
       preserveScroll(() => {
         const start = editor.selectionStart;
         const end = editor.selectionEnd;
@@ -7691,6 +7768,7 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   btnViewEditor && btnViewEditor.addEventListener("click", () => {
+    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive) setVisualMode(false);
     const activeTab = getActiveTab();
     if (activeTab && activeTab.isPdf) return;
     if (!tabs || tabs.length === 0) return;
@@ -7702,6 +7780,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   btnViewSplit && btnViewSplit.addEventListener("click", () => {
+    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive) setVisualMode(false);
     const activeTab = getActiveTab();
     if (activeTab && activeTab.isPdf) return;
     if (!tabs || tabs.length === 0) return;
@@ -7721,6 +7800,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   btnViewPreview && btnViewPreview.addEventListener("click", () => {
+    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive) setVisualMode(false);
     const activeTab = getActiveTab();
     if (activeTab && activeTab.isPdf) return;
     if (!tabs || tabs.length === 0) return;
@@ -8062,27 +8142,61 @@ window.addEventListener("DOMContentLoaded", () => {
 
           // EDIT ACTIONS
           case 'undo':
-            if (editor) { editor.focus(); document.execCommand('undo'); }
+            if (isVisualModeActive && visualEditor) {
+              document.execCommand('undo');
+            } else if (editor) {
+              editor.focus();
+              document.execCommand('undo');
+            }
             break;
 
           case 'redo':
-            if (editor) { editor.focus(); document.execCommand('redo'); }
+            if (isVisualModeActive && visualEditor) {
+              document.execCommand('redo');
+            } else if (editor) {
+              editor.focus();
+              document.execCommand('redo');
+            }
             break;
 
           case 'cut':
-            if (editor) { editor.focus(); document.execCommand('cut'); }
+            if (isVisualModeActive && visualEditor) {
+              document.execCommand('cut');
+            } else if (editor) {
+              editor.focus();
+              document.execCommand('cut');
+            }
             break;
 
           case 'copy':
-            if (editor) { editor.focus(); document.execCommand('copy'); }
+            if (isVisualModeActive && visualEditor) {
+              document.execCommand('copy');
+            } else if (editor) {
+              editor.focus();
+              document.execCommand('copy');
+            }
             break;
 
           case 'paste':
-            if (editor) { editor.focus(); document.execCommand('paste'); }
+            if (isVisualModeActive && visualEditor) {
+              document.execCommand('paste');
+            } else if (editor) {
+              editor.focus();
+              document.execCommand('paste');
+            }
             break;
 
           case 'select-all':
-            if (editor) { editor.focus(); document.execCommand('selectAll'); }
+            if (isVisualModeActive && visualEditor) {
+              const sel = window.getSelection();
+              const range = document.createRange();
+              range.selectNodeContents(visualEditor);
+              sel.removeAllRanges();
+              sel.addRange(range);
+            } else if (editor) {
+              editor.focus();
+              document.execCommand('selectAll');
+            }
             break;
 
           case 'find':
@@ -8114,6 +8228,10 @@ window.addEventListener("DOMContentLoaded", () => {
           // VIEW ACTIONS
           case 'toggle-explorer':
             document.getElementById("btn-toggle-explorer")?.click();
+            break;
+
+          case 'toggle-visual-mode':
+            document.getElementById("btn-toggle-visual-mode")?.click();
             break;
 
           case 'view-editor':
@@ -8805,6 +8923,2417 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+
+  // ==========================================================================
+  // ====== VISUAL MODE ENGINE (Obsidian-like Live Preview Single Field) =======
+  // ==========================================================================
+
+  const CODE_COPY_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
+  const CODE_CHECK_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`;
+
+  function escapeVeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function resolveImageSrc(src) {
+    if (!src) return '';
+    if (src.match(/^(?:[a-z]+:)?\/\//i) || src.startsWith('data:')) {
+      return src;
+    }
+    if (typeof currentFilePath !== 'undefined' && currentFilePath) {
+      try {
+        const folder = path.dirname(currentFilePath);
+        const absolutePath = path.resolve(folder, src);
+        return 'file://' + absolutePath.replace(/\\/g, '/');
+      } catch (_) {
+        return src;
+      }
+    }
+    return src;
+  }
+
+  function getImageSize(alt) {
+    const altTrimmed = (alt || '').replace(/\u00A0/g, ' ').trim();
+    const sizeDefs = [
+      { name: 'small', percent: 25 },
+      { name: 'medium', percent: 50 },
+      { name: 'large', percent: 75 },
+      { name: 'full', percent: 100 }
+    ];
+    for (const s of sizeDefs) {
+      const bracketRegex = new RegExp(String.raw`\[\s*${s.name}\s*\]`, 'i');
+      const pipeRegex = new RegExp(String.raw`\|\s*${s.name}\s*$`, 'i');
+      const dashRegex = new RegExp(String.raw`\s+-\s+${s.name}\s*$`, 'i');
+      const exactRegex = new RegExp(String.raw`^${s.name}$`, 'i');
+      if (bracketRegex.test(altTrimmed) ||
+          pipeRegex.test(altTrimmed) ||
+          dashRegex.test(altTrimmed) ||
+          exactRegex.test(altTrimmed)) {
+        return s;
+      }
+    }
+    return { name: 'full', percent: 100 };
+  }
+
+  function renderKatexDisplay(latex) {
+    const trimmed = (latex || '').trim();
+    const k = typeof getKatex === 'function' ? getKatex() : null;
+    if (!k) return `<div class="katex-display-container">${escapeVeHtml(trimmed)}</div>`;
+    try {
+      const rendered = k.renderToString(trimmed, {
+        displayMode: true,
+        throwOnError: false,
+        trust: true,
+        output: 'html'
+      });
+      return `<div class="katex-display-container">${rendered}</div>`;
+    } catch (_) {
+      return `<div class="katex-display-container katex-error">${escapeVeHtml(trimmed)}</div>`;
+    }
+  }
+
+  function renderKatexInline(latex) {
+    const trimmed = (latex || '').trim();
+    const k = typeof getKatex === 'function' ? getKatex() : null;
+    if (!k) return escapeVeHtml(trimmed);
+    try {
+      return k.renderToString(trimmed, {
+        displayMode: false,
+        throwOnError: false,
+        trust: true,
+        output: 'html'
+      });
+    } catch (_) {
+      return escapeVeHtml(trimmed);
+    }
+  }
+
+  function parseMarkdownTableToHTML(tableLines) {
+    if (!tableLines || tableLines.length < 2) return '';
+    const parseRow = (line) => {
+      return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim());
+    };
+
+    const headers = parseRow(tableLines[0]);
+    let alignDefs = [];
+    let startIndex = 1;
+    if (tableLines.length >= 2 && /^\|?(\s*:?-+:?\s*\|?)+$/.test(tableLines[1].trim())) {
+      const sepCells = parseRow(tableLines[1]);
+      alignDefs = sepCells.map(c => {
+        const left = c.startsWith(':');
+        const right = c.endsWith(':');
+        if (left && right) return 'center';
+        if (right) return 'right';
+        if (left) return 'left';
+        return '';
+      });
+      startIndex = 2;
+    }
+
+    let html = '<table class="ve-table"><thead><tr>';
+    headers.forEach((h, i) => {
+      const align = alignDefs[i] ? ` align="${alignDefs[i]}"` : '';
+      html += `<th${align}>${parseVeInline(h, 0, false, -1)}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+
+    for (let i = startIndex; i < tableLines.length; i++) {
+      const cells = parseRow(tableLines[i]);
+      html += '<tr>';
+      headers.forEach((_, colIdx) => {
+        const cellVal = cells[colIdx] || '';
+        const align = alignDefs[colIdx] ? ` align="${alignDefs[colIdx]}"` : '';
+        html += `<td${align}>${parseVeInline(cellVal, 0, false, -1)}</td>`;
+      });
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    return html;
+  }
+
+  function parseMarkdownBlocks(markdown) {
+    if (typeof markdown !== 'string') markdown = '';
+    const lines = markdown.split('\n');
+    const blocks = [];
+    let i = 0;
+
+    while (i < lines.length) {
+      const line = lines[i];
+
+      // 1. Fenced Code Block (``` or ~~~)
+      const codeMatch = line.match(/^(\s*)(```|~~~)(.*)$/);
+      if (codeMatch) {
+        const fence = codeMatch[2];
+        const lang = codeMatch[3].trim();
+        const codeLines = [line];
+        i++;
+        while (i < lines.length) {
+          codeLines.push(lines[i]);
+          if (lines[i].trim().startsWith(fence)) {
+            i++;
+            break;
+          }
+          i++;
+        }
+        blocks.push({
+          type: 'code',
+          lang: lang,
+          raw: codeLines.join('\n'),
+          lines: codeLines
+        });
+        continue;
+      }
+
+      // 2. Math Display Block ($$ ... $$)
+      if (line.trim().startsWith('$$')) {
+        const mathLines = [line];
+        i++;
+        if (!line.trim().slice(2).includes('$$')) {
+          while (i < lines.length) {
+            mathLines.push(lines[i]);
+            if (lines[i].includes('$$')) {
+              i++;
+              break;
+            }
+            i++;
+          }
+        }
+        blocks.push({
+          type: 'math',
+          raw: mathLines.join('\n'),
+          lines: mathLines
+        });
+        continue;
+      }
+
+      // 3. Blockquotes: consecutive > lines
+      if (line.match(/^(\s*)(>\s?)(.*)$/)) {
+        const quoteLines = [line];
+        i++;
+        while (i < lines.length && lines[i].match(/^(\s*)(>\s?)(.*)$/)) {
+          quoteLines.push(lines[i]);
+          i++;
+        }
+        blocks.push({
+          type: 'quote',
+          raw: quoteLines.join('\n'),
+          lines: quoteLines
+        });
+        continue;
+      }
+
+      // 4. Table Block (| ... |)
+      if (line.trim().startsWith('|') && line.trim().endsWith('|') && line.trim().length > 2) {
+        const tableLines = [line];
+        i++;
+        while (i < lines.length && lines[i].trim().startsWith('|') && lines[i].trim().endsWith('|')) {
+          tableLines.push(lines[i]);
+          i++;
+        }
+        if (tableLines.length >= 2 && /^\|?(\s*:?-+:?\s*\|?)+$/.test(tableLines[1].trim())) {
+          blocks.push({
+            type: 'table',
+            raw: tableLines.join('\n'),
+            lines: tableLines
+          });
+          continue;
+        } else {
+          for (const tl of tableLines) {
+            blocks.push({ type: 'line', raw: tl });
+          }
+          continue;
+        }
+      }
+
+      // 5. Regular line
+      blocks.push({ type: 'line', raw: line });
+      i++;
+    }
+
+    // Filter out single empty separator line adjacent to blocks so Visual Mode matches Preview
+    const filtered = [];
+    for (let k = 0; k < blocks.length; k++) {
+      const b = blocks[k];
+      if (b.type === 'line' && b.raw === '') {
+        const nextIsBlock = k < blocks.length - 1 && blocks[k + 1].type !== 'line';
+        const prevIsBlock = k > 0 && blocks[k - 1].type !== 'line';
+        if (nextIsBlock || prevIsBlock) {
+          continue;
+        }
+      }
+      filtered.push(b);
+    }
+
+    return filtered;
+  }
+
+  function parseVeInline(text, lineOffset = 0, isLineActive = false, caretOffset = -1) {
+    const tokenRegex = /(\*\*([^\*\n]+)\*\*)|(__([^_\n]+)__)|(~~([^~\n]+)~~)|(==([^=\n]+)==)|(`([^`\n]+)`)|(<u>([\s\S]*?)<\/u>)|(\[([^\]\n]+)\]\(([^)\n]+)\))|((?<!\*)\*([^\*\n]+)\*(?!\*))|((?<!_)_([^_\n]+)_(?!_))|(\$\$([^\$\n]+)\$\$)|((?<!\\|\$)\$([^\$\n]+)\$(?!\$))/gi;
+
+    let result = '';
+    let lastIndex = 0;
+    let match;
+
+    while ((match = tokenRegex.exec(text)) !== null) {
+      const matchStart = match.index;
+      const matchEnd = match.index + match[0].length;
+
+      if (matchStart > lastIndex) {
+        result += escapeVeHtml(text.slice(lastIndex, matchStart));
+      }
+
+      const tokenStartInLine = lineOffset + matchStart;
+      const tokenEndInLine = lineOffset + matchEnd;
+      const isCaretInside = isLineActive && caretOffset >= tokenStartInLine && caretOffset <= tokenEndInLine;
+      const delimClass = isCaretInside ? 've-delim' : 've-delim ve-hidden';
+
+      if (match[1]) {
+        const content = match[2];
+        result += `<span class="ve-token ve-token-bold" data-ve-start="${tokenStartInLine}" data-ve-end="${tokenEndInLine}"><span class="${delimClass}">**</span><strong>${parseVeInline(content, tokenStartInLine + 2, isLineActive, caretOffset)}</strong><span class="${delimClass}">**</span></span>`;
+      } else if (match[3]) {
+        const content = match[4];
+        result += `<span class="ve-token ve-token-bold" data-ve-start="${tokenStartInLine}" data-ve-end="${tokenEndInLine}"><span class="${delimClass}">__</span><strong>${parseVeInline(content, tokenStartInLine + 2, isLineActive, caretOffset)}</strong><span class="${delimClass}">__</span></span>`;
+      } else if (match[5]) {
+        const content = match[6];
+        result += `<span class="ve-token ve-token-del" data-ve-start="${tokenStartInLine}" data-ve-end="${tokenEndInLine}"><span class="${delimClass}">~~</span><del>${parseVeInline(content, tokenStartInLine + 2, isLineActive, caretOffset)}</del><span class="${delimClass}">~~</span></span>`;
+      } else if (match[7]) {
+        const content = match[8];
+        result += `<span class="ve-token ve-token-mark" data-ve-start="${tokenStartInLine}" data-ve-end="${tokenEndInLine}"><span class="${delimClass}">==</span><mark>${parseVeInline(content, tokenStartInLine + 2, isLineActive, caretOffset)}</mark><span class="${delimClass}">==</span></span>`;
+      } else if (match[9]) {
+        const content = match[10];
+        result += `<span class="ve-token ve-token-code" data-ve-start="${tokenStartInLine}" data-ve-end="${tokenEndInLine}"><span class="${delimClass}">\`</span><code>${escapeVeHtml(content)}</code><span class="${delimClass}">\`</span></span>`;
+      } else if (match[11]) {
+        const content = match[12];
+        result += `<span class="ve-token ve-token-underline" data-ve-start="${tokenStartInLine}" data-ve-end="${tokenEndInLine}"><span class="${delimClass}">&lt;u&gt;</span><u>${parseVeInline(content, tokenStartInLine + 3, isLineActive, caretOffset)}</u><span class="${delimClass}">&lt;/u&gt;</span></span>`;
+      } else if (match[13]) {
+        const linkText = match[14];
+        const linkUrl = match[15];
+        result += `<span class="ve-token ve-token-link" data-ve-start="${tokenStartInLine}" data-ve-end="${tokenEndInLine}"><span class="${delimClass}">[</span><span class="ve-link-text">${escapeVeHtml(linkText)}</span><span class="${delimClass}">](<span class="ve-link-url">${escapeVeHtml(linkUrl)}</span>)</span></span>`;
+      } else if (match[16]) {
+        const content = match[17];
+        result += `<span class="ve-token ve-token-italic" data-ve-start="${tokenStartInLine}" data-ve-end="${tokenEndInLine}"><span class="${delimClass}">*</span><em>${parseVeInline(content, tokenStartInLine + 1, isLineActive, caretOffset)}</em><span class="${delimClass}">*</span></span>`;
+      } else if (match[18]) {
+        const content = match[19];
+        result += `<span class="ve-token ve-token-italic" data-ve-start="${tokenStartInLine}" data-ve-end="${tokenEndInLine}"><span class="${delimClass}">_</span><em>${parseVeInline(content, tokenStartInLine + 1, isLineActive, caretOffset)}</em><span class="${delimClass}">_</span></span>`;
+      } else if (match[20] || match[22]) {
+        const isDouble = !!match[20];
+        const mathContent = isDouble ? match[21] : match[23];
+        const delim = isDouble ? '$$' : '$';
+        const rendered = renderKatexInline(mathContent);
+        const rawClass = isCaretInside ? 've-math-raw' : 've-math-raw ve-hidden';
+        const previewClass = isCaretInside ? 'katex-inline-container ve-hidden' : 'katex-inline-container';
+        result += `<span class="ve-token ve-token-math" data-ve-start="${tokenStartInLine}" data-ve-end="${tokenEndInLine}"><span class="${delimClass}">${delim}</span><span class="${previewClass}" data-ve-ui="true">${rendered}</span><span class="${rawClass}">${escapeVeHtml(mathContent)}</span><span class="${delimClass}">${delim}</span></span>`;
+      }
+
+      lastIndex = matchEnd;
+    }
+
+    if (lastIndex < text.length) {
+      result += escapeVeHtml(text.slice(lastIndex));
+    }
+    return result;
+  }
+
+  function parseVeLine(rawLine, isLineActive = false, caretOffset = -1) {
+    if (rawLine === '') {
+      return { className: 've-line', html: '<br>' };
+    }
+
+    // Image line: ![alt](url) - No toolbar pills, directly editable markdown (supports nested [size] brackets)
+    const imgMatch = rawLine.match(/^(\s*)!\[(.*)\]\(([^)]+)\)\s*$/);
+    if (imgMatch) {
+      const alt = imgMatch[2];
+      const url = imgMatch[3];
+      const size = getImageSize(alt);
+      const resolvedUrl = resolveImageSrc(url);
+      const delimClass = isLineActive ? 've-delim ve-image-source' : 've-delim ve-image-source ve-hidden';
+      const innerHtml = `<span class="${delimClass}">${escapeVeHtml(rawLine)}</span>` +
+        `<div class="ve-image-wrapper" data-ve-ui="true">` +
+          `<img src="${escapeVeHtml(resolvedUrl)}" class="ve-image img-${size.name}" data-size="${size.name}" alt="${escapeVeHtml(alt)}">` +
+        `</div>`;
+      return { className: 've-line ve-image-line', html: innerHtml };
+    }
+
+    // Heading: # Title
+    const headingMatch = rawLine.match(/^(\s*)(#{1,6})\s+(.*)$/);
+    if (headingMatch) {
+      const indent = headingMatch[1];
+      const hashes = headingMatch[2];
+      const level = hashes.length;
+      const content = headingMatch[3];
+      const marker = indent + hashes + ' ';
+      const delimClass = isLineActive ? 've-delim ve-heading-marker' : 've-delim ve-heading-marker ve-hidden';
+      const innerHtml = `<span class="${delimClass}">${escapeVeHtml(marker)}</span>${parseVeInline(content, marker.length, isLineActive, caretOffset)}`;
+      return { className: `ve-line ve-h${level}`, html: innerHtml };
+    }
+
+    // Horizontal rule: ---, ***, ___
+    const hrMatch = rawLine.match(/^(\s*)(-{3,}|\*{3,}|_{3,})\s*$/);
+    if (hrMatch) {
+      const delimClass = isLineActive ? 've-delim ve-hr-marker' : 've-delim ve-hr-marker ve-hidden';
+      const innerHtml = `<span class="${delimClass}">${escapeVeHtml(rawLine)}</span><hr class="ve-hr" data-ve-ui="true">`;
+      return { className: 've-line ve-hr-line', html: innerHtml };
+    }
+
+    // Blockquote: > quote (Stile identico a preview)
+    const quoteMatch = rawLine.match(/^(\s*)(>\s?)(.*)$/);
+    if (quoteMatch) {
+      const indent = quoteMatch[1];
+      const marker = indent + quoteMatch[2];
+      const content = quoteMatch[3];
+      const delimClass = isLineActive ? 've-delim ve-quote-marker' : 've-delim ve-quote-marker ve-hidden';
+      const innerHtml = `<span class="${delimClass}">${escapeVeHtml(marker)}</span>${parseVeInline(content, marker.length, isLineActive, caretOffset)}`;
+      return { className: 've-line ve-quote-line', html: innerHtml };
+    }
+
+    // Task list: - [ ] or - [x]
+    const taskMatch = rawLine.match(/^(\s*)([-*+])\s+\[([ xX])\]\s*(.*)$/);
+    if (taskMatch) {
+      const indent = taskMatch[1];
+      const bullet = taskMatch[2];
+      const checkState = taskMatch[3];
+      const checked = checkState.toLowerCase() === 'x';
+      const content = taskMatch[4];
+      const marker = indent + bullet + ' [' + checkState + '] ';
+      const delimClass = isLineActive ? 've-delim ve-task-marker' : 've-delim ve-task-marker ve-hidden';
+      const indentCount = indent.length;
+      const indentClass = indentCount > 0 ? ` ve-indent-${Math.min(4, Math.floor(indentCount / 2))}` : '';
+      const checkboxHtml = `<input type="checkbox" class="ve-task-checkbox" data-ve-ui="true" ${checked ? 'checked' : ''}>`;
+      const innerHtml = `${checkboxHtml}<span class="${delimClass}">${escapeVeHtml(marker)}</span>${parseVeInline(content, marker.length, isLineActive, caretOffset)}`;
+      return { className: `ve-line ve-task${checked ? ' ve-task-done' : ''}${indentClass}`, html: innerHtml };
+    }
+
+    // Bullet list: - item (con supporto per sottoliste indentate)
+    const bulletMatch = rawLine.match(/^(\s*)([-*+])\s+(.*)$/);
+    if (bulletMatch) {
+      const indent = bulletMatch[1];
+      const bullet = bulletMatch[2];
+      const content = bulletMatch[3];
+      const marker = indent + bullet + ' ';
+      const delimClass = isLineActive ? 've-delim ve-bullet-marker' : 've-delim ve-bullet-marker ve-hidden';
+      const indentCount = indent.length;
+      const dotChar = indentCount >= 4 ? '▪ ' : (indentCount >= 2 ? '◦ ' : '• ');
+      const dotHtml = `<span class="ve-bullet-dot" data-ve-ui="true">${dotChar}</span>`;
+      const innerHtml = `${dotHtml}<span class="${delimClass}">${escapeVeHtml(marker)}</span>${parseVeInline(content, marker.length, isLineActive, caretOffset)}`;
+      const indentClass = indentCount > 0 ? ` ve-indent-${Math.min(4, Math.floor(indentCount / 2))}` : '';
+      return { className: `ve-line ve-list-bullet${indentClass}`, html: innerHtml };
+    }
+
+    // Numbered list: 1. item
+    const numMatch = rawLine.match(/^(\s*)(\d+\.)\s+(.*)$/);
+    if (numMatch) {
+      const indent = numMatch[1];
+      const num = numMatch[2];
+      const content = numMatch[3];
+      const marker = indent + num + ' ';
+      const delimClass = isLineActive ? 've-delim ve-number-marker' : 've-delim ve-number-marker ve-hidden';
+      const indentCount = indent.length;
+      const indentClass = indentCount > 0 ? ` ve-indent-${Math.min(4, Math.floor(indentCount / 2))}` : '';
+      const numHtml = `<span class="ve-number-label" data-ve-ui="true">${escapeVeHtml(num)} </span>`;
+      const innerHtml = `${numHtml}<span class="${delimClass}">${escapeVeHtml(marker)}</span>${parseVeInline(content, marker.length, isLineActive, caretOffset)}`;
+      return { className: `ve-line ve-list-number${indentClass}`, html: innerHtml };
+    }
+
+    // Code fence line
+    const fenceMatch = rawLine.match(/^(\s*)(```|~~~)(.*)$/);
+    if (fenceMatch) {
+      return { className: 've-line ve-code-line ve-code-fence', html: `<span class="ve-delim">${escapeVeHtml(rawLine)}</span>` };
+    }
+
+    // Standard line
+    return { className: 've-line', html: parseVeInline(rawLine, 0, isLineActive, caretOffset) };
+  }
+
+  function createCodeBlockElement(block) {
+    const div = document.createElement('div');
+    div.className = 've-block ve-code-block';
+    div.setAttribute('data-ve-block', 'code');
+    div.setAttribute('data-ve-raw', block.raw);
+    div.setAttribute('contenteditable', 'false');
+
+    const lang = block.lang || '';
+    const codeLines = block.lines.slice(1, block.lines.length - 1);
+    const codeBody = codeLines.join('\n');
+    const highlighted = typeof getCachedHighlightedCode === 'function' ? getCachedHighlightedCode(codeBody, lang) : escapeVeHtml(codeBody);
+
+    // Stile pulito identico a #preview pre, senza blocchi/header vuoti sopra (stringa inline senza newlines per pre-wrap)
+    div.innerHTML = `<div class="ve-code-preview" data-ve-ui="true"><pre class="hljs"><code class="language-${escapeVeHtml(lang)}">${highlighted}</code><button class="code-copy-btn" type="button" title="Copia codice">${CODE_COPY_ICON}</button></pre></div>`;
+    return div;
+  }
+
+  function createMathBlockElement(block) {
+    const div = document.createElement('div');
+    div.className = 've-block ve-math-block';
+    div.setAttribute('data-ve-block', 'math');
+    div.setAttribute('data-ve-raw', block.raw);
+    div.setAttribute('contenteditable', 'false');
+
+    let mathBody = '';
+    if (block.lines.length === 1) {
+      mathBody = block.lines[0].trim().replace(/^\$\$/, '').replace(/\$\$$/, '').trim();
+    } else {
+      const mathLines = block.lines.slice(1, block.lines.length - 1);
+      mathBody = mathLines.join('\n');
+    }
+
+    const trimmedBody = (mathBody || '').trim();
+    if (!trimmedBody) {
+      div.innerHTML = `<div class="ve-math-preview ve-math-empty" data-ve-ui="true"><span class="ve-math-empty-dollars">$$\n$$</span></div>`;
+    } else {
+      div.innerHTML = `<div class="ve-math-preview" data-ve-ui="true">${renderKatexDisplay(mathBody)}</div>`;
+    }
+    return div;
+  }
+
+  function createTableBlockElement(block) {
+    const div = document.createElement('div');
+    div.className = 've-block ve-table-block';
+    div.setAttribute('data-ve-block', 'table');
+    div.setAttribute('data-ve-raw', block.raw);
+    div.setAttribute('contenteditable', 'false');
+
+    div.innerHTML = `<div class="ve-table-preview" data-ve-ui="true">${parseMarkdownTableToHTML(block.lines)}</div>`;
+    return div;
+  }
+
+  function insertCodeBlockInVisualMode() {
+    if (!visualEditor) return;
+    const sel = window.getSelection();
+    let lineEl = sel?.anchorNode ? getLineFromNode(sel.anchorNode) : null;
+    if (!lineEl) {
+      const lines = visualEditor.querySelectorAll('.ve-line');
+      if (lines.length > 0) lineEl = lines[lines.length - 1];
+    }
+
+    let codeBody = 'code';
+    if (sel && !sel.isCollapsed && lineEl && lineEl.contains(sel.anchorNode) && lineEl.contains(sel.focusNode)) {
+      const selected = sel.toString().trim();
+      if (selected) codeBody = selected;
+    } else if (lineEl) {
+      const raw = getLineRawText(lineEl).trim();
+      if (raw && raw !== '<br>') {
+        codeBody = raw;
+      }
+    }
+
+    const codeBlock = createCodeBlockElement({
+      type: 'code',
+      lang: '',
+      raw: `\`\`\`\n${codeBody}\n\`\`\``,
+      lines: ['```', codeBody, '```']
+    });
+
+    if (lineEl && lineEl.parentElement === visualEditor) {
+      lineEl.replaceWith(codeBlock);
+    } else if (visualEditor.children.length > 0) {
+      visualEditor.appendChild(codeBlock);
+    } else {
+      visualEditor.appendChild(codeBlock);
+    }
+
+    // Attiva la modalità di modifica del blocco codice per inserire comandi
+    activateBlockEditor(codeBlock);
+    syncVisualModeToEditor();
+  }
+
+  function activateBlockEditor(blockEl) {
+    if (currentActiveBlockEl && currentActiveBlockEl !== blockEl) {
+      deactivateBlockEditor(currentActiveBlockEl);
+    }
+    currentActiveBlockEl = blockEl;
+    blockEl.classList.add('ve-active');
+    blockEl.setAttribute('contenteditable', 'true');
+    const type = blockEl.getAttribute('data-ve-block');
+    const raw = blockEl.getAttribute('data-ve-raw') || '';
+    const rawLines = raw.split('\n');
+
+    if (type === 'code') {
+      const fenceMatch = rawLines[0].match(/^(\s*)(```|~~~)(.*)$/);
+      const lang = fenceMatch ? fenceMatch[3].trim() : '';
+      let codeLines = rawLines.slice(1, rawLines.length - 1);
+      if (codeLines.length === 0) codeLines = [''];
+      
+      let html = `<div class="ve-code-editor">`;
+      html += `<div class="ve-line ve-code-fence" data-ve-line="true"><span class="ve-delim">\`\`\`${escapeVeHtml(lang)}</span></div>`;
+      codeLines.forEach(l => {
+        html += `<div class="ve-line ve-code-line" data-ve-line="true">${escapeVeHtml(l) || '<br>'}</div>`;
+      });
+      html += `<div class="ve-line ve-code-fence" data-ve-line="true"><span class="ve-delim">\`\`\`</span></div>`;
+      html += `</div>`;
+      blockEl.innerHTML = html;
+
+      const firstLine = blockEl.querySelector('.ve-code-line') || blockEl.querySelector('.ve-line');
+      if (firstLine) setCaretOffsetInLine(firstLine, 0);
+    } else if (type === 'math') {
+      let mathLines = rawLines.length === 1
+        ? [rawLines[0].replace(/^\$\$/, '').replace(/\$\$$/, '')]
+        : rawLines.slice(1, rawLines.length - 1);
+      if (mathLines.length === 0) mathLines = [''];
+
+      let html = `<div class="ve-math-editor">`;
+      html += `<div class="ve-line ve-math-fence" data-ve-line="true"><span class="ve-delim">$$</span></div>`;
+      mathLines.forEach(l => {
+        html += `<div class="ve-line ve-math-line" data-ve-line="true">${escapeVeHtml(l) || '<br>'}</div>`;
+      });
+      html += `<div class="ve-line ve-math-fence" data-ve-line="true"><span class="ve-delim">$$</span></div>`;
+      html += `<div class="ve-math-live" data-ve-ui="true">${renderKatexDisplay(mathLines.join('\n'))}</div>`;
+      html += `</div>`;
+      blockEl.innerHTML = html;
+
+      const firstLine = blockEl.querySelector('.ve-math-line') || blockEl.querySelector('.ve-line');
+      if (firstLine) setCaretOffsetInLine(firstLine, 0);
+    } else if (type === 'table') {
+      let html = `<div class="ve-table-editor">`;
+      rawLines.forEach(l => {
+        html += `<div class="ve-line ve-table-line" data-ve-line="true">${escapeVeHtml(l) || '<br>'}</div>`;
+      });
+      html += `</div>`;
+      blockEl.innerHTML = html;
+
+      const firstLine = blockEl.querySelector('.ve-table-line');
+      if (firstLine) setCaretOffsetInLine(firstLine, 0);
+    }
+
+  }
+
+  function isBlockEmpty(blockEl) {
+    if (!blockEl) return true;
+    if (blockEl.querySelector('.ve-math-empty')) return true;
+    const raw = blockEl.getAttribute('data-ve-raw') || '';
+    const type = blockEl.getAttribute('data-ve-block');
+    if (type === 'math') {
+      return raw.replace(/[$ \t\n\r]/g, '') === '';
+    }
+    if (type === 'code') {
+      return raw.replace(/[`~ \t\n\r]/g, '') === '';
+    }
+    if (type === 'table') {
+      return raw.replace(/[|\-: \t\n\r]/g, '') === '';
+    }
+    return raw.trim() === '';
+  }
+
+  function isBlockValid(type, innerLines) {
+    if (!Array.isArray(innerLines) || innerLines.length === 0) return false;
+    
+    if (type === 'code') {
+      if (innerLines.length < 2) return false;
+      const firstMatch = innerLines[0].trim().match(/^(\s*)(```|~~~)/);
+      if (!firstMatch) return false;
+      const fence = firstMatch[2];
+      const lastTrim = innerLines[innerLines.length - 1].trim();
+      return lastTrim.startsWith(fence);
+    }
+
+    if (type === 'math') {
+      if (innerLines.length >= 2) {
+        const firstTrim = innerLines[0].trim();
+        const lastTrim = innerLines[innerLines.length - 1].trim();
+        return firstTrim.startsWith('$$') && lastTrim.endsWith('$$');
+      }
+      if (innerLines.length === 1) {
+        const lineTrim = innerLines[0].trim();
+        return lineTrim.startsWith('$$') && lineTrim.endsWith('$$') && lineTrim.length >= 4;
+      }
+      return false;
+    }
+
+    if (type === 'table') {
+      if (innerLines.length < 2) return false;
+      if (!innerLines[0].includes('|')) return false;
+      return /^\|?(\s*:?-+:?\s*\|?)+$/.test(innerLines[1].trim());
+    }
+
+    return false;
+  }
+
+  function unwrapBlockToLines(blockEl, targetLineIndex = -1, targetOffset = -1) {
+    if (!blockEl || !blockEl.parentNode) return null;
+    const parent = blockEl.parentNode;
+
+    let innerLines = [];
+    const lineEls = Array.from(blockEl.querySelectorAll('.ve-line'));
+    if (lineEls.length > 0) {
+      innerLines = lineEls.map(l => getLineRawText(l));
+    } else {
+      const raw = blockEl.getAttribute('data-ve-raw') || '';
+      innerLines = raw ? raw.split('\n') : [''];
+    }
+
+    if (innerLines.length === 0) innerLines = [''];
+
+    const createdLineEls = [];
+    const fragment = document.createDocumentFragment();
+    for (let idx = 0; idx < innerLines.length; idx++) {
+      const text = innerLines[idx];
+      const div = document.createElement('div');
+      div.setAttribute('data-ve-line', 'true');
+      const parsed = parseVeLine(text, false, -1);
+      div.className = parsed.className;
+      div.innerHTML = parsed.html;
+      fragment.appendChild(div);
+      createdLineEls.push(div);
+    }
+
+    if (currentActiveBlockEl === blockEl) {
+      currentActiveBlockEl = null;
+    }
+
+    parent.insertBefore(fragment, blockEl);
+    blockEl.remove();
+
+    if (targetLineIndex >= 0 && targetLineIndex < createdLineEls.length) {
+      const targetLine = createdLineEls[targetLineIndex];
+      lastActiveLineEl = targetLine;
+      const maxLen = getLineRawText(targetLine).length;
+      const offset = targetOffset >= 0 ? Math.min(targetOffset, maxLen) : maxLen;
+      setCaretOffsetInLine(targetLine, offset);
+    }
+
+    syncVisualModeToEditor();
+    return createdLineEls;
+  }
+
+  function deactivateBlockEditor(blockEl) {
+    if (!blockEl || !blockEl.classList.contains('ve-active')) return;
+    blockEl.classList.remove('ve-active');
+    blockEl.setAttribute('contenteditable', 'false');
+    const type = blockEl.getAttribute('data-ve-block');
+
+    const innerLines = Array.from(blockEl.querySelectorAll('.ve-line')).map(l => getLineRawText(l));
+
+    // Se i delimitatori sono stati rimossi o il blocco è vuoto/invalido, converti subito in normali righe
+    if (!isBlockValid(type, innerLines)) {
+      unwrapBlockToLines(blockEl);
+      return;
+    }
+
+    const updatedRaw = innerLines.join('\n');
+    blockEl.setAttribute('data-ve-raw', updatedRaw);
+
+    if (type === 'code') {
+      const langMatch = innerLines[0]?.match(/^(\s*)([`]{3}|~~~)(.*)$/);
+      const lang = langMatch ? langMatch[3].trim() : '';
+      const codeBody = innerLines.slice(1, innerLines.length - 1).join('\n');
+      const highlighted = typeof getCachedHighlightedCode === 'function' ? getCachedHighlightedCode(codeBody, lang) : escapeVeHtml(codeBody);
+      blockEl.innerHTML = `<div class="ve-code-preview" data-ve-ui="true"><pre class="hljs"><code class="language-${escapeVeHtml(lang)}">${highlighted}</code><button class="code-copy-btn" type="button" title="Copia codice">${CODE_COPY_ICON}</button></pre></div>`;
+    } else if (type === 'math') {
+      const mathBody = innerLines.length > 2
+        ? innerLines.slice(1, innerLines.length - 1).join('\n')
+        : (innerLines[0] || '').replace(/^\$\$/, '').replace(/\$\$/, '');
+      const trimmedBody = (mathBody || '').trim();
+      if (!trimmedBody) {
+        blockEl.innerHTML = `<div class="ve-math-preview ve-math-empty" data-ve-ui="true"><span class="ve-math-empty-dollars">$$\n$$</span></div>`;
+      } else {
+        blockEl.innerHTML = `<div class="ve-math-preview" data-ve-ui="true">${renderKatexDisplay(mathBody)}</div>`;
+      }
+    } else if (type === 'table') {
+      blockEl.innerHTML = `<div class="ve-table-preview" data-ve-ui="true">${parseMarkdownTableToHTML(innerLines)}</div>`;
+    }
+
+    if (currentActiveBlockEl === blockEl) {
+      currentActiveBlockEl = null;
+    }
+    syncVisualModeToEditor();
+  }
+
+  let formatTimeout = null;
+  function debouncedCheckAndFormatCompletedBlocks(editorEl) {
+    clearTimeout(formatTimeout);
+    formatTimeout = setTimeout(() => {
+      checkAndFormatCompletedBlocks(editorEl);
+    }, 250);
+  }
+
+  function checkAndFormatCompletedBlocks(editorEl) {
+    if (!editorEl || !isVisualModeActive) return;
+    const sel = window.getSelection();
+    const currentActiveLine = sel?.anchorNode ? getLineFromNode(sel.anchorNode) : null;
+    if (currentActiveLine && currentActiveLine.closest('.ve-block.ve-active')) return;
+
+    const children = Array.from(editorEl.children);
+    let i = 0;
+    let changed = false;
+
+    while (i < children.length) {
+      const child = children[i];
+      if (!child.classList.contains('ve-line')) {
+        i++;
+        continue;
+      }
+      const text = getLineRawText(child);
+
+      // 1. Fenced Code Block (``` or ~~~)
+      const codeMatch = text.match(/^(\s*)(```|~~~)(.*)$/);
+      if (codeMatch) {
+        const fence = codeMatch[2];
+        const lang = codeMatch[3].trim();
+        const codeLines = [text];
+        const nodesToReplace = [child];
+        let j = i + 1;
+        let closed = false;
+
+        while (j < children.length && children[j].classList.contains('ve-line')) {
+          const nextText = getLineRawText(children[j]);
+          codeLines.push(nextText);
+          nodesToReplace.push(children[j]);
+          if (nextText.trim().startsWith(fence)) {
+            closed = true;
+            break;
+          }
+          j++;
+        }
+
+        if (closed) {
+          const isCursorInBlock = nodesToReplace.some(n => n.contains(sel?.anchorNode));
+          const codeBlock = createCodeBlockElement({
+            type: 'code',
+            lang: lang,
+            raw: codeLines.join('\n'),
+            lines: codeLines
+          });
+          editorEl.insertBefore(codeBlock, nodesToReplace[0]);
+          for (const n of nodesToReplace) {
+            editorEl.removeChild(n);
+          }
+
+          changed = true;
+          i = j + 1;
+          continue;
+        }
+      }
+
+      // 2. Math Block ($$)
+      if (text.trim().startsWith('$$')) {
+        const mathLines = [text];
+        const nodesToReplace = [child];
+        let j = i + 1;
+        let closed = false;
+
+        if (text.trim().length > 2 && text.trim().slice(2).includes('$$')) {
+          closed = true;
+        } else {
+          while (j < children.length && children[j].classList.contains('ve-line')) {
+            const nextText = getLineRawText(children[j]);
+            mathLines.push(nextText);
+            nodesToReplace.push(children[j]);
+            if (nextText.includes('$$')) {
+              closed = true;
+              break;
+            }
+            j++;
+          }
+        }
+
+        if (closed) {
+          const isCursorInBlock = nodesToReplace.some(n => n.contains(sel?.anchorNode));
+          const mathBlock = createMathBlockElement({
+            type: 'math',
+            raw: mathLines.join('\n'),
+            lines: mathLines
+          });
+          editorEl.insertBefore(mathBlock, nodesToReplace[0]);
+          for (const n of nodesToReplace) {
+            editorEl.removeChild(n);
+          }
+
+          changed = true;
+          i = j + 1;
+          continue;
+        }
+      }
+
+      // 3. Table Block (| ... |)
+      if (text.trim().startsWith('|') && text.trim().endsWith('|') && text.trim().length > 2) {
+        const tableLines = [text];
+        const nodesToReplace = [child];
+        let j = i + 1;
+        while (j < children.length && children[j].classList.contains('ve-line')) {
+          const nextText = getLineRawText(children[j]);
+          if (nextText.trim().startsWith('|') && nextText.trim().endsWith('|')) {
+            tableLines.push(nextText);
+            nodesToReplace.push(children[j]);
+            j++;
+          } else {
+            break;
+          }
+        }
+
+        if (tableLines.length >= 2 && /^\|?(\s*:?-+:?\s*\|?)+$/.test(tableLines[1].trim())) {
+          const isEditingTable = nodesToReplace.some(n => n.contains(sel?.anchorNode));
+          if (!isEditingTable) {
+            const tableBlock = createTableBlockElement({
+              type: 'table',
+              raw: tableLines.join('\n'),
+              lines: tableLines
+            });
+            editorEl.insertBefore(tableBlock, nodesToReplace[0]);
+            for (const n of nodesToReplace) {
+              editorEl.removeChild(n);
+            }
+
+            changed = true;
+            i = j;
+            continue;
+          }
+        }
+      }
+
+      // 4. Blockquotes: consecutive > lines not already in blockquote
+      const quoteMatch = text.match(/^(\s*)(>\s?)(.*)$/);
+      if (quoteMatch && child.parentElement === editorEl) {
+        const quoteLines = [text];
+        const nodesToReplace = [child];
+        let j = i + 1;
+        while (j < children.length && children[j].classList.contains('ve-line')) {
+          const nextText = getLineRawText(children[j]);
+          if (nextText.match(/^(\s*)(>\s?)(.*)$/)) {
+            quoteLines.push(nextText);
+            nodesToReplace.push(children[j]);
+            j++;
+          } else {
+            break;
+          }
+        }
+
+        const bq = document.createElement('blockquote');
+        bq.className = 've-blockquote-block';
+        bq.setAttribute('data-ve-block', 'quote');
+        for (const node of nodesToReplace) {
+          bq.appendChild(node);
+        }
+        editorEl.insertBefore(bq, nodesToReplace[0]);
+        changed = true;
+        i++;
+        continue;
+      }
+
+      i++;
+    }
+
+    if (changed) {
+      syncVisualModeToEditor();
+    }
+  }
+
+  function getLineFromNode(node) {
+    if (!node || !visualEditor) return null;
+    let curr = node.nodeType === 3 ? node.parentElement : node;
+    while (curr && curr !== visualEditor) {
+      if (curr.classList && curr.classList.contains('ve-line')) {
+        return curr;
+      }
+      curr = curr.parentElement;
+    }
+    return null;
+  }
+
+  function getLineRawText(lineEl) {
+    if (!lineEl) return '';
+    let text = '';
+    function walk(node) {
+      if (node.nodeType === 3) {
+        text += node.nodeValue;
+      } else if (node.nodeType === 1) {
+        if (node.hasAttribute('data-ve-ui') ||
+            node.classList.contains('ve-task-checkbox') ||
+            node.classList.contains('ve-bullet-dot') ||
+            node.classList.contains('ve-number-label') ||
+            node.classList.contains('ve-image-wrapper') ||
+            node.classList.contains('katex-inline-container')) {
+          return;
+        }
+        for (let child = node.firstChild; child; child = child.nextSibling) {
+          walk(child);
+        }
+      }
+    }
+    walk(lineEl);
+    return text.replace(/\r?\n$/, '');
+  }
+
+  function getVisualEditorMarkdown() {
+    if (!visualEditor) return '';
+    const children = Array.from(visualEditor.children);
+    if (children.length === 0) return '';
+
+    const parts = [];
+    for (let cIdx = 0; cIdx < children.length; cIdx++) {
+      const child = children[cIdx];
+      if (!child || child.nodeType !== 1) {
+        const text = child ? (child.textContent || '') : '';
+        if (text) parts.push({ text, isBlock: false });
+        continue;
+      }
+      const isBlock = child.classList && (child.classList.contains('ve-block') || child.classList.contains('ve-blockquote-block') || child.tagName === 'BLOCKQUOTE');
+      let text = '';
+      if (child.tagName === 'BLOCKQUOTE' || (child.classList && child.classList.contains('ve-blockquote-block'))) {
+        const innerLines = Array.from(child.querySelectorAll('.ve-line'));
+        if (innerLines.length > 0) {
+          text = innerLines.map(l => getLineRawText(l)).join('\n');
+        }
+      } else if (child.hasAttribute && child.hasAttribute('data-ve-raw')) {
+        const innerLines = Array.from(child.querySelectorAll('.ve-line'));
+        if (innerLines.length > 0) {
+          text = innerLines.map(l => getLineRawText(l)).join('\n');
+        } else {
+          text = child.getAttribute('data-ve-raw') || '';
+        }
+      } else if (child.classList && child.classList.contains('ve-line')) {
+        text = getLineRawText(child);
+      } else {
+        text = getLineRawText(child);
+      }
+      parts.push({ text, isBlock });
+    }
+
+    let result = '';
+    for (let i = 0; i < parts.length; i++) {
+      const p = parts[i];
+      const prev = i > 0 ? parts[i - 1] : null;
+      if (i > 0) {
+        if (p.isBlock || prev?.isBlock) {
+          result += '\n\n';
+        } else {
+          result += '\n';
+        }
+      }
+      result += p.text;
+    }
+    return result;
+  }
+
+  function setVisualEditorMarkdown(markdownText) {
+    if (!visualEditor) return;
+    visualEditor.setAttribute('contenteditable', 'true');
+    visualEditor.setAttribute('spellcheck', 'true');
+    
+    if (typeof markdownText !== 'string') markdownText = '';
+    const blocks = parseMarkdownBlocks(markdownText);
+    visualEditor.innerHTML = '';
+
+    if (blocks.length === 0) {
+      const emptyLine = document.createElement('div');
+      emptyLine.className = 've-line';
+      emptyLine.setAttribute('data-ve-line', 'true');
+      emptyLine.innerHTML = '<br>';
+      visualEditor.appendChild(emptyLine);
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    for (let bIdx = 0; bIdx < blocks.length; bIdx++) {
+      const block = blocks[bIdx];
+      if (block.type === 'code') {
+        fragment.appendChild(createCodeBlockElement(block));
+      } else if (block.type === 'math') {
+        fragment.appendChild(createMathBlockElement(block));
+      } else if (block.type === 'table') {
+        fragment.appendChild(createTableBlockElement(block));
+      } else if (block.type === 'quote') {
+        const bq = document.createElement('blockquote');
+        bq.className = 've-blockquote-block';
+        bq.setAttribute('data-ve-block', 'quote');
+        for (const ql of block.lines) {
+          const parsed = parseVeLine(ql, false, -1);
+          const lineEl = document.createElement('div');
+          lineEl.className = parsed.className;
+          lineEl.setAttribute('data-ve-line', 'true');
+          lineEl.innerHTML = parsed.html;
+          bq.appendChild(lineEl);
+        }
+        fragment.appendChild(bq);
+      } else {
+        const parsed = parseVeLine(block.raw, false, -1);
+        const lineEl = document.createElement('div');
+        lineEl.className = parsed.className;
+        lineEl.setAttribute('data-ve-line', 'true');
+        lineEl.innerHTML = parsed.html;
+        fragment.appendChild(lineEl);
+      }
+    }
+    visualEditor.appendChild(fragment);
+  }
+
+  function getCaretOffsetInLine(lineEl) {
+    const sel = window.getSelection();
+    if (!sel || !sel.anchorNode || !lineEl.contains(sel.anchorNode)) {
+      return 0;
+    }
+    let offset = 0;
+    let found = false;
+
+    function walk(node) {
+      if (found) return;
+      if (node.nodeType === 3) {
+        if (node === sel.anchorNode) {
+          offset += sel.anchorOffset;
+          found = true;
+          return;
+        }
+        offset += node.nodeValue.length;
+      } else if (node.nodeType === 1) {
+        if (node.hasAttribute('data-ve-ui') ||
+            node.classList.contains('ve-task-checkbox') ||
+            node.classList.contains('ve-bullet-dot') ||
+            node.classList.contains('ve-number-label') ||
+            node.classList.contains('ve-image-wrapper') ||
+            node.classList.contains('katex-inline-container')) {
+          return;
+        }
+        for (let child = node.firstChild; child; child = child.nextSibling) {
+          walk(child);
+          if (found) return;
+        }
+      }
+    }
+
+    walk(lineEl);
+    return offset;
+  }
+
+  function setCaretOffsetInLine(lineEl, targetOffset) {
+    if (!lineEl) return;
+    const sel = window.getSelection();
+    if (!sel) return;
+
+    let currentOffset = 0;
+    let targetNode = null;
+    let targetNodeOffset = 0;
+
+    function walk(node) {
+      if (targetNode) return;
+      if (node.nodeType === 3) {
+        const len = node.nodeValue.length;
+        if (currentOffset + len >= targetOffset) {
+          targetNode = node;
+          targetNodeOffset = Math.max(0, Math.min(len, targetOffset - currentOffset));
+          return;
+        }
+        currentOffset += len;
+      } else if (node.nodeType === 1) {
+        if (node.hasAttribute('data-ve-ui') ||
+            node.classList.contains('ve-task-checkbox') ||
+            node.classList.contains('ve-bullet-dot') ||
+            node.classList.contains('ve-number-label') ||
+            node.classList.contains('ve-image-wrapper') ||
+            node.classList.contains('katex-inline-container')) {
+          return;
+        }
+        for (let child = node.firstChild; child; child = child.nextSibling) {
+          walk(child);
+          if (targetNode) return;
+        }
+      }
+    }
+
+    walk(lineEl);
+
+    const range = document.createRange();
+    if (targetNode) {
+      const hiddenParent = targetNode.parentElement?.closest('.ve-hidden');
+      if (hiddenParent) {
+        hiddenParent.classList.remove('ve-hidden');
+      }
+      range.setStart(targetNode, targetNodeOffset);
+      range.collapse(true);
+    } else {
+      range.selectNodeContents(lineEl);
+      range.collapse(false);
+    }
+
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  function foldLineDelimiters(lineEl) {
+    if (!lineEl) return;
+    const delims = lineEl.querySelectorAll('.ve-delim');
+    delims.forEach((d) => d.classList.add('ve-hidden'));
+    const mathRaws = lineEl.querySelectorAll('.ve-math-raw');
+    mathRaws.forEach((m) => m.classList.add('ve-hidden'));
+    const mathPreviews = lineEl.querySelectorAll('.katex-inline-container');
+    mathPreviews.forEach((k) => k.classList.remove('ve-hidden'));
+  }
+
+  function unfoldLineDelimiters(lineEl) {
+    if (!lineEl) return;
+    const lineDelims = lineEl.querySelectorAll(':scope > .ve-delim, :scope > .ve-heading-marker, :scope > .ve-bullet-marker, :scope > .ve-task-marker, :scope > .ve-number-marker, :scope > .ve-quote-marker, :scope > .ve-hr-marker, :scope > .ve-image-source');
+    lineDelims.forEach((d) => d.classList.remove('ve-hidden'));
+  }
+
+  function updateVisualDelimitersVisibility() {
+    if (!isVisualModeActive || !visualEditor) return;
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed) return;
+    if (!sel || !sel.anchorNode || !visualEditor.contains(sel.anchorNode)) {
+      if (lastActiveLineEl) {
+        foldLineDelimiters(lastActiveLineEl);
+        lastActiveLineEl = null;
+      }
+      if (currentActiveBlockEl) {
+        deactivateBlockEditor(currentActiveBlockEl);
+      }
+      return;
+    }
+
+    // Check if selection moved out of active block
+    if (currentActiveBlockEl && !currentActiveBlockEl.contains(sel.anchorNode)) {
+      deactivateBlockEditor(currentActiveBlockEl);
+    }
+
+    const currentLineEl = getLineFromNode(sel.anchorNode);
+
+    if (lastActiveLineEl && lastActiveLineEl !== currentLineEl) {
+      foldLineDelimiters(lastActiveLineEl);
+    }
+
+    if (currentLineEl) {
+      lastActiveLineEl = currentLineEl;
+      unfoldLineDelimiters(currentLineEl);
+
+      const caretOffset = getCaretOffsetInLine(currentLineEl);
+      const tokens = currentLineEl.querySelectorAll('.ve-token');
+      tokens.forEach((token) => {
+        const start = parseInt(token.getAttribute('data-ve-start'), 10);
+        const end = parseInt(token.getAttribute('data-ve-end'), 10);
+        const isInside = !isNaN(start) && !isNaN(end) && caretOffset >= start && caretOffset <= end;
+        const delims = token.querySelectorAll('.ve-delim');
+        delims.forEach((d) => {
+          d.classList.toggle('ve-hidden', !isInside);
+        });
+        const mathRaw = token.querySelector('.ve-math-raw');
+        if (mathRaw) {
+          mathRaw.classList.toggle('ve-hidden', !isInside);
+        }
+        const mathPreview = token.querySelector('.katex-inline-container');
+        if (mathPreview) {
+          mathPreview.classList.toggle('ve-hidden', isInside);
+        }
+      });
+    }
+  }
+
+  let syncTimeout = null;
+  function syncVisualModeToEditor(force = false) {
+    if ((!isVisualModeActive && !force) || !editor) return;
+    const currentMd = getVisualEditorMarkdown();
+    if (editor.value !== currentMd) {
+      isProgrammaticEdit = true;
+      editor.value = currentMd;
+      isProgrammaticEdit = false;
+
+      const activeTab = getActiveTab();
+      if (activeTab) {
+        activeTab.content = currentMd;
+      }
+      setDirty(true);
+      if (typeof updateWordCount === 'function') updateWordCount();
+
+      clearTimeout(syncTimeout);
+      syncTimeout = setTimeout(() => {
+        updatePreview();
+        updateEditorOverlay();
+      }, 150);
+    }
+  }
+
+  function syncVisualModeFromEditor() {
+    if (!isVisualModeActive) return;
+    const content = editor ? editor.value : '';
+    setVisualEditorMarkdown(content);
+    if (visualEditor) {
+      const firstLine = visualEditor.querySelector('.ve-line');
+      if (firstLine) {
+        setCaretOffsetInLine(firstLine, 0);
+      }
+    }
+  }
+
+  function deactivateCurrentVisualBlock() {
+    if (lastActiveLineEl) {
+      foldLineDelimiters(lastActiveLineEl);
+      lastActiveLineEl = null;
+    }
+    if (currentActiveBlockEl) {
+      deactivateBlockEditor(currentActiveBlockEl);
+    }
+  }
+
+  function setVisualMode(active) {
+    const activeTab = typeof getActiveTab === 'function' ? getActiveTab() : null;
+    if (active && activeTab && activeTab.isPdf) return;
+
+    const containerEl = document.getElementById("container") || (typeof viewContainer !== 'undefined' ? viewContainer : null);
+    if (!containerEl) return;
+
+    const targetActive = !!active;
+    const btn = document.getElementById("btn-toggle-visual-mode");
+    const iconEye = btn?.querySelector(".icon-eye");
+    const iconEyeOff = btn?.querySelector(".icon-eye-off");
+    const veContainer = document.getElementById("visual-editor-container") || visualEditorContainer;
+    const ve = document.getElementById("visual-editor") || visualEditor;
+
+    if (targetActive) {
+      if (containerEl.classList.contains("solo-editor")) {
+        previousViewMode = "solo-editor";
+      } else if (containerEl.classList.contains("solo-preview")) {
+        previousViewMode = "solo-preview";
+      } else {
+        previousViewMode = "split-view";
+      }
+
+      isVisualModeActive = true;
+      containerEl.className = "visual-mode";
+      if (veContainer) veContainer.classList.remove("hidden");
+
+      syncVisualModeFromEditor();
+      if (ve) {
+        ve.focus();
+      }
+    } else {
+      deactivateCurrentVisualBlock();
+      syncVisualModeToEditor(true);
+      isVisualModeActive = false;
+
+      if (veContainer) veContainer.classList.add("hidden");
+      containerEl.className = previousViewMode || "split-view";
+
+      updatePreview();
+      editor?.focus();
+    }
+
+    if (btn) {
+      btn.classList.toggle("active", isVisualModeActive);
+      btn.title = isVisualModeActive
+        ? (i18n.t("visual_mode_active") || "Exit Visual Mode")
+        : (i18n.t("visual_mode") || "Visual Mode");
+
+      if (iconEye && iconEyeOff) {
+        if (isVisualModeActive) {
+          iconEye.classList.add("hidden");
+          iconEyeOff.classList.remove("hidden");
+        } else {
+          iconEye.classList.remove("hidden");
+          iconEyeOff.classList.add("hidden");
+        }
+      }
+    }
+  }
+
+  function getRangeOffsetInLine(lineEl, container, inOffset) {
+    let offset = 0;
+    let found = false;
+    function walk(node) {
+      if (found) return;
+      if (node.nodeType === 3) {
+        if (node === container) {
+          offset += inOffset;
+          found = true;
+          return;
+        }
+        offset += node.nodeValue.length;
+      } else if (node.nodeType === 1) {
+        if (node.hasAttribute('data-ve-ui') ||
+            node.classList.contains('ve-task-checkbox') ||
+            node.classList.contains('ve-bullet-dot') ||
+            node.classList.contains('ve-number-label') ||
+            node.classList.contains('ve-image-wrapper') ||
+            node.classList.contains('katex-inline-container')) {
+          return;
+        }
+        for (let child = node.firstChild; child; child = child.nextSibling) {
+          walk(child);
+          if (found) return;
+        }
+      }
+    }
+    walk(lineEl);
+    return offset;
+  }
+
+  function applyFormattingToActiveVisualBlock(prefix, suffix, defaultText = 'text') {
+    if (!isVisualModeActive || !visualEditor) return false;
+    const sel = window.getSelection();
+    let lineEl = sel?.anchorNode ? getLineFromNode(sel.anchorNode) : null;
+    if (!lineEl) {
+      const lines = visualEditor.querySelectorAll('.ve-line');
+      if (lines.length > 0) lineEl = lines[lines.length - 1];
+      else return false;
+    }
+
+    const rawText = getLineRawText(lineEl);
+    let startOffset = getCaretOffsetInLine(lineEl);
+    let endOffset = startOffset;
+
+    if (sel && !sel.isCollapsed && lineEl.contains(sel.anchorNode) && lineEl.contains(sel.focusNode)) {
+      const range = sel.getRangeAt(0);
+      const startRange = range.cloneRange();
+      startRange.collapse(true);
+      const endRange = range.cloneRange();
+      endRange.collapse(false);
+
+      startOffset = getRangeOffsetInLine(lineEl, startRange.startContainer, startRange.startOffset);
+      endOffset = getRangeOffsetInLine(lineEl, endRange.startContainer, endRange.startOffset);
+    }
+
+    if (startOffset > endOffset) {
+      const tmp = startOffset;
+      startOffset = endOffset;
+      endOffset = tmp;
+    }
+
+    const selectedText = rawText.slice(startOffset, endOffset) || defaultText;
+    const replacement = prefix + selectedText + suffix;
+    const newRaw = rawText.slice(0, startOffset) + replacement + rawText.slice(endOffset);
+    const newCaret = startOffset + prefix.length + selectedText.length;
+
+    const parsed = parseVeLine(newRaw, true, newCaret);
+    lineEl.className = parsed.className;
+    lineEl.innerHTML = parsed.html;
+    setCaretOffsetInLine(lineEl, newCaret);
+    syncVisualModeToEditor();
+    return true;
+  }
+
+  if (visualEditor) {
+    visualEditor.setAttribute('contenteditable', 'true');
+    visualEditor.setAttribute('spellcheck', 'true');
+
+    // Paste handler for images and text in Visual Mode
+    visualEditor.addEventListener('paste', async (e) => {
+      const clipboardItems = e.clipboardData?.items || [];
+      for (let i = 0; i < clipboardItems.length; i++) {
+        const item = clipboardItems[i];
+        if (item.type.indexOf('image') !== -1) {
+          e.preventDefault();
+
+          if (!currentFilePath) {
+            dialog.showMessageBoxSync({
+              type: 'info',
+              title: i18n.t('dialog_paste_img_title') || 'Salvataggio richiesto',
+              message: i18n.t('dialog_paste_img_message') || 'Salva il file prima di incollare immagini.'
+            });
+            const file = dialog.showSaveDialogSync({ filters: [{ name: "Markdown", extensions: ["md"] }] });
+            if (!file) return;
+            fs.writeFileSync(file, editor ? editor.value : '', "utf8");
+            currentFilePath = file;
+            setDirty(false);
+          }
+
+          const blob = item.getAsFile();
+          const reader = new FileReader();
+          reader.onload = () => {
+            const buffer = Buffer.from(reader.result);
+            const timestamp = Date.now();
+            const imageExt = (blob.type.split('/')[1] || 'png').split('+')[0];
+            const imageName = `image_${timestamp}.${imageExt}`;
+            const folderPath = path.dirname(currentFilePath);
+            const imagesDir = path.join(folderPath, "images");
+            if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir);
+            const imagePath = path.join(imagesDir, imageName);
+            fs.writeFileSync(imagePath, buffer);
+            const relativeImagePath = path.relative(folderPath, imagePath).replace(/\\/g, "/");
+            const markdownImage = `![${imageName}](${relativeImagePath})`;
+
+            const sel = window.getSelection();
+            const lineEl = sel?.anchorNode ? getLineFromNode(sel.anchorNode) : null;
+            if (lineEl) {
+              const newLineEl = document.createElement('div');
+              newLineEl.setAttribute('data-ve-line', 'true');
+              const parsed = parseVeLine(markdownImage, false, -1);
+              newLineEl.className = parsed.className;
+              newLineEl.innerHTML = parsed.html;
+              lineEl.after(newLineEl);
+              setCaretOffsetInLine(newLineEl, 0);
+            } else {
+              setVisualEditorMarkdown(getVisualEditorMarkdown() + '\n' + markdownImage);
+            }
+            syncVisualModeToEditor();
+          };
+          reader.readAsArrayBuffer(blob);
+          return;
+        }
+      }
+
+      // Plain text paste with multi-line or block detection
+      const pastedText = e.clipboardData?.getData('text/plain');
+      if (pastedText && (pastedText.includes('\n') || pastedText.includes('```') || pastedText.includes('$$') || pastedText.includes('|'))) {
+        e.preventDefault();
+        const sel = window.getSelection();
+        const lineEl = sel?.anchorNode ? getLineFromNode(sel.anchorNode) : null;
+        if (lineEl && lineEl.closest('.ve-block.ve-active')) {
+          document.execCommand('insertText', false, pastedText);
+          syncVisualModeToEditor();
+          return;
+        }
+
+        const lines = pastedText.split('\n');
+        if (lineEl) {
+          const caretOffset = getCaretOffsetInLine(lineEl);
+          const rawText = getLineRawText(lineEl);
+          const before = rawText.slice(0, caretOffset);
+          const after = rawText.slice(caretOffset);
+
+          const firstCombined = before + lines[0];
+          const lastCombined = (lines.length > 1 ? lines[lines.length - 1] : firstCombined) + after;
+
+          if (lines.length === 1) {
+            const parsed = parseVeLine(firstCombined + after, true, firstCombined.length);
+            lineEl.className = parsed.className;
+            lineEl.innerHTML = parsed.html;
+            setCaretOffsetInLine(lineEl, firstCombined.length);
+          } else {
+            const parsedFirst = parseVeLine(firstCombined, false, -1);
+            lineEl.className = parsedFirst.className;
+            lineEl.innerHTML = parsedFirst.html;
+
+            let prev = lineEl;
+            for (let idx = 1; idx < lines.length - 1; idx++) {
+              const div = document.createElement('div');
+              div.setAttribute('data-ve-line', 'true');
+              const p = parseVeLine(lines[idx], false, -1);
+              div.className = p.className;
+              div.innerHTML = p.html;
+              prev.after(div);
+              prev = div;
+            }
+            const lastDiv = document.createElement('div');
+            lastDiv.setAttribute('data-ve-line', 'true');
+            const pLast = parseVeLine(lastCombined, true, lines[lines.length - 1].length);
+            lastDiv.className = pLast.className;
+            lastDiv.innerHTML = pLast.html;
+            prev.after(lastDiv);
+            setCaretOffsetInLine(lastDiv, lines[lines.length - 1].length);
+          }
+        } else {
+          setVisualEditorMarkdown(getVisualEditorMarkdown() + '\n' + pastedText);
+        }
+
+        checkAndFormatCompletedBlocks(visualEditor);
+        syncVisualModeToEditor();
+        return;
+      }
+    });
+
+    let isHandlingInput = false;
+    visualEditor.addEventListener('input', () => {
+      if (isHandlingInput) return;
+      isHandlingInput = true;
+      try {
+        const sel = window.getSelection();
+        const lineEl = sel?.anchorNode ? getLineFromNode(sel.anchorNode) : null;
+        if (!lineEl) {
+          const lines = visualEditor.querySelectorAll('.ve-line');
+          if (lines.length === 0) {
+            visualEditor.innerHTML = '<div class="ve-line" data-ve-line="true"><br></div>';
+            const fl = visualEditor.querySelector('.ve-line');
+            setCaretOffsetInLine(fl, 0);
+          }
+          syncVisualModeToEditor();
+          return;
+        }
+
+        // If inside an active block editor (code, math, table)
+        const insideBlock = lineEl.closest('.ve-block');
+        if (insideBlock && insideBlock.classList.contains('ve-active')) {
+          const type = insideBlock.getAttribute('data-ve-block');
+          const lineEls = Array.from(insideBlock.querySelectorAll('.ve-line'));
+          const innerLines = lineEls.map(l => getLineRawText(l));
+
+          // Se i delimitatori sono stati eliminati o il blocco è vuoto/invalido, converti subito in normali righe
+          if (!isBlockValid(type, innerLines)) {
+            const lineIndex = lineEls.indexOf(lineEl);
+            const caretOffset = getCaretOffsetInLine(lineEl);
+            unwrapBlockToLines(insideBlock, Math.max(0, lineIndex), caretOffset);
+            return;
+          }
+
+          if (type === 'math') {
+            const mathLive = insideBlock.querySelector('.ve-math-live');
+            if (mathLive) {
+              const mathBody = innerLines.length > 2
+                ? innerLines.slice(1, innerLines.length - 1).join('\n')
+                : (innerLines[0] || '').replace(/^\$\$/, '').replace(/\$\$/, '');
+              mathLive.innerHTML = renderKatexDisplay(mathBody);
+            }
+          }
+          syncVisualModeToEditor();
+          return;
+        }
+
+        const caretOffset = getCaretOffsetInLine(lineEl);
+        const rawText = getLineRawText(lineEl);
+        const parsed = parseVeLine(rawText, true, caretOffset);
+        lineEl.className = parsed.className;
+        lineEl.innerHTML = parsed.html;
+        setCaretOffsetInLine(lineEl, caretOffset);
+        syncVisualModeToEditor();
+
+        // Real-time block completion detection
+        debouncedCheckAndFormatCompletedBlocks(visualEditor);
+      } finally {
+        isHandlingInput = false;
+      }
+    });
+
+    visualEditor.addEventListener('keydown', (e) => {
+      // Navigation with ArrowUp / ArrowDown inside active block editor
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        const sel = window.getSelection();
+        const lineEl = sel?.anchorNode ? getLineFromNode(sel.anchorNode) : null;
+        const insideBlock = lineEl?.closest('.ve-block.ve-active');
+        if (insideBlock) {
+          const lines = Array.from(insideBlock.querySelectorAll('.ve-line'));
+          if (e.key === 'ArrowDown' && lines.length > 0 && lines[lines.length - 1] === lineEl) {
+            e.preventDefault();
+            deactivateBlockEditor(insideBlock);
+            let next = insideBlock.nextElementSibling;
+            if (!next || !next.classList.contains('ve-line')) {
+              next = document.createElement('div');
+              next.className = 've-line';
+              next.setAttribute('data-ve-line', 'true');
+              next.innerHTML = '<br>';
+              insideBlock.after(next);
+            }
+            lastActiveLineEl = next;
+            setCaretOffsetInLine(next, 0);
+            return;
+          }
+          if (e.key === 'ArrowUp' && lines.length > 0 && lines[0] === lineEl) {
+            e.preventDefault();
+            deactivateBlockEditor(insideBlock);
+            let prev = insideBlock.previousElementSibling;
+            if (!prev || !prev.classList.contains('ve-line')) {
+              prev = document.createElement('div');
+              prev.className = 've-line';
+              prev.setAttribute('data-ve-line', 'true');
+              prev.innerHTML = '<br>';
+              insideBlock.before(prev);
+            }
+            lastActiveLineEl = prev;
+            setCaretOffsetInLine(prev, 0);
+            return;
+          }
+        }
+      }
+
+      if (e.key === 'Enter') {
+        const sel = window.getSelection();
+        if (!sel || !sel.anchorNode) return;
+        const lineEl = getLineFromNode(sel.anchorNode);
+        if (!lineEl) return;
+
+        // 1. Inside active multi-line block editor (code block, table, math block)
+        const insideBlock = lineEl.closest('.ve-block');
+        if (insideBlock && insideBlock.classList.contains('ve-active')) {
+          const blockType = insideBlock.getAttribute('data-ve-block');
+          const rawText = getLineRawText(lineEl);
+          const isClosingFence = (blockType === 'code' && rawText.trim().match(/^(```|~~~)/)) ||
+                                 (blockType === 'math' && rawText.trim() === '$$');
+          const isTableEmptyRow = (blockType === 'table' && rawText.replace(/\|/g, '').trim() === '');
+          const isLastLine = !lineEl.nextElementSibling || lineEl.nextElementSibling.classList.contains('ve-math-live');
+
+          if ((isClosingFence && isLastLine) || isTableEmptyRow) {
+            e.preventDefault();
+            if (isTableEmptyRow && insideBlock.querySelectorAll('.ve-line').length > 2) {
+              lineEl.remove();
+            }
+            deactivateBlockEditor(insideBlock);
+            let newLineEl = insideBlock.nextElementSibling;
+            if (!newLineEl || !newLineEl.classList.contains('ve-line')) {
+              newLineEl = document.createElement('div');
+              newLineEl.className = 've-line';
+              newLineEl.setAttribute('data-ve-line', 'true');
+              newLineEl.innerHTML = '<br>';
+              insideBlock.after(newLineEl);
+            }
+            lastActiveLineEl = newLineEl;
+            setCaretOffsetInLine(newLineEl, 0);
+            newLineEl.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+            syncVisualModeToEditor();
+            return;
+          }
+
+          e.preventDefault();
+          const caretOffset = getCaretOffsetInLine(lineEl);
+          const beforeCaret = rawText.slice(0, caretOffset);
+          const afterCaret = rawText.slice(caretOffset);
+
+          lineEl.textContent = beforeCaret;
+          const newLineEl = document.createElement('div');
+          newLineEl.className = lineEl.className;
+          newLineEl.setAttribute('data-ve-line', 'true');
+          newLineEl.textContent = afterCaret;
+          lineEl.after(newLineEl);
+          setCaretOffsetInLine(newLineEl, 0);
+          syncVisualModeToEditor();
+          return;
+        }
+
+        // 2. Inside Blockquote container (continue inside or exit on double enter)
+        const insideBlockquote = lineEl.closest('blockquote.ve-blockquote-block');
+        if (insideBlockquote) {
+          e.preventDefault();
+          const caretOffset = getCaretOffsetInLine(lineEl);
+          const rawText = getLineRawText(lineEl);
+          const quoteMatch = rawText.match(/^(\s*> ?)(.*)$/);
+          const content = quoteMatch ? quoteMatch[2] : rawText;
+
+          // If current quote line is empty (double enter): exit blockquote!
+          if (!content || content.trim() === '') {
+            if (insideBlockquote.children.length > 1) {
+              lineEl.remove();
+            } else {
+              insideBlockquote.remove();
+            }
+            let newLineEl = insideBlockquote.nextElementSibling;
+            if (!newLineEl || !newLineEl.classList.contains('ve-line')) {
+              newLineEl = document.createElement('div');
+              newLineEl.className = 've-line';
+              newLineEl.setAttribute('data-ve-line', 'true');
+              newLineEl.innerHTML = '<br>';
+              insideBlockquote.after(newLineEl);
+            }
+            lastActiveLineEl = newLineEl;
+            setCaretOffsetInLine(newLineEl, 0);
+            newLineEl.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+            syncVisualModeToEditor();
+            return;
+          }
+
+          // Continue inside same blockquote
+          const marker = quoteMatch ? quoteMatch[1] : '> ';
+          const markerLen = marker.length;
+          const textAfterMarker = rawText.slice(markerLen);
+          const splitPos = Math.max(0, caretOffset - markerLen);
+          const beforeText = textAfterMarker.slice(0, splitPos);
+          const afterText = textAfterMarker.slice(splitPos);
+
+          const parsedCurr = parseVeLine(marker + beforeText, false, -1);
+          lineEl.className = parsedCurr.className + ' ve-quote-line';
+          lineEl.innerHTML = parsedCurr.html;
+
+          const newLineEl = document.createElement('div');
+          newLineEl.setAttribute('data-ve-line', 'true');
+          const nextRaw = '> ' + afterText;
+          const parsedNext = parseVeLine(nextRaw, true, 2);
+          newLineEl.className = parsedNext.className + ' ve-quote-line';
+          newLineEl.innerHTML = parsedNext.html;
+
+          lineEl.after(newLineEl);
+          lastActiveLineEl = newLineEl;
+          setCaretOffsetInLine(newLineEl, 2);
+          newLineEl.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+          syncVisualModeToEditor();
+          return;
+        }
+
+        e.preventDefault();
+        const caretOffset = getCaretOffsetInLine(lineEl);
+        const rawText = getLineRawText(lineEl);
+        const beforeCaret = rawText.slice(0, caretOffset);
+        const afterCaret = rawText.slice(caretOffset);
+
+        // Check if closing a code block or math block on this line
+        const isClosingCode = beforeCaret.trim().match(/^(```|~~~)/);
+        const isClosingMath = beforeCaret.trim() === '$$';
+
+        if (isClosingCode || isClosingMath) {
+          const parsedCurr = parseVeLine(beforeCaret, false, -1);
+          lineEl.className = parsedCurr.className;
+          lineEl.innerHTML = parsedCurr.html;
+
+          const newLineEl = document.createElement('div');
+          newLineEl.className = 've-line';
+          newLineEl.setAttribute('data-ve-line', 'true');
+          newLineEl.innerHTML = '<br>';
+          lineEl.after(newLineEl);
+
+          checkAndFormatCompletedBlocks(visualEditor);
+          lastActiveLineEl = newLineEl;
+          setCaretOffsetInLine(newLineEl, 0);
+          newLineEl.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+          syncVisualModeToEditor();
+          return;
+        }
+
+        // Check if starting a blockquote on normal line
+        const quoteStartMatch = beforeCaret.match(/^(\s*> ?)(.*)$/);
+        if (quoteStartMatch) {
+          const marker = quoteStartMatch[1];
+          const content = quoteStartMatch[2];
+          if (content.trim() === '' && afterCaret.trim() === '') {
+            lineEl.innerHTML = '<br>';
+            lineEl.className = 've-line';
+            setCaretOffsetInLine(lineEl, 0);
+            syncVisualModeToEditor();
+            return;
+          }
+
+          const bq = document.createElement('blockquote');
+          bq.className = 've-blockquote-block';
+          bq.setAttribute('data-ve-block', 'quote');
+
+          const parsedCurr = parseVeLine(beforeCaret, false, -1);
+          lineEl.className = parsedCurr.className + ' ve-quote-line';
+          lineEl.innerHTML = parsedCurr.html;
+
+          lineEl.after(bq);
+          bq.appendChild(lineEl);
+
+          const newLineEl = document.createElement('div');
+          newLineEl.setAttribute('data-ve-line', 'true');
+          const nextRaw = '> ' + afterCaret;
+          const parsedNext = parseVeLine(nextRaw, true, 2);
+          newLineEl.className = parsedNext.className + ' ve-quote-line';
+          newLineEl.innerHTML = parsedNext.html;
+          bq.appendChild(newLineEl);
+
+          lastActiveLineEl = newLineEl;
+          setCaretOffsetInLine(newLineEl, 2);
+          newLineEl.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+          syncVisualModeToEditor();
+          return;
+        }
+
+        let nextLineText = '';
+        let currLineText = beforeCaret;
+        let newCaretOffset = 0;
+
+        // Checkbox list puntata / numerata
+        const taskMatch = beforeCaret.match(/^(\s*)([-*+]\s+\[([ xX])\]\s*)(.*)$/);
+        if (taskMatch) {
+          const indent = taskMatch[1];
+          const marker = taskMatch[2];
+          const content = taskMatch[4];
+          if (content.trim() === '' && afterCaret.trim() === '') {
+            if (indent.length >= 2) {
+              const newIndent = indent.slice(2);
+              const newRaw = newIndent + marker.trimStart();
+              const parsedCurr = parseVeLine(newRaw, true, newRaw.length);
+              lineEl.className = parsedCurr.className;
+              lineEl.innerHTML = parsedCurr.html;
+              setCaretOffsetInLine(lineEl, newRaw.length);
+              syncVisualModeToEditor();
+              return;
+            } else {
+              currLineText = '';
+              const parsedCurr = parseVeLine('', true, 0);
+              lineEl.className = parsedCurr.className;
+              lineEl.innerHTML = parsedCurr.html;
+              setCaretOffsetInLine(lineEl, 0);
+              syncVisualModeToEditor();
+              return;
+            }
+          } else {
+            nextLineText = indent + '- [ ] ' + afterCaret;
+            newCaretOffset = (indent + '- [ ] ').length;
+          }
+        } else {
+          const bulletMatch = beforeCaret.match(/^(\s*)([-*+]\s+)(.*)$/);
+          if (bulletMatch) {
+            const indent = bulletMatch[1];
+            const marker = bulletMatch[2];
+            const content = bulletMatch[3];
+            if (content.trim() === '' && afterCaret.trim() === '') {
+              if (indent.length >= 2) {
+                const newIndent = indent.slice(2);
+                const newRaw = newIndent + marker;
+                const parsedCurr = parseVeLine(newRaw, true, newRaw.length);
+                lineEl.className = parsedCurr.className;
+                lineEl.innerHTML = parsedCurr.html;
+                setCaretOffsetInLine(lineEl, newRaw.length);
+                syncVisualModeToEditor();
+                return;
+              } else {
+                currLineText = '';
+                const parsedCurr = parseVeLine('', true, 0);
+                lineEl.className = parsedCurr.className;
+                lineEl.innerHTML = parsedCurr.html;
+                setCaretOffsetInLine(lineEl, 0);
+                syncVisualModeToEditor();
+                return;
+              }
+            } else {
+              nextLineText = indent + marker + afterCaret;
+              newCaretOffset = (indent + marker).length;
+            }
+          } else {
+            const numMatch = beforeCaret.match(/^(\s*)(\d+)\.\s+(.*)$/);
+            if (numMatch) {
+              const indent = numMatch[1];
+              const num = numMatch[2];
+              const content = numMatch[3];
+              if (content.trim() === '' && afterCaret.trim() === '') {
+                if (indent.length >= 2) {
+                  const newIndent = indent.slice(2);
+                  const newRaw = newIndent + '1. ';
+                  const parsedCurr = parseVeLine(newRaw, true, newRaw.length);
+                  lineEl.className = parsedCurr.className;
+                  lineEl.innerHTML = parsedCurr.html;
+                  setCaretOffsetInLine(lineEl, newRaw.length);
+                  syncVisualModeToEditor();
+                  return;
+                } else {
+                  currLineText = '';
+                  const parsedCurr = parseVeLine('', true, 0);
+                  lineEl.className = parsedCurr.className;
+                  lineEl.innerHTML = parsedCurr.html;
+                  setCaretOffsetInLine(lineEl, 0);
+                  syncVisualModeToEditor();
+                  return;
+                }
+              } else {
+                const nextNum = parseInt(num, 10) + 1;
+                const prefix = indent + nextNum + '. ';
+                nextLineText = prefix + afterCaret;
+                newCaretOffset = prefix.length;
+              }
+            } else {
+              nextLineText = afterCaret;
+              newCaretOffset = 0;
+            }
+          }
+        }
+
+        const parsedCurr = parseVeLine(currLineText, false, -1);
+        lineEl.className = parsedCurr.className;
+        lineEl.innerHTML = parsedCurr.html;
+
+        const newLineEl = document.createElement('div');
+        newLineEl.setAttribute('data-ve-line', 'true');
+        const parsedNext = parseVeLine(nextLineText, true, newCaretOffset);
+        newLineEl.className = parsedNext.className;
+        newLineEl.innerHTML = parsedNext.html;
+
+        lineEl.after(newLineEl);
+        lastActiveLineEl = newLineEl;
+        setCaretOffsetInLine(newLineEl, newCaretOffset);
+        newLineEl.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+        checkAndFormatCompletedBlocks(visualEditor);
+        syncVisualModeToEditor();
+        return;
+      }
+
+      if (e.key === 'Backspace') {
+        const sel = window.getSelection();
+        if (!sel || !sel.isCollapsed || !sel.anchorNode) return;
+
+        // Check if an inactive block itself or its preview is selected/focused
+        let focusedBlock = sel.anchorNode.nodeType === 1 && sel.anchorNode.classList.contains('ve-block')
+          ? sel.anchorNode
+          : (sel.anchorNode.nodeType === 1 ? sel.anchorNode.closest('.ve-block:not(.ve-active)') : sel.anchorNode.parentElement?.closest('.ve-block:not(.ve-active)'));
+
+        if (focusedBlock) {
+          e.preventDefault();
+          if (isBlockEmpty(focusedBlock)) {
+            focusedBlock.remove();
+            syncVisualModeToEditor();
+            return;
+          }
+          activateBlockEditor(focusedBlock);
+          const innerLines = Array.from(focusedBlock.querySelectorAll('.ve-line'));
+          if (innerLines.length > 0) {
+            const lastLine = innerLines[innerLines.length - 1];
+            const raw = getLineRawText(lastLine);
+            if (raw.length > 0) {
+              const newRaw = raw.slice(0, -1);
+              lastLine.textContent = newRaw;
+              setCaretOffsetInLine(lastLine, newRaw.length);
+            } else {
+              setCaretOffsetInLine(lastLine, 0);
+            }
+          }
+          syncVisualModeToEditor();
+          return;
+        }
+
+        const lineEl = getLineFromNode(sel.anchorNode);
+        if (!lineEl) return;
+
+        const insideBlock = lineEl.closest('.ve-block.ve-active');
+        const caretOffset = getCaretOffsetInLine(lineEl);
+        if (caretOffset === 0) {
+          const prevElem = lineEl.previousElementSibling;
+          if (prevElem) {
+            if (prevElem.classList.contains('ve-line')) {
+              e.preventDefault();
+              const prevRaw = getLineRawText(prevElem);
+              const currRaw = getLineRawText(lineEl);
+              const joinOffset = prevRaw.length;
+              const combinedText = prevRaw + currRaw;
+
+              if (insideBlock) {
+                prevElem.textContent = combinedText;
+                lineEl.remove();
+                setCaretOffsetInLine(prevElem, joinOffset);
+                const type = insideBlock.getAttribute('data-ve-block');
+                const lineEls = Array.from(insideBlock.querySelectorAll('.ve-line'));
+                const innerLines = lineEls.map(l => getLineRawText(l));
+
+                if (!isBlockValid(type, innerLines)) {
+                  const targetLineIdx = lineEls.indexOf(prevElem);
+                  unwrapBlockToLines(insideBlock, Math.max(0, targetLineIdx), joinOffset);
+                  return;
+                }
+
+                if (type === 'math') {
+                  const mathLive = insideBlock.querySelector('.ve-math-live');
+                  if (mathLive) {
+                    const mathBody = innerLines.length > 2
+                      ? innerLines.slice(1, innerLines.length - 1).join('\n')
+                      : (innerLines[0] || '').replace(/^\$\$/, '').replace(/\$\$/, '');
+                    mathLive.innerHTML = renderKatexDisplay(mathBody);
+                  }
+                }
+                syncVisualModeToEditor();
+                return;
+              }
+
+              const parsed = parseVeLine(combinedText, true, joinOffset);
+              prevElem.className = parsed.className;
+              prevElem.innerHTML = parsed.html;
+              lineEl.remove();
+
+              lastActiveLineEl = prevElem;
+              setCaretOffsetInLine(prevElem, joinOffset);
+              syncVisualModeToEditor();
+              return;
+            } else if (prevElem.classList.contains('ve-block')) {
+              e.preventDefault();
+              const isCurrEmpty = getLineRawText(lineEl).trim() === '';
+              if (isBlockEmpty(prevElem)) {
+                prevElem.remove();
+                if (isCurrEmpty && visualEditor.children.length > 1) {
+                  lineEl.remove();
+                }
+                syncVisualModeToEditor();
+                return;
+              }
+              activateBlockEditor(prevElem);
+              const innerLines = Array.from(prevElem.querySelectorAll('.ve-line'));
+              if (innerLines.length > 0) {
+                const lastLine = innerLines[innerLines.length - 1];
+                const raw = getLineRawText(lastLine);
+                if (raw.length > 0) {
+                  const newRaw = raw.slice(0, -1);
+                  lastLine.textContent = newRaw;
+                  setCaretOffsetInLine(lastLine, newRaw.length);
+                } else {
+                  setCaretOffsetInLine(lastLine, 0);
+                }
+              }
+              if (isCurrEmpty && visualEditor.children.length > 1) {
+                lineEl.remove();
+              }
+              syncVisualModeToEditor();
+              return;
+            }
+          } else if (insideBlock) {
+            // Caret is at offset 0 of the first line of an active block
+            e.preventDefault();
+            const prevBeforeBlock = insideBlock.previousElementSibling;
+            const lineEls = unwrapBlockToLines(insideBlock, 0, 0);
+            if (prevBeforeBlock && lineEls && lineEls.length > 0) {
+              const firstUnwrappedLine = lineEls[0];
+              const prevRaw = getLineRawText(prevBeforeBlock);
+              const firstRaw = getLineRawText(firstUnwrappedLine);
+              const joinOffset = prevRaw.length;
+              prevBeforeBlock.textContent = prevRaw + firstRaw;
+              firstUnwrappedLine.remove();
+              setCaretOffsetInLine(prevBeforeBlock, joinOffset);
+              syncVisualModeToEditor();
+            }
+            return;
+          }
+        }
+      }
+
+      if (e.key === 'Delete') {
+        const sel = window.getSelection();
+        if (!sel || !sel.isCollapsed || !sel.anchorNode) return;
+
+        let focusedBlock = sel.anchorNode.nodeType === 1 && sel.anchorNode.classList.contains('ve-block')
+          ? sel.anchorNode
+          : (sel.anchorNode.nodeType === 1 ? sel.anchorNode.closest('.ve-block:not(.ve-active)') : sel.anchorNode.parentElement?.closest('.ve-block:not(.ve-active)'));
+
+        if (focusedBlock) {
+          e.preventDefault();
+          if (isBlockEmpty(focusedBlock)) {
+            focusedBlock.remove();
+            syncVisualModeToEditor();
+            return;
+          }
+          activateBlockEditor(focusedBlock);
+          const innerLines = Array.from(focusedBlock.querySelectorAll('.ve-line'));
+          if (innerLines.length > 0) {
+            const firstLine = innerLines[0];
+            const raw = getLineRawText(firstLine);
+            if (raw.length > 0) {
+              const newRaw = raw.slice(1);
+              firstLine.textContent = newRaw;
+              setCaretOffsetInLine(firstLine, 0);
+            } else {
+              setCaretOffsetInLine(firstLine, 0);
+            }
+          }
+          syncVisualModeToEditor();
+          return;
+        }
+
+        const lineEl = getLineFromNode(sel.anchorNode);
+        if (!lineEl) return;
+
+        const insideBlock = lineEl.closest('.ve-block.ve-active');
+        const caretOffset = getCaretOffsetInLine(lineEl);
+        const currRaw = getLineRawText(lineEl);
+        if (caretOffset >= currRaw.length) {
+          const nextElem = lineEl.nextElementSibling;
+          if (nextElem && nextElem.classList.contains('ve-block')) {
+            e.preventDefault();
+            const isCurrEmpty = currRaw.trim() === '';
+            if (isBlockEmpty(nextElem)) {
+              nextElem.remove();
+              syncVisualModeToEditor();
+              return;
+            }
+            activateBlockEditor(nextElem);
+            const innerLines = Array.from(nextElem.querySelectorAll('.ve-line'));
+            if (innerLines.length > 0) {
+              const firstLine = innerLines[0];
+              const raw = getLineRawText(firstLine);
+              if (raw.length > 0) {
+                const newRaw = raw.slice(1);
+                firstLine.textContent = newRaw;
+                setCaretOffsetInLine(firstLine, 0);
+              } else {
+                setCaretOffsetInLine(firstLine, 0);
+              }
+            }
+            if (isCurrEmpty && visualEditor.children.length > 1) {
+              lineEl.remove();
+            }
+            syncVisualModeToEditor();
+            return;
+          } else if (insideBlock && !nextElem) {
+            // Delete at the very end of the last line of an active block
+            e.preventDefault();
+            const nextAfterBlock = insideBlock.nextElementSibling;
+            const lineEls = unwrapBlockToLines(insideBlock, -1, -1);
+            if (nextAfterBlock && lineEls && lineEls.length > 0) {
+              const lastUnwrappedLine = lineEls[lineEls.length - 1];
+              const lastRaw = getLineRawText(lastUnwrappedLine);
+              const nextRaw = getLineRawText(nextAfterBlock);
+              lastUnwrappedLine.textContent = lastRaw + nextRaw;
+              nextAfterBlock.remove();
+              setCaretOffsetInLine(lastUnwrappedLine, lastRaw.length);
+              syncVisualModeToEditor();
+            }
+            return;
+          }
+        }
+      }
+
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const sel = window.getSelection();
+        if (!sel || !sel.anchorNode) return;
+        const lineEl = getLineFromNode(sel.anchorNode);
+        if (!lineEl) return;
+        const caretOffset = getCaretOffsetInLine(lineEl);
+        const rawText = getLineRawText(lineEl);
+
+        // Controllo se la riga è un elemento di lista (trattino, numerata, checkbox)
+        const isBulletList = rawText.match(/^(\s*)([-*+])\s*(.*)$/);
+        const isTaskList = rawText.match(/^(\s*)([-*+]\s+\[[ xX\-]\])\s*(.*)$/);
+        const isNumList = rawText.match(/^(\s*)(\d+\.)\s*(.*)$/);
+
+        if (isBulletList || isTaskList || isNumList) {
+          if (e.shiftKey) {
+            // Unindent: rimuove 2 spazi dall'inizio riga
+            if (rawText.startsWith('  ')) {
+              const newRaw = rawText.slice(2);
+              const newOffset = Math.max(0, caretOffset - 2);
+              const parsed = parseVeLine(newRaw, true, newOffset);
+              lineEl.className = parsed.className;
+              lineEl.innerHTML = parsed.html;
+              setCaretOffsetInLine(lineEl, newOffset);
+              syncVisualModeToEditor();
+            } else if (rawText.startsWith(' ')) {
+              const newRaw = rawText.slice(1);
+              const newOffset = Math.max(0, caretOffset - 1);
+              const parsed = parseVeLine(newRaw, true, newOffset);
+              lineEl.className = parsed.className;
+              lineEl.innerHTML = parsed.html;
+              setCaretOffsetInLine(lineEl, newOffset);
+              syncVisualModeToEditor();
+            }
+          } else {
+            // Indent: aggiunge 2 spazi ALL'INIZIO della riga per creare la sottolista
+            const newRaw = '  ' + rawText;
+            const newOffset = caretOffset + 2;
+            const parsed = parseVeLine(newRaw, true, newOffset);
+            lineEl.className = parsed.className;
+            lineEl.innerHTML = parsed.html;
+            setCaretOffsetInLine(lineEl, newOffset);
+            syncVisualModeToEditor();
+          }
+          return;
+        }
+
+        // Riga non di lista: inserimento tab standard
+        if (e.shiftKey) {
+          if (rawText.startsWith('  ')) {
+            const newRaw = rawText.slice(2);
+            const newOffset = Math.max(0, caretOffset - 2);
+            const parsed = parseVeLine(newRaw, true, newOffset);
+            lineEl.className = parsed.className;
+            lineEl.innerHTML = parsed.html;
+            setCaretOffsetInLine(lineEl, newOffset);
+            syncVisualModeToEditor();
+          }
+        } else {
+          const newRaw = rawText.slice(0, caretOffset) + '  ' + rawText.slice(caretOffset);
+          const newOffset = caretOffset + 2;
+          const parsed = parseVeLine(newRaw, true, newOffset);
+          lineEl.className = parsed.className;
+          lineEl.innerHTML = parsed.html;
+          setCaretOffsetInLine(lineEl, newOffset);
+          syncVisualModeToEditor();
+        }
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        if (currentActiveBlockEl) {
+          deactivateBlockEditor(currentActiveBlockEl);
+        }
+      }
+    });
+
+    visualEditor.addEventListener('click', (e) => {
+      // Se l'utente ha selezionato del testo (al termine di una selezione col mouse), non alterare blocchi o selezione
+      const sel = window.getSelection();
+      if (sel && !sel.isCollapsed) return;
+
+      // Se c'è un blocco attivo e il click è fuori da esso, disattivalo subito
+      if (currentActiveBlockEl && !currentActiveBlockEl.contains(e.target)) {
+        deactivateBlockEditor(currentActiveBlockEl);
+      }
+
+      // Click nell'area vuota dell'editor (o nel padding inferiore)
+      if (e.target === visualEditor || e.target === visualEditorContainer) {
+        if (currentActiveBlockEl) {
+          deactivateBlockEditor(currentActiveBlockEl);
+        }
+        const topLines = Array.from(visualEditor.children).filter(el => el.classList.contains('ve-line'));
+        if (topLines.length === 0 || visualEditor.lastElementChild?.classList.contains('ve-block')) {
+          const newLine = document.createElement('div');
+          newLine.className = 've-line';
+          newLine.setAttribute('data-ve-line', 'true');
+          newLine.innerHTML = '<br>';
+          visualEditor.appendChild(newLine);
+          lastActiveLineEl = newLine;
+          setCaretOffsetInLine(newLine, 0);
+        } else {
+          const lastLine = topLines[topLines.length - 1];
+          const raw = getLineRawText(lastLine);
+          lastActiveLineEl = lastLine;
+          setCaretOffsetInLine(lastLine, raw.length);
+        }
+        return;
+      }
+
+      // 1. Copy code button
+      const copyBtn = e.target.closest('.code-copy-btn');
+      if (copyBtn) {
+        e.stopPropagation();
+        const blockEl = copyBtn.closest('.ve-code-block');
+        const raw = blockEl ? blockEl.getAttribute('data-ve-raw') : '';
+        const lines = raw.split('\n');
+        const codeText = lines.slice(1, lines.length - 1).join('\n');
+        navigator.clipboard.writeText(codeText).then(() => {
+          copyBtn.innerHTML = CODE_CHECK_ICON;
+          copyBtn.classList.add('copied');
+          setTimeout(() => {
+            copyBtn.innerHTML = CODE_COPY_ICON;
+            copyBtn.classList.remove('copied');
+          }, 2000);
+        });
+        return;
+      }
+
+      // 2. Click on Code Block Preview to edit
+      const codePreview = e.target.closest('.ve-code-preview');
+      if (codePreview) {
+        const blockEl = codePreview.closest('.ve-code-block');
+        if (blockEl && !blockEl.classList.contains('ve-active')) {
+          activateBlockEditor(blockEl);
+        }
+        return;
+      }
+
+      // 3. Click on Math Block Preview to edit
+      const mathPreview = e.target.closest('.ve-math-preview');
+      if (mathPreview) {
+        const blockEl = mathPreview.closest('.ve-math-block');
+        if (blockEl && !blockEl.classList.contains('ve-active')) {
+          activateBlockEditor(blockEl);
+        }
+        return;
+      }
+
+      // 3b. Click on Inline KaTeX formula to edit
+      const inlineMathPreview = e.target.closest('.katex-inline-container');
+      if (inlineMathPreview) {
+        const tokenEl = inlineMathPreview.closest('.ve-token-math');
+        const rawEl = tokenEl?.querySelector('.ve-math-raw');
+        if (tokenEl && rawEl) {
+          tokenEl.querySelectorAll('.ve-delim').forEach(d => d.classList.remove('ve-hidden'));
+          rawEl.classList.remove('ve-hidden');
+          inlineMathPreview.classList.add('ve-hidden');
+          setCaretOffsetInLine(rawEl, rawEl.textContent.length);
+        }
+        return;
+      }
+
+      // 4. Click on Table: SOLO cliccando direttamente sulla tabella, NON sullo spazio sopra o sotto!
+      const tableEl = e.target.closest('table.ve-table, .ve-table-preview table');
+      if (tableEl) {
+        const blockEl = tableEl.closest('.ve-table-block');
+        if (blockEl && !blockEl.classList.contains('ve-active')) {
+          activateBlockEditor(blockEl);
+        }
+        return;
+      }
+
+
+
+      // 5. Image click -> unfold markdown text directly for manual editing
+      const imgEl = e.target.closest('.ve-image');
+      if (imgEl) {
+        const lineEl = imgEl.closest('.ve-image-line');
+        const sourceEl = lineEl?.querySelector('.ve-image-source');
+        if (sourceEl) {
+          sourceEl.classList.remove('ve-hidden');
+          setCaretOffsetInLine(sourceEl, sourceEl.textContent.length);
+        }
+        return;
+      }
+
+      // 6. Task list checkbox
+      if (e.target && e.target.classList.contains('ve-task-checkbox')) {
+        const lineEl = getLineFromNode(e.target);
+        if (!lineEl) return;
+        const isChecked = e.target.checked;
+        const rawText = getLineRawText(lineEl);
+        let newRaw = rawText;
+        if (isChecked) {
+          newRaw = rawText.replace(/^(\s*[-*+]\s+\[) \]/, '$1x]');
+        } else {
+          newRaw = rawText.replace(/^(\s*[-*+]\s+\[)[xX]\]/, '$1 ]');
+        }
+        const parsed = parseVeLine(newRaw, false, -1);
+        lineEl.className = parsed.className;
+        lineEl.innerHTML = parsed.html;
+        syncVisualModeToEditor();
+        return;
+      }
+
+      // 7. Links
+      const linkTextEl = e.target.closest('.ve-link-text');
+      if (linkTextEl) {
+        const tokenEl = linkTextEl.closest('.ve-token-link');
+        const urlEl = tokenEl?.querySelector('.ve-link-url');
+        const url = urlEl ? urlEl.textContent : '';
+        if (url && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          try {
+            const { shell } = require('electron');
+            shell.openExternal(url);
+          } catch (_) {}
+        }
+      }
+    });
+  }
+
+  let isPointerDownInVisualEditor = false;
+  if (visualEditor) {
+    visualEditor.addEventListener('mousedown', () => {
+      isPointerDownInVisualEditor = true;
+    });
+    window.addEventListener('mouseup', () => {
+      if (isPointerDownInVisualEditor) {
+        isPointerDownInVisualEditor = false;
+        const sel = window.getSelection();
+        if (sel && sel.isCollapsed) {
+          updateVisualDelimitersVisibility();
+        }
+      }
+    });
+  }
+
+  let rafDelimUpdate = null;
+  document.addEventListener('selectionchange', () => {
+    if (!isVisualModeActive) return;
+    const sel = window.getSelection();
+    if (isPointerDownInVisualEditor || (sel && !sel.isCollapsed)) return;
+    if (rafDelimUpdate) cancelAnimationFrame(rafDelimUpdate);
+    rafDelimUpdate = requestAnimationFrame(() => {
+      updateVisualDelimitersVisibility();
+    });
+  });
+
+  if (btnToggleVisualMode) {
+    btnToggleVisualMode.addEventListener('click', (e) => {
+      e?.preventDefault();
+      e?.stopPropagation();
+      setVisualMode(!isVisualModeActive);
+    });
+  }
+
+  if (visualEditorContainer) {
+    visualEditorContainer.addEventListener('click', (e) => {
+      if (e.target === visualEditorContainer) {
+        if (!visualEditor) return;
+        const sel = window.getSelection();
+        if (sel && !sel.isCollapsed) return;
+        if (currentActiveBlockEl) {
+          deactivateBlockEditor(currentActiveBlockEl);
+        }
+        const topLines = Array.from(visualEditor.children).filter(el => el.classList.contains('ve-line'));
+        if (topLines.length === 0 || visualEditor.lastElementChild?.classList.contains('ve-block')) {
+          const newLine = document.createElement('div');
+          newLine.className = 've-line';
+          newLine.setAttribute('data-ve-line', 'true');
+          newLine.innerHTML = '<br>';
+          visualEditor.appendChild(newLine);
+          lastActiveLineEl = newLine;
+          setCaretOffsetInLine(newLine, 0);
+        } else {
+          const lastLine = topLines[topLines.length - 1];
+          const raw = getLineRawText(lastLine);
+          lastActiveLineEl = lastLine;
+          setCaretOffsetInLine(lastLine, raw.length);
+        }
+      }
+    });
+  }
+
+  // Keyboard shortcut Ctrl+Alt+V (or Cmd+Alt+V) to toggle Visual Mode
+  document.addEventListener('keydown', (e) => {
+    const isCmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
+    if (isCmdOrCtrl && e.altKey && e.key.toLowerCase() === 'v') {
+      e.preventDefault();
+      btnToggleVisualMode?.click();
+    }
+  });
+
 
   initTitlebar();
   initPdfViewerControls();

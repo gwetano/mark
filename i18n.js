@@ -24,6 +24,9 @@ const translations = {
     view_editor: "Editor Only",
     view_split: "Split View",
     view_preview: "Preview Only",
+    visual_mode: "Visual Mode",
+    visual_mode_active: "Exit Visual Mode",
+    toggle_visual_mode: "Toggle Visual Mode",
     win_minimize: "Minimize",
     win_maximize: "Maximize",
     win_restore: "Restore",
@@ -47,6 +50,15 @@ const translations = {
     // Editor & Preview
     editor_placeholder: "Write markdown here...",
     reading_mode_exit: "Press ESC to exit Reading Mode",
+    context_cut: "Cut",
+    context_copy: "Copy",
+    context_paste: "Paste",
+    context_select_all: "Select All",
+    context_format_markdown: "Format Markdown",
+    context_show_history: "Show Undo History",
+    context_add_to_dictionary: "Add to Dictionary",
+    context_no_suggestions: "(No spelling suggestions)",
+    notif_word_added_to_dict: '"{word}" added to dictionary',
 
     // Footer
     settings: "Settings",
@@ -369,6 +381,9 @@ const translations = {
     view_editor: "Solo Editor",
     view_split: "Vista divisa",
     view_preview: "Solo Anteprima",
+    visual_mode: "Modalità Visuale",
+    visual_mode_active: "Disattiva Modalità Visuale",
+    toggle_visual_mode: "Attiva/Disattiva Modalità Visuale",
     win_minimize: "Riduci a icona",
     win_maximize: "Ingrandisci",
     win_restore: "Ripristina",
@@ -392,6 +407,15 @@ const translations = {
     // Editor & Preview
     editor_placeholder: "Scrivi markdown qui...",
     reading_mode_exit: "Premi ESC per uscire dalla modalità lettura",
+    context_cut: "Taglia",
+    context_copy: "Copia",
+    context_paste: "Incolla",
+    context_select_all: "Seleziona tutto",
+    context_format_markdown: "Formatta Markdown",
+    context_show_history: "Cronologia modifiche",
+    context_add_to_dictionary: "Aggiungi al vocabolario",
+    context_no_suggestions: "(Nessun suggerimento)",
+    notif_word_added_to_dict: '"{word}" aggiunta al vocabolario',
 
     // Footer
     settings: "Impostazioni",

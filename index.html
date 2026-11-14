@@ -161,6 +161,10 @@
                 <span data-i18n="menu_explorer">Explorer</span>
                 <span class="titlebar-menu-shortcut">Ctrl+R</span>
               </button>
+              <button type="button" class="titlebar-menu-item" data-action="toggle-visual-mode">
+                <span data-i18n="visual_mode">Visual Mode</span>
+                <span class="titlebar-menu-shortcut">Ctrl+Alt+V</span>
+              </button>
               <div class="titlebar-menu-separator"></div>
               <button type="button" class="titlebar-menu-item" data-action="view-editor">
                 <span data-i18n="menu_editor">Editor</span>
@@ -219,6 +223,16 @@
     <div id="navbar">
       <div class="navbar-left">
         <button id="btn-toggle-explorer" class="icon-btn" data-i18n-title="toggle_explorer" title="Toggle Explorer">&gt;</button>
+        <button id="btn-toggle-visual-mode" class="icon-btn" data-i18n-title="visual_mode" title="Visual Mode">
+          <svg class="icon-eye" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+          <svg class="icon-eye-off hidden" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+            <line x1="1" y1="1" x2="23" y2="23"></line>
+          </svg>
+        </button>
         <span id="title" style="display: none;"></span>
       </div>
 
@@ -358,11 +372,16 @@
 
         <div id="container">
           <div id="editor-container">
-            <textarea id="editor" placeholder="" spellcheck="false"></textarea>
+            <textarea id="editor" placeholder="" spellcheck="true"></textarea>
             <div id="editor-overlay" aria-hidden="true"></div>
             <div id="typewriter-placeholder" aria-hidden="true"></div>
           </div>
           <div id="preview" class="markdown-body" lang="en"></div>
+
+          <!-- VISUAL MODE (Live Preview Obsidian-like single field editor) -->
+          <div id="visual-editor-container" class="hidden">
+            <div id="visual-editor" class="markdown-body" lang="en" contenteditable="true" spellcheck="true"></div>
+          </div>
 
           <!-- FLOATING PREVIEW EXPORT WIDGET -->
           <div id="preview-export-widget" class="preview-export-widget">
