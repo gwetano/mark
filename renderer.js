@@ -855,8 +855,21 @@ function setupExternalLinks() {
 }
 
 function insertMarkdownLink() {
-  const editor = document.getElementById("editor");
   const dropdownExtra = document.getElementById("dropdown-extra");
+  if (dropdownExtra) {
+    dropdownExtra.classList.remove('open');
+    const btnExtra = document.getElementById("btn-extra");
+    if (btnExtra) btnExtra.classList.remove("active");
+  }
+
+  if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive) {
+    if (typeof applyFormattingToActiveVisualBlock === 'function') {
+      applyFormattingToActiveVisualBlock('[', '](url)', 'link text');
+    }
+    return;
+  }
+
+  const editor = document.getElementById("editor");
   if (!editor) return;
 
   const start = editor.selectionStart;
@@ -931,199 +944,54 @@ window.addEventListener("DOMContentLoaded", () => {
   const FOLDER_SVG = `<svg class="tree-item-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>`;
   const FILE_SVG = `<svg class="tree-item-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 14H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>`;
   const PDF_FILE_SVG = `<svg class="tree-item-icon pdf-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14H8v-2h4v2zm4-4H8v-2h8v2zm0-4H8V7h8v2z"/></svg>`;
+  const NEW_FOLDER_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-1 8h-3v3h-2v-3h-3v-2h3v-3h2v3h3v2z"/></svg>`;
+  const OPEN_FOLDER_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>`;
 
-  // ===== UNDO HISTORY LOGIC =====
-  let actionHistory = [];
   let lastKnownEditorValue = "";
   let isProgrammaticEdit = false;
-  let typingTimeout = null;
-  let typingStartValue = null;
-
-  function computeSimpleDiff(oldStr, newStr) {
-    let start = 0;
-    while (start < oldStr.length && start < newStr.length && oldStr[start] === newStr[start]) start++;
-    let oldEnd = oldStr.length - 1;
-    let newEnd = newStr.length - 1;
-    while (oldEnd >= start && newEnd >= start && oldStr[oldEnd] === newStr[newEnd]) {
-      oldEnd--;
-      newEnd--;
-    }
-    return {
-      start: start,
-      deleted: oldStr.substring(start, oldEnd + 1),
-      inserted: newStr.substring(start, newEnd + 1)
-    };
-  }
-
-  function recordAction(actionName, oldVal, newVal) {
-    if (oldVal === newVal) return;
-    const diff = computeSimpleDiff(oldVal, newVal);
-    actionHistory.push({
-      id: Date.now() + Math.random(),
-      name: actionName,
-      diff: diff,
-      timestamp: new Date().toLocaleTimeString()
-    });
-    lastKnownEditorValue = newVal;
-  }
 
   function executeAction(actionName, fn) {
     if (typeof tabs !== 'undefined' && tabs.length === 0) return;
-    if (typingStartValue !== null) {
-      clearTimeout(typingTimeout);
-      recordAction("Typing", typingStartValue, editor.value);
-      typingStartValue = null;
-    }
-    const oldVal = editor.value;
+    const oldVal = editor ? editor.value : '';
     isProgrammaticEdit = true;
     fn();
     isProgrammaticEdit = false;
     if (editor && editor.value.length > 0 && typeof stopTypewriterEffect === 'function') {
       stopTypewriterEffect();
     }
-    if (editor.value !== oldVal) {
-      recordAction(actionName, oldVal, editor.value);
+    if (editor && editor.value !== oldVal) {
       if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive) {
         if (typeof syncVisualModeFromEditor === 'function') syncVisualModeFromEditor();
       }
-    } else {
+    } else if (editor) {
       lastKnownEditorValue = editor.value;
     }
   }
 
-  function selectiveUndo(actionId) {
-    const actionIndex = actionHistory.findIndex(a => a.id === actionId);
-    if (actionIndex === -1) return;
-    const action = actionHistory[actionIndex];
-    const diff = action.diff;
-    let currentText = editor.value;
-
-    let selStart = editor.selectionStart;
-    let selEnd = editor.selectionEnd;
-
-    if (diff.inserted === "") {
-      let insertPos = Math.min(diff.start, currentText.length);
-      editor.value = currentText.substring(0, insertPos) + diff.deleted + currentText.substring(insertPos);
-      if (selStart > insertPos) selStart += diff.deleted.length;
-      if (selEnd > insertPos) selEnd += diff.deleted.length;
-    } else {
-      let index = currentText.indexOf(diff.inserted);
-      if (index !== -1) {
-         let bestIndex = index;
-         let minDistance = Math.abs(index - diff.start);
-         let nextIndex = currentText.indexOf(diff.inserted, index + 1);
-         while(nextIndex !== -1) {
-           let dist = Math.abs(nextIndex - diff.start);
-           if (dist < minDistance) {
-             minDistance = dist;
-             bestIndex = nextIndex;
-           }
-           nextIndex = currentText.indexOf(diff.inserted, nextIndex + 1);
-         }
-         editor.value = currentText.substring(0, bestIndex) + diff.deleted + currentText.substring(bestIndex + diff.inserted.length);
-         if (selStart > bestIndex) selStart -= diff.inserted.length;
-         if (selStart > bestIndex) selStart += diff.deleted.length; // adjust roughly
-         selEnd = selStart;
-      } else {
-         if (typeof showNotification === 'function') {
-           showNotification(i18n.t("notif_undo_error"), "error");
-         }
-         return;
-      }
-    }
-    actionHistory.splice(actionIndex, 1);
-    isProgrammaticEdit = true;
-    lastKnownEditorValue = editor.value;
-    editor.setSelectionRange(selStart, selEnd);
-    updatePreview(); setDirty(true); updateEditorOverlay();
-    setTimeout(() => isProgrammaticEdit = false, 100);
-    renderHistoryModal();
-  }
-
-  function renderHistoryModal() {
-    const carousel = document.getElementById("history-carousel");
-    if (!carousel) return;
-    carousel.innerHTML = '<div class="history-spacer"></div>';
-    
-    actionHistory.forEach((action, i) => {
-      const item = document.createElement("div");
-      item.className = "history-item";
-      item.dataset.id = action.id;
-      item.innerHTML = `
-        <div class="history-action-name">${action.name} <span style="font-size:12px;opacity:0.6;">${action.timestamp}</span></div>
-        <button class="history-undo-btn">&larr; Undo</button>
-      `;
-      item.querySelector('.history-undo-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        selectiveUndo(action.id);
-      });
-      item.addEventListener('click', () => {
-        item.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      });
-      carousel.appendChild(item);
-    });
-    carousel.innerHTML += '<div class="history-spacer"></div>';
-    
-    // Trigger scroll event to update active
-    carousel.dispatchEvent(new Event('scroll'));
-    // Scroll to bottom (latest action)
-    setTimeout(() => {
-      carousel.scrollTop = carousel.scrollHeight;
-    }, 50);
-  }
-
-  const historyModal = document.getElementById("history-modal");
-  const btnCloseHistory = document.getElementById("btn-close-history");
-  if (btnCloseHistory) {
-    btnCloseHistory.addEventListener("click", () => historyModal.classList.add("hidden"));
-  }
-  const historyCarousel = document.getElementById("history-carousel");
-  if (historyCarousel) {
-    historyCarousel.addEventListener('scroll', () => {
-      const items = historyCarousel.querySelectorAll('.history-item');
-      if (items.length === 0) return;
-      const containerCenter = historyCarousel.scrollTop + (historyCarousel.clientHeight / 2);
-      let closestItem = null;
-      let minDiff = Infinity;
-      items.forEach(item => {
-        const itemCenter = item.offsetTop + (item.offsetHeight / 2) - historyCarousel.offsetTop;
-        const diff = Math.abs(containerCenter - itemCenter);
-        if (diff < minDiff) {
-          minDiff = diff;
-          closestItem = item;
-        }
-        item.classList.remove('active');
-      });
-      if (closestItem) closestItem.classList.add('active');
-    });
-  }
-
-  // Hook per aprire modal, Ctrl+Z e frecce nel modal
   document.addEventListener('keydown', (e) => {
-    if (!historyModal.classList.contains('hidden')) {
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        historyCarousel.scrollBy({ top: -60, behavior: 'smooth' });
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        historyCarousel.scrollBy({ top: 60, behavior: 'smooth' });
-      } else if (e.key === 'Enter') {
-        // Option to trigger the active undo button
-        const activeBtn = historyCarousel.querySelector('.history-item.active .history-undo-btn');
-        if (activeBtn) activeBtn.click();
-      }
-    }
     
-    if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === 'z') {
+    const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+    const isRedoShortcut = (isCmdOrCtrl && e.altKey && !e.shiftKey && e.key.toLowerCase() === 'z') ||
+                           (isCmdOrCtrl && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z') ||
+                           (!isMac && e.ctrlKey && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'y');
+    const isUndoShortcut = isCmdOrCtrl && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'z';
+
+    if (isRedoShortcut) {
       e.preventDefault();
-      historyModal.classList.remove('hidden');
-      renderHistoryModal();
-    } else if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'z') {
-      // Linear undo
-      if (actionHistory.length > 0) {
+      if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive) {
+        if (typeof visualModeRedo === 'function') visualModeRedo();
+      } else if (editor) {
+        editor.focus();
+        document.execCommand('redo');
+      }
+      return;
+    }
+
+    if (isUndoShortcut) {
+      if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive) {
         e.preventDefault();
-        const latestAction = actionHistory[actionHistory.length - 1];
-        selectiveUndo(latestAction.id);
+        if (typeof visualModeUndo === 'function') visualModeUndo();
+        return;
       }
     }
   });
@@ -1307,6 +1175,19 @@ window.addEventListener("DOMContentLoaded", () => {
     btnToggleExplorer.textContent = isClosed ? '>' : '<';
   }
 
+  function updateExplorerFolderBtn() {
+    if (!openFolderBtn) return;
+    if (currentFolderPath) {
+      openFolderBtn.setAttribute('data-i18n-title', 'new_folder');
+      openFolderBtn.title = i18n.t('new_folder') || 'New folder';
+      openFolderBtn.innerHTML = NEW_FOLDER_SVG;
+    } else {
+      openFolderBtn.setAttribute('data-i18n-title', 'open_folder');
+      openFolderBtn.title = i18n.t('open_folder') || 'Open folder';
+      openFolderBtn.innerHTML = OPEN_FOLDER_SVG;
+    }
+  }
+
   if (btnToggleExplorer) {
     btnToggleExplorer.addEventListener('click', () => {
       if (explorerPanel) {
@@ -1317,6 +1198,7 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   }
   updateExplorerToggleBtn();
+  updateExplorerFolderBtn();
 
   // --- LOGICA RIDIMENSIONAMENTO (RESIZER) ---
   let isExplorerResizing = false;
@@ -1434,6 +1316,64 @@ window.addEventListener("DOMContentLoaded", () => {
     input.addEventListener('blur', handleInputSubmit);
   });
 
+  function createNewFolderInline() {
+    if (!currentFolderPath || !fileTree) return;
+    if (fileTree.querySelector('.tree-inline-input')) return;
+
+    const inputContainer = document.createElement('div');
+    inputContainer.className = 'tree-item tree-folder-header';
+    inputContainer.innerHTML = `
+      <span class="tree-folder-chevron" style="visibility:hidden;">${FOLDER_CHEVRON_SVG}</span>
+      <span class="tree-folder-icon">${FOLDER_SVG}</span>
+    `;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = i18n.t('new_folder') || 'nuova-cartella';
+    input.className = 'tree-inline-input';
+
+    inputContainer.appendChild(input);
+
+    if (fileTree.firstChild) {
+      fileTree.insertBefore(inputContainer, fileTree.firstChild);
+    } else {
+      fileTree.appendChild(inputContainer);
+    }
+
+    input.focus();
+
+    let isHandled = false;
+    const handleFolderSubmit = () => {
+      if (isHandled) return;
+      isHandled = true;
+
+      const folderName = input.value.trim();
+      if (folderName) {
+        const fullPath = path.join(currentFolderPath, folderName);
+        if (!fs.existsSync(fullPath)) {
+          try {
+            fs.mkdirSync(fullPath, { recursive: true });
+          } catch (err) {
+            dialog.showErrorBox(i18n.t('dialog_error_title') || 'Error', err.message);
+          }
+        } else {
+          dialog.showErrorBox('Errore', i18n.t('dialog_file_exists') || 'Una cartella con questo nome esiste già.');
+        }
+      }
+      openFolder(currentFolderPath);
+    };
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleFolderSubmit();
+      if (e.key === 'Escape') {
+        isHandled = true;
+        openFolder(currentFolderPath);
+      }
+    });
+
+    input.addEventListener('blur', handleFolderSubmit);
+  }
+
   let autosaveInterval = null;
 
   const container = document.getElementById('container');
@@ -1447,9 +1387,26 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // Theme & language initialized via settings segmented buttons
 
-  // ===== AUTOSAVE (come prima) =====
+  // ===== AUTOSAVE =====
   const AUTOSAVE_KEY = 'mark.autosaveEnabled';
   const AUTOSAVE_MS = 2000;
+  const AUTOSAVE_DEBOUNCE_MS = 1000;
+  let autosaveDebounceTimer = null;
+
+  function triggerAutosaveDebounced() {
+    if (!autosaveSwitch || !autosaveSwitch.checked) return;
+    if (autosaveDebounceTimer) clearTimeout(autosaveDebounceTimer);
+    autosaveDebounceTimer = setTimeout(() => {
+      try {
+        const activeTab = typeof getActiveTab === 'function' ? getActiveTab() : null;
+        if (activeTab && activeTab.filePath && activeTab.isDirty && !activeTab.isPdf && typeof saveSpecificTab === 'function') {
+          document.dispatchEvent(new Event('autosave'));
+          saveSpecificTab(activeTab);
+        }
+      } catch (err) { console.error('[autosave debounced] error:', err); }
+    }, AUTOSAVE_DEBOUNCE_MS);
+  }
+
   if (autosaveSwitch) {
     const savedAutosave = localStorage.getItem(AUTOSAVE_KEY);
     if (savedAutosave !== null) autosaveSwitch.checked = savedAutosave === 'true';
@@ -1458,48 +1415,76 @@ window.addEventListener("DOMContentLoaded", () => {
     if (autosaveInterval) return;
     autosaveInterval = setInterval(() => {
       try {
-        if (autosaveSwitch && autosaveSwitch.checked && currentFilePath && isDirty && typeof saveCurrentFile === 'function') {
-          document.dispatchEvent(new Event('autosave'));
-          saveCurrentFile();
-        }
-        if (autosaveSwitch && autosaveSwitch.checked && collabTabId && typeof getCollabTab === 'function') {
-          const cTab = getCollabTab();
-          if (cTab && cTab.id !== activeTabId && cTab.filePath && cTab.isDirty && typeof saveSpecificTab === 'function') {
-            saveSpecificTab(cTab);
+        if (autosaveSwitch && autosaveSwitch.checked) {
+          const activeTab = typeof getActiveTab === 'function' ? getActiveTab() : null;
+          if (activeTab && activeTab.filePath && activeTab.isDirty && !activeTab.isPdf && typeof saveSpecificTab === 'function') {
+            document.dispatchEvent(new Event('autosave'));
+            saveSpecificTab(activeTab);
+          }
+          if (collabTabId && typeof getCollabTab === 'function') {
+            const cTab = getCollabTab();
+            if (cTab && cTab.id !== activeTabId && cTab.filePath && cTab.isDirty && typeof saveSpecificTab === 'function') {
+              saveSpecificTab(cTab);
+            }
           }
         }
       } catch (err) { console.error('[autosave] error:', err); }
     }, AUTOSAVE_MS);
   }
-  function stopAutosave() { if (autosaveInterval) { clearInterval(autosaveInterval); autosaveInterval = null; } }
+  function stopAutosave() {
+    if (autosaveInterval) { clearInterval(autosaveInterval); autosaveInterval = null; }
+    if (autosaveDebounceTimer) { clearTimeout(autosaveDebounceTimer); autosaveDebounceTimer = null; }
+  }
   if (autosaveSwitch) {
     autosaveSwitch.addEventListener("change", function () {
-      const enabled = this.checked; localStorage.setItem(AUTOSAVE_KEY, String(enabled));
+      const enabled = this.checked;
+      localStorage.setItem(AUTOSAVE_KEY, String(enabled));
       if (enabled) {
-        if (!currentFilePath) {
-          this.checked = false; localStorage.setItem(AUTOSAVE_KEY, 'false');
-          showNotification && showNotification(i18n.t('notif_save_first_autosave'), 'error');
-          return;
+        startAutosave();
+        showNotification && showNotification(i18n.t('notif_autosave_on'), 'success');
+        const activeTab = typeof getActiveTab === 'function' ? getActiveTab() : null;
+        if (activeTab && activeTab.filePath && activeTab.isDirty) {
+          triggerAutosaveDebounced();
         }
-        startAutosave(); showNotification && showNotification(i18n.t('notif_autosave_on'), 'success');
-      } else { stopAutosave(); showNotification && showNotification(i18n.t('notif_autosave_off'), 'info'); }
+      } else {
+        stopAutosave();
+        showNotification && showNotification(i18n.t('notif_autosave_off'), 'info');
+      }
     });
-    if (autosaveSwitch.checked && currentFilePath) startAutosave();
+    if (autosaveSwitch.checked) startAutosave();
   }
   window.addEventListener('blur', () => {
-    if (autosaveSwitch && autosaveSwitch.checked && currentFilePath && isDirty && typeof saveCurrentFile === 'function') {
-      saveCurrentFile();
+    if (autosaveSwitch && autosaveSwitch.checked) {
+      const activeTab = typeof getActiveTab === 'function' ? getActiveTab() : null;
+      if (activeTab && activeTab.filePath && activeTab.isDirty && !activeTab.isPdf && typeof saveSpecificTab === 'function') {
+        saveSpecificTab(activeTab);
+      }
     }
   });
 
   // ===== EXPLORER / FILE TREE (come prima) =====
   if (explorerPanel) explorerPanel.classList.add("hidden");
   openFolderBtn && openFolderBtn.addEventListener("click", async () => {
-    const result = await dialog.showOpenDialog({ properties: ["openDirectory"] });
-    if (!result.canceled && result.filePaths.length > 0) openFolder(result.filePaths[0]);
+    if (!currentFolderPath) {
+      const result = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+      if (!result.canceled && result.filePaths.length > 0) openFolder(result.filePaths[0]);
+    } else {
+      createNewFolderInline();
+    }
   });
   collapseAllBtn && collapseAllBtn.addEventListener("click", () => collapseAllFolders());
   refreshExplorerBtn && refreshExplorerBtn.addEventListener("click", () => { if (currentFolderPath) openFolder(currentFolderPath); });
+
+  folderPathEl && folderPathEl.addEventListener("click", async (e) => {
+    if (e.button !== 0) return;
+    const result = await dialog.showOpenDialog({
+      properties: ["openDirectory"],
+      defaultPath: currentFolderPath || undefined
+    });
+    if (!result.canceled && result.filePaths.length > 0) {
+      openFolder(result.filePaths[0]);
+    }
+  });
 
   folderPathEl && folderPathEl.addEventListener("contextmenu", (e) => {
     e.preventDefault();
@@ -1534,6 +1519,9 @@ window.addEventListener("DOMContentLoaded", () => {
     }
     if (typeof updateTitlebarTitle === 'function') {
       updateTitlebarTitle();
+    }
+    if (dirty && typeof triggerAutosaveDebounced === 'function') {
+      triggerAutosaveDebounced();
     }
   };
 
@@ -2606,8 +2594,9 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    const pairs = { '(': ')', '[': ']', '{': '}', '"': '"', '`': '`' };
-    const closingChars = [')', ']', '}', '"', '`'];
+    const pairs = { '(': ')', '[': ']', '{': '}', '"': '"', "'": "'", '`': '`' };
+    const wrapPairs = { ...pairs, '*': '*', '_': '_', '~': '~', '$': '$', '<': '>' };
+    const closingChars = [')', ']', '}', '"', "'", '`'];
 
     // 0. Auto-delete pair su Backspace se il cursore è direttamente tra di essi e non c'è nulla in mezzo
     if (e.key === 'Backspace' && !e.metaKey && !e.ctrlKey && !e.altKey) {
@@ -2634,7 +2623,7 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     // 1. Overtyping: se premo chiusura e sono davanti a quella chiusura, avanzo
-    if (closingChars.includes(e.key)) {
+    if (!e.metaKey && !e.ctrlKey && !e.altKey && closingChars.includes(e.key)) {
       const start = editor.selectionStart;
       // Controllo che non ci sia selezione attiva
       if (start === editor.selectionEnd && editor.value.charAt(start) === e.key) {
@@ -2644,28 +2633,46 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 2. Auto-close apertura
-    if (Object.keys(pairs).includes(e.key)) {
-      e.preventDefault();
+    // 2. Selection wrapping con parentesi o simboli markdown
+    if (!e.metaKey && !e.ctrlKey && !e.altKey && wrapPairs[e.key]) {
       const start = editor.selectionStart, end = editor.selectionEnd;
-      const left = editor.value.substring(0, start), right = editor.value.substring(end);
-      const pair = pairs[e.key];
-      executeAction("Auto-close", () => {
-        if (start !== end) {
-          const selected = editor.value.substring(start, end);
+      if (start !== end) {
+        e.preventDefault();
+        const left = editor.value.substring(0, start), right = editor.value.substring(end);
+        const selected = editor.value.substring(start, end);
+        const pair = wrapPairs[e.key];
+        executeAction("Wrap Pair", () => {
           editor.value = left + e.key + selected + pair + right;
           editor.selectionStart = start + 1;
           editor.selectionEnd = start + 1 + selected.length;
-        } else {
+          editor.dispatchEvent(new Event('input', { bubbles: true }));
+          updatePreview();
+          setDirty(true);
+          updateEditorOverlay();
+        });
+        return;
+      }
+    }
+
+    // 3. Auto-close apertura quando non c'è selezione
+    if (!e.metaKey && !e.ctrlKey && !e.altKey && Object.keys(pairs).includes(e.key)) {
+      const start = editor.selectionStart, end = editor.selectionEnd;
+      if (e.key === "'" && start > 0 && /\w/.test(editor.value.charAt(start - 1))) {
+        // Lascia digitare il singolo apice come apostrofo
+      } else {
+        e.preventDefault();
+        const left = editor.value.substring(0, start), right = editor.value.substring(end);
+        const pair = pairs[e.key];
+        executeAction("Auto-close", () => {
           editor.value = left + e.key + pair + right;
           editor.selectionStart = editor.selectionEnd = start + 1;
-        }
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-        updatePreview();
-        setDirty(true);
-        updateEditorOverlay();
-      });
-      return;
+          editor.dispatchEvent(new Event('input', { bubbles: true }));
+          updatePreview();
+          setDirty(true);
+          updateEditorOverlay();
+        });
+        return;
+      }
     }
 
     if (e.key === "Tab") {
@@ -2762,72 +2769,158 @@ window.addEventListener("DOMContentLoaded", () => {
       let cursorStart = start;
       let cursorEnd = end;
 
-      switch (e.key) {
-        case "1":
-          formatted = `# ${selected}`;
-          actionName = "Heading 1";
-          cursorStart = start;
-          cursorEnd = start + formatted.length;
-          break;
-        case "2":
-          formatted = `## ${selected}`;
-          actionName = "Heading 2";
-          cursorStart = start;
-          cursorEnd = start + formatted.length;
-          break;
-        case "3":
-          formatted = `### ${selected}`;
-          actionName = "Heading 3";
-          cursorStart = start;
-          cursorEnd = start + formatted.length;
-          break;
-        case "b": case "B":
-          if (selected.startsWith('**') && selected.endsWith('**') && selected.length >= 4) {
-            formatted = selected.slice(2, -2);
-            actionName = "Remove Bold";
+      if (e.shiftKey) {
+        switch (e.key.toLowerCase()) {
+          case "x":
+          case "s":
+            if (selected.startsWith('~~') && selected.endsWith('~~') && selected.length >= 4) {
+              formatted = selected.slice(2, -2);
+              actionName = "Remove Strikethrough";
+              cursorStart = start;
+              cursorEnd = start + formatted.length;
+            } else {
+              formatted = `~~${selected}~~`;
+              actionName = "Strikethrough";
+              cursorStart = selected ? start + 2 : start + 2;
+              cursorEnd = selected ? end + 2 : start + 2;
+            }
+            break;
+          case "m":
+          case "k":
+            formatted = `$$\n${selected}\n$$`;
+            actionName = "Math block";
+            cursorStart = start + 3;
+            cursorEnd = start + 3 + selected.length;
+            break;
+          case "t":
+            formatted = `| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |\n| Cell 3   | Cell 4   |`;
+            actionName = "Table block";
+            cursorStart = start + formatted.length;
+            cursorEnd = start + formatted.length;
+            break;
+          case "q":
+            formatted = `> ${selected || 'quote'}`;
+            actionName = "Quote";
+            cursorStart = start + 2;
+            cursorEnd = start + 2 + (selected ? selected.length : 5);
+            break;
+          case "c":
+            formatted = `\`\`\`\n${selected}\n\`\`\``;
+            actionName = "Code block";
+            cursorStart = start + 4;
+            cursorEnd = start + 4 + selected.length;
+            break;
+          case "u":
+          case "8":
+          case "*":
+            formatted = `* ${selected || 'elem'}`;
+            actionName = "Bullet List";
+            cursorStart = start + 2;
+            cursorEnd = start + 2 + (selected ? selected.length : 4);
+            break;
+          case "o":
+          case "7":
+          case "&":
+            formatted = `1. ${selected || 'elem'}`;
+            actionName = "Numbered List";
+            cursorStart = start + 3;
+            cursorEnd = start + 3 + (selected ? selected.length : 4);
+            break;
+          case "h":
+          case "-":
+          case "_":
+            formatted = `***\n`;
+            actionName = "Horizontal Rule";
+            cursorStart = start + 4;
+            cursorEnd = start + 4;
+            break;
+        }
+      } else {
+        switch (e.key) {
+          case "1":
+            formatted = `# ${selected}`;
+            actionName = "Heading 1";
             cursorStart = start;
             cursorEnd = start + formatted.length;
-          } else {
-            formatted = `**${selected}**`;
-            actionName = "Bold";
-            cursorStart = selected ? start + 2 : start + 2;
-            cursorEnd = selected ? end + 2 : start + 2;
-          }
-          break;
-        case "i": case "I":
-          if (selected.startsWith('*') && selected.endsWith('*') && selected.length >= 2 && !selected.startsWith('**')) {
-            formatted = selected.slice(1, -1);
-            actionName = "Remove Italic";
+            break;
+          case "2":
+            formatted = `## ${selected}`;
+            actionName = "Heading 2";
             cursorStart = start;
             cursorEnd = start + formatted.length;
-          } else {
-            formatted = `*${selected}*`;
-            actionName = "Italic";
-            cursorStart = selected ? start + 1 : start + 1;
-            cursorEnd = selected ? end + 1 : start + 1;
-          }
-          break;
-        case "u": case "U":
-          if (selected.startsWith('<u>') && selected.endsWith('</u>') && selected.length >= 7) {
-            formatted = selected.slice(3, -4);
-            actionName = "Remove Underline";
+            break;
+          case "3":
+            formatted = `### ${selected}`;
+            actionName = "Heading 3";
             cursorStart = start;
             cursorEnd = start + formatted.length;
-          } else {
-            formatted = `<u>${selected}</u>`;
-            actionName = "Underline";
-            cursorStart = selected ? start + 3 : start + 3;
-            cursorEnd = selected ? end + 3 : start + 3;
-          }
-          break;
-        case "h": case "H":
-        case "`":
-          e.preventDefault();
-          e.stopPropagation();
-          executeAction("Code", () => {
-            formatAsCode();
-          });
-          return;
+            break;
+          case "4":
+            formatted = `#### ${selected}`;
+            actionName = "Heading 4";
+            cursorStart = start;
+            cursorEnd = start + formatted.length;
+            break;
+          case "5":
+            formatted = `##### ${selected}`;
+            actionName = "Heading 5";
+            cursorStart = start;
+            cursorEnd = start + formatted.length;
+            break;
+          case "6":
+            formatted = `###### ${selected}`;
+            actionName = "Heading 6";
+            cursorStart = start;
+            cursorEnd = start + formatted.length;
+            break;
+          case "b": case "B":
+            if (selected.startsWith('**') && selected.endsWith('**') && selected.length >= 4) {
+              formatted = selected.slice(2, -2);
+              actionName = "Remove Bold";
+              cursorStart = start;
+              cursorEnd = start + formatted.length;
+            } else {
+              formatted = `**${selected}**`;
+              actionName = "Bold";
+              cursorStart = selected ? start + 2 : start + 2;
+              cursorEnd = selected ? end + 2 : start + 2;
+            }
+            break;
+          case "i": case "I":
+            if (selected.startsWith('*') && selected.endsWith('*') && selected.length >= 2 && !selected.startsWith('**')) {
+              formatted = selected.slice(1, -1);
+              actionName = "Remove Italic";
+              cursorStart = start;
+              cursorEnd = start + formatted.length;
+            } else {
+              formatted = `*${selected}*`;
+              actionName = "Italic";
+              cursorStart = selected ? start + 1 : start + 1;
+              cursorEnd = selected ? end + 1 : start + 1;
+            }
+            break;
+          case "u": case "U":
+            if (selected.startsWith('<u>') && selected.endsWith('</u>') && selected.length >= 7) {
+              formatted = selected.slice(3, -4);
+              actionName = "Remove Underline";
+              cursorStart = start;
+              cursorEnd = start + formatted.length;
+            } else {
+              formatted = `<u>${selected}</u>`;
+              actionName = "Underline";
+              cursorStart = selected ? start + 3 : start + 3;
+              cursorEnd = selected ? end + 3 : start + 3;
+            }
+            break;
+          case "h": case "H":
+          case "`":
+            e.preventDefault();
+            e.stopPropagation();
+            executeAction("Code", () => {
+              formatAsCode();
+            });
+            return;
+        }
       }
 
       if (formatted !== null) {
@@ -3464,14 +3557,7 @@ window.addEventListener("DOMContentLoaded", () => {
     if (activeTab) {
       activeTab.content = editor.value;
     }
-    if (typingStartValue === null) {
-      typingStartValue = lastKnownEditorValue;
-    }
-    clearTimeout(typingTimeout);
-    typingTimeout = setTimeout(() => {
-      recordAction("Typing", typingStartValue, editor.value);
-      typingStartValue = null;
-    }, 1000);
+    lastKnownEditorValue = editor.value;
 
     scheduleUpdate();
     if (!isDirty) {
@@ -3589,6 +3675,12 @@ window.addEventListener("DOMContentLoaded", () => {
       placeholderEl.innerHTML = '';
       placeholderEl.style.display = 'none';
     }
+    const visualPlaceholderEl = document.getElementById('visual-typewriter-placeholder');
+    if (visualPlaceholderEl) {
+      visualPlaceholderEl.classList.remove('active');
+      visualPlaceholderEl.innerHTML = '';
+      visualPlaceholderEl.style.display = 'none';
+    }
   }
 
   function startTypewriterEffect(forcedQuote = null) {
@@ -3598,6 +3690,13 @@ window.addEventListener("DOMContentLoaded", () => {
     if (editor.value.length > 0) {
       stopTypewriterEffect();
       return;
+    }
+
+    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive) {
+      if (typeof getVisualEditorMarkdown === 'function' && getVisualEditorMarkdown().length > 0) {
+        stopTypewriterEffect();
+        return;
+      }
     }
 
     // Se non ci sono tab aperti (schermata empty-state attiva), non mostrare overlay
@@ -3635,14 +3734,26 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     const placeholderEl = document.getElementById('typewriter-placeholder');
-    if (!placeholderEl) return;
+    const visualPlaceholderEl = document.getElementById('visual-typewriter-placeholder');
+    if (!placeholderEl && !visualPlaceholderEl) return;
 
     isTypewriterActive = true;
     document.body.classList.add('typewriter-running');
-    placeholderEl.style.display = '';
-    placeholderEl.classList.add('active');
-    placeholderEl.scrollTop = editor.scrollTop;
-    placeholderEl.scrollLeft = editor.scrollLeft;
+
+    if (placeholderEl) {
+      placeholderEl.style.display = '';
+      placeholderEl.classList.add('active');
+      placeholderEl.scrollTop = editor.scrollTop;
+      placeholderEl.scrollLeft = editor.scrollLeft;
+    }
+    if (visualPlaceholderEl) {
+      visualPlaceholderEl.style.display = '';
+      visualPlaceholderEl.classList.add('active');
+      const veContainer = document.getElementById("visual-editor-container");
+      if (veContainer) {
+        visualPlaceholderEl.scrollTop = veContainer.scrollTop;
+      }
+    }
 
     // Assicura che il placeholder nativo dell'editor rimanga vuoto e il cursore sia a 0
     editor.placeholder = '';
@@ -3673,7 +3784,9 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     let charIndex = 0;
-    placeholderEl.innerHTML = '<span class="typewriter-start-caret"></span><span class="typewriter-text"></span>';
+    const initialHtml = '<span class="typewriter-start-caret"></span><span class="typewriter-text"></span>';
+    if (placeholderEl) placeholderEl.innerHTML = initialHtml;
+    if (visualPlaceholderEl) visualPlaceholderEl.innerHTML = initialHtml;
 
     function escapeTypewriterHtml(str) {
       return str
@@ -3683,14 +3796,19 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     function typeNextChar() {
-      if (!isTypewriterActive || (editor && editor.value.length > 0)) {
+      const isContentPresent = (editor && editor.value.length > 0) ||
+        (typeof isVisualModeActive !== 'undefined' && isVisualModeActive && typeof getVisualEditorMarkdown === 'function' && getVisualEditorMarkdown().length > 0);
+
+      if (!isTypewriterActive || isContentPresent) {
         stopTypewriterEffect();
         return;
       }
 
       charIndex++;
       const currentSubstr = quote.slice(0, charIndex);
-      placeholderEl.innerHTML = '<span class="typewriter-start-caret"></span><span class="typewriter-text">' + escapeTypewriterHtml(currentSubstr) + '</span>';
+      const textHtml = '<span class="typewriter-start-caret"></span><span class="typewriter-text">' + escapeTypewriterHtml(currentSubstr) + '</span>';
+      if (placeholderEl) placeholderEl.innerHTML = textHtml;
+      if (visualPlaceholderEl) visualPlaceholderEl.innerHTML = textHtml;
 
       if (charIndex < quote.length) {
         const currentChar = quote[charIndex - 1];
@@ -3753,14 +3871,7 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // ===== IPC handlers for Context Menu (Spellcheck / Format / AI) =====
-  ipcRenderer.on('format-markdown', () => {
-    if (typeof formatMarkdown === 'function') formatMarkdown();
-  });
-  ipcRenderer.on('show-undo-history', () => {
-    const modal = document.getElementById("history-modal");
-    if (modal) { modal.classList.remove('hidden'); renderHistoryModal(); }
-  });
+  // ===== IPC handlers for Context Menu (Spellcheck / AI) =====
   ipcRenderer.on('trigger-ai-tool', (event, text) => {
     if (typeof showAISearchDialog === 'function') showAISearchDialog(text);
   });
@@ -3855,12 +3966,12 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // ===== Inserimento immagini via menu =====
   ipcRenderer.on("insert-image-from-file", async (event, imagePath) => {
-    if (!editor) return;
+    if (!editor && !visualEditor) return;
     if (!currentFilePath) {
       dialog.showMessageBoxSync({ type: 'info', title: i18n.t('dialog_paste_img_title'), message: i18n.t('dialog_paste_img_message') });
       const file = dialog.showSaveDialogSync({ filters: [{ name: "Markdown", extensions: ["md"] }] });
       if (!file) return;
-      fs.writeFileSync(file, editor.value, "utf8");
+      fs.writeFileSync(file, editor ? editor.value : '', "utf8");
       currentFilePath = file; setDirty(false);
     }
     let fileName = path.basename(imagePath).replace(/\s+/g, '_');
@@ -3870,6 +3981,27 @@ window.addEventListener("DOMContentLoaded", () => {
     const destPath = path.join(destDir, fileName);
     if (imagePath !== destPath) fs.copyFileSync(imagePath, destPath);
     const relativeImagePath = path.relative(folderPath, destPath).replace(/\\/g, '/');
+
+    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive && visualEditor) {
+      const markdownImage = `![${fileName}](${relativeImagePath})`;
+      const sel = window.getSelection();
+      const lineEl = sel?.anchorNode ? getLineFromNode(sel.anchorNode) : null;
+      if (lineEl && lineEl.parentElement === visualEditor) {
+        const newLineEl = document.createElement('div');
+        newLineEl.setAttribute('data-ve-line', 'true');
+        const parsed = parseVeLine(markdownImage, false, -1);
+        newLineEl.className = parsed.className;
+        newLineEl.innerHTML = parsed.html;
+        lineEl.after(newLineEl);
+        setCaretOffsetInLine(newLineEl, 0);
+      } else {
+        setVisualEditorMarkdown(getVisualEditorMarkdown() + '\n' + markdownImage);
+      }
+      syncVisualModeToEditor();
+      if (typeof saveVisualSnapshotImmediate === 'function') saveVisualSnapshotImmediate();
+      return;
+    }
+
     const cursorPos = editor.selectionStart;
     const textBefore = editor.value.substring(0, cursorPos);
     const textAfter = editor.value.substring(cursorPos);
@@ -3884,8 +4016,9 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // ===== Paste image (scorciatoia) =====
   ipcRenderer.on("paste-image-from-clipboard", () => {
-    if (!editor) return;
-    editor.dispatchEvent(new ClipboardEvent('paste', {
+    const target = (typeof isVisualModeActive !== 'undefined' && isVisualModeActive && visualEditor) ? visualEditor : editor;
+    if (!target) return;
+    target.dispatchEvent(new ClipboardEvent('paste', {
       clipboardData: clipboard.availableFormats().some(format => format.includes('image'))
         ? clipboard
         : new DataTransfer()
@@ -4173,6 +4306,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   function isDraggingFiles(e) {
     if (!e.dataTransfer || !e.dataTransfer.types) return false;
+    if (Array.from(e.dataTransfer.types).includes('application/x-mark-explorer-file')) return false;
     return Array.from(e.dataTransfer.types).includes('Files');
   }
 
@@ -4248,7 +4382,58 @@ window.addEventListener("DOMContentLoaded", () => {
     if (isMod && !e.shiftKey && (e.key === "l" || e.key === "L")) { e.preventDefault(); insertMarkdownLink(); }
     if (isMod && e.shiftKey && (e.key === "l" || e.key === "L")) { e.preventDefault(); toggleViewMode("solo-editor"); }
     if (isMod && e.shiftKey && (e.key === "p" || e.key === "P")) { e.preventDefault(); toggleViewMode("solo-preview"); }
-    if (isMod && (e.key === "k" || e.key === "K")) { e.preventDefault(); formatMarkdown(); }
+
+    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive && document.activeElement !== editor) {
+      const activeEl = document.activeElement;
+      const tag = activeEl ? activeEl.tagName : '';
+      if (!['INPUT', 'SELECT'].includes(tag) && !activeEl?.closest('.modal:not(.hidden)') && !activeEl?.closest('#search-container')) {
+        if (isMod && !e.altKey) {
+          if (e.shiftKey) {
+            switch (e.key.toLowerCase()) {
+              case "x": case "s":
+                e.preventDefault(); applyFormattingToActiveVisualBlock('~~', '~~', 'strikethrough'); return;
+              case "m": case "k":
+                e.preventDefault(); insertMathBlockInVisualMode(); return;
+              case "t":
+                e.preventDefault(); insertTableBlockInVisualMode(); return;
+              case "q": case ">":
+                e.preventDefault(); applyQuoteInVisualMode(); return;
+              case "c":
+                e.preventDefault(); insertCodeBlockInVisualMode(); return;
+              case "u": case "8": case "*":
+                e.preventDefault(); applyListInVisualMode('bullet'); return;
+              case "o": case "7": case "&":
+                e.preventDefault(); applyListInVisualMode('number'); return;
+              case "h": case "-": case "_":
+                e.preventDefault(); insertHorizontalRuleInVisualMode(); return;
+            }
+          } else {
+            switch (e.key.toLowerCase()) {
+              case "b":
+                e.preventDefault(); applyFormattingToActiveVisualBlock('**', '**', 'bold'); return;
+              case "i":
+                e.preventDefault(); applyFormattingToActiveVisualBlock('*', '*', 'italic'); return;
+              case "u":
+                e.preventDefault(); applyFormattingToActiveVisualBlock('<u>', '</u>', 'underline'); return;
+              case "1": case "2": case "3": case "4": case "5": case "6":
+                e.preventDefault(); applyHeadingInVisualMode(parseInt(e.key, 10)); return;
+              case "`": case "h": case "e": {
+                e.preventDefault();
+                const sel = window.getSelection();
+                const lineEl = sel?.anchorNode ? (typeof getLineFromNode === 'function' ? getLineFromNode(sel.anchorNode) : null) : null;
+                if (sel && !sel.isCollapsed && lineEl && lineEl.contains(sel.anchorNode) && lineEl.contains(sel.focusNode)) {
+                  applyFormattingToActiveVisualBlock('`', '`', 'code');
+                } else {
+                  insertCodeBlockInVisualMode();
+                }
+                return;
+              }
+            }
+          }
+        }
+      }
+    }
+
     if (e.key === "Escape" && sc && !sc.classList.contains("hidden")) toggleSearchPanel(false);
     if (e.key === "Enter" && sc && !sc.classList.contains("hidden")) {
       // Don't hijack Enter if we are in the editor
@@ -4965,7 +5150,8 @@ window.addEventListener("DOMContentLoaded", () => {
 
     const displayPath = formatFolderPath(folderPath);
     if (folderPathEl) {
-      folderPathEl.title = folderPath;
+      const changeTooltip = i18n.t('click_to_change_folder') || 'Clicca per cambiare cartella';
+      folderPathEl.title = `${folderPath} (${changeTooltip})`;
       folderPathEl.innerHTML = `
         <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
           <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>
@@ -4984,6 +5170,28 @@ window.addEventListener("DOMContentLoaded", () => {
             clearExplorerSelection();
           }
         });
+        fileTree.addEventListener('dragover', (e) => {
+          if (e.target === fileTree) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            fileTree.classList.add('drag-over');
+          }
+        });
+        fileTree.addEventListener('dragleave', (e) => {
+          if (e.target === fileTree) {
+            fileTree.classList.remove('drag-over');
+          }
+        });
+        fileTree.addEventListener('drop', (e) => {
+          if (e.target === fileTree) {
+            e.preventDefault();
+            fileTree.classList.remove('drag-over');
+            const sourcePath = e.dataTransfer.getData('application/x-mark-explorer-file') || e.dataTransfer.getData('text/plain');
+            if (sourcePath && currentFolderPath) {
+              moveFileToFolder(sourcePath, currentFolderPath);
+            }
+          }
+        });
       }
     }
     explorerPanel && explorerPanel.classList.remove("hidden");
@@ -4992,6 +5200,7 @@ window.addEventListener("DOMContentLoaded", () => {
     if (explorerResizer) explorerResizer.classList.remove('hidden');
 
     updateExplorerToggleBtn();
+    updateExplorerFolderBtn();
 
     createFileTree(folderPath, fileTree);
   }
@@ -5069,6 +5278,7 @@ window.addEventListener("DOMContentLoaded", () => {
     if (explorerPanel) explorerPanel.classList.add('hidden');
     if (explorerResizer) explorerResizer.classList.add('hidden');
     updateExplorerToggleBtn();
+    updateExplorerFolderBtn();
 
     // Notifica il processo principale
     ipcRenderer.send('folder-closed');
@@ -5141,6 +5351,11 @@ window.addEventListener("DOMContentLoaded", () => {
     if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive) {
       if (typeof deactivateCurrentVisualBlock === 'function') deactivateCurrentVisualBlock();
       if (typeof syncVisualModeToEditor === 'function') syncVisualModeToEditor();
+      if (typeof visualUndoStack !== 'undefined') {
+        activeTab.visualUndoStack = visualUndoStack;
+        activeTab.visualRedoStack = visualRedoStack;
+        activeTab.currentVisualSnapshot = currentVisualSnapshot;
+      }
     }
     if (activeTab.isPdf) {
       const viewportEl = document.getElementById("pdf-pages-viewport");
@@ -5153,7 +5368,6 @@ window.addEventListener("DOMContentLoaded", () => {
       activeTab.scrollTop = editor.scrollTop;
       activeTab.selectionStart = editor.selectionStart;
       activeTab.selectionEnd = editor.selectionEnd;
-      activeTab.actionHistory = actionHistory;
       activeTab.lastKnownEditorValue = lastKnownEditorValue;
       activeTab.hasUserCursor = editorHasUserCursor;
       activeTab.userCaret = editorUserCaret;
@@ -5540,7 +5754,6 @@ window.addEventListener("DOMContentLoaded", () => {
         isProgrammaticEdit = true;
         editor.value = targetTab.content;
         lastKnownEditorValue = targetTab.lastKnownEditorValue !== undefined ? targetTab.lastKnownEditorValue : targetTab.content;
-        actionHistory = Array.isArray(targetTab.actionHistory) ? targetTab.actionHistory : [];
         isProgrammaticEdit = false;
 
         updatePreview();
@@ -5548,6 +5761,11 @@ window.addEventListener("DOMContentLoaded", () => {
         updateEditorOverlay();
         if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive) {
           if (typeof syncVisualModeFromEditor === 'function') syncVisualModeFromEditor();
+        }
+        if (typeof visualUndoStack !== 'undefined') {
+          visualUndoStack = Array.isArray(targetTab.visualUndoStack) ? targetTab.visualUndoStack : [];
+          visualRedoStack = Array.isArray(targetTab.visualRedoStack) ? targetTab.visualRedoStack : [];
+          currentVisualSnapshot = targetTab.currentVisualSnapshot || (typeof getVisualSnapshot === 'function' ? getVisualSnapshot() : null);
         }
 
         editor.scrollTop = targetTab.scrollTop || 0;
@@ -5597,7 +5815,6 @@ window.addEventListener("DOMContentLoaded", () => {
       scrollTop: 0,
       selectionStart: 0,
       selectionEnd: 0,
-      actionHistory: [],
       lastKnownEditorValue: content
     };
 
@@ -5661,7 +5878,6 @@ window.addEventListener("DOMContentLoaded", () => {
       tabs[0].content = isPdf ? '' : fileContent;
       tabs[0].isDirty = false;
       tabs[0].lastKnownEditorValue = isPdf ? '' : fileContent;
-      tabs[0].actionHistory = [];
       activeTabId = null;
       switchToTab(tabs[0].id);
 
@@ -5688,7 +5904,6 @@ window.addEventListener("DOMContentLoaded", () => {
       scrollTop: 0,
       selectionStart: 0,
       selectionEnd: 0,
-      actionHistory: [],
       lastKnownEditorValue: isPdf ? '' : fileContent
     };
 
@@ -6028,7 +6243,7 @@ window.addEventListener("DOMContentLoaded", () => {
     menu.popup();
   }
 
-  function showFolderContextMenu(folderPath) {
+  function showFolderContextMenu(folderPath, folderElement) {
     const { Menu, MenuItem } = require('@electron/remote');
     const menu = new Menu();
     const isDarwin = platform === 'darwin';
@@ -6054,6 +6269,26 @@ window.addEventListener("DOMContentLoaded", () => {
         const relPath = currentFolderPath ? path.relative(currentFolderPath, folderPath) : path.basename(folderPath);
         clipboard.writeText(relPath || '.');
         showNotification(i18n.t('notif_path_copied') || 'Path copied to clipboard', 'info');
+      }
+    }));
+
+    menu.append(new MenuItem({ type: 'separator' }));
+
+    menu.append(new MenuItem({
+      label: i18n.t('ctx_rename') || 'Rename',
+      accelerator: 'Enter',
+      click: () => {
+        startInlineRename(folderPath, folderElement || selectedExplorerElement);
+      }
+    }));
+
+    menu.append(new MenuItem({ type: 'separator' }));
+
+    menu.append(new MenuItem({
+      label: i18n.t('ctx_delete') || 'Move to Trash',
+      accelerator: isDarwin ? 'Cmd+Backspace' : 'Delete',
+      click: () => {
+        deleteExplorerItem(folderPath);
       }
     }));
 
@@ -6089,9 +6324,14 @@ window.addEventListener("DOMContentLoaded", () => {
 
     isRenamingInExplorer = true;
 
+    let isDir = false;
+    try {
+      isDir = fs.existsSync(filePath) && fs.statSync(filePath).isDirectory();
+    } catch (_) {}
+
     const currentName = path.basename(filePath);
-    const ext = path.extname(currentName);
-    const stem = path.basename(currentName, ext);
+    const ext = isDir ? '' : path.extname(currentName);
+    const stem = isDir ? currentName : path.basename(currentName, ext);
 
     const input = document.createElement('input');
     input.type = 'text';
@@ -6132,16 +6372,18 @@ window.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
-        if (!newName.toLowerCase().endsWith('.md') && currentName.toLowerCase().endsWith('.md')) {
-          if (newName.endsWith('.')) {
-            newName = newName.slice(0, -1);
+        if (!isDir) {
+          if (!newName.toLowerCase().endsWith('.md') && currentName.toLowerCase().endsWith('.md')) {
+            if (newName.endsWith('.')) {
+              newName = newName.slice(0, -1);
+            }
+            newName += '.md';
+          } else if (!newName.toLowerCase().endsWith('.pdf') && currentName.toLowerCase().endsWith('.pdf')) {
+            if (newName.endsWith('.')) {
+              newName = newName.slice(0, -1);
+            }
+            newName += '.pdf';
           }
-          newName += '.md';
-        } else if (!newName.toLowerCase().endsWith('.pdf') && currentName.toLowerCase().endsWith('.pdf')) {
-          if (newName.endsWith('.')) {
-            newName = newName.slice(0, -1);
-          }
-          newName += '.pdf';
         }
 
         if (newName === currentName) {
@@ -6176,21 +6418,41 @@ window.addEventListener("DOMContentLoaded", () => {
         isRenamingInExplorer = false;
         input.remove();
 
-        tabs.forEach(t => {
-          if (t.filePath && path.resolve(t.filePath) === path.resolve(filePath)) {
-            t.filePath = newPath;
-            t.title = newName;
-            if (t.id === activeTabId) {
-              currentFilePath = newPath;
+        if (isDir) {
+          const oldDirPrefix = path.resolve(filePath) + path.sep;
+          const newDirPrefix = path.resolve(newPath) + path.sep;
+          tabs.forEach(t => {
+            if (t.filePath) {
+              const normalTabPath = path.resolve(t.filePath);
+              if (normalTabPath === path.resolve(filePath)) {
+                t.filePath = newPath;
+                t.title = newName;
+              } else if (normalTabPath.startsWith(oldDirPrefix)) {
+                t.filePath = newDirPrefix + normalTabPath.slice(oldDirPrefix.length);
+              }
             }
+          });
+          if (currentFolderPath && path.resolve(filePath) === path.resolve(currentFolderPath)) {
+            currentFolderPath = newPath;
           }
-        });
+        } else {
+          tabs.forEach(t => {
+            if (t.filePath && path.resolve(t.filePath) === path.resolve(filePath)) {
+              t.filePath = newPath;
+              t.title = newName;
+              if (t.id === activeTabId) {
+                currentFilePath = newPath;
+              }
+            }
+          });
+        }
         renderTabs();
 
         if (currentFolderPath) {
           openFolder(currentFolderPath);
           setTimeout(() => {
-            const newEl = document.querySelector(`.tree-item[data-path="${CSS.escape(newPath)}"]`);
+            const newEl = document.querySelector(`.tree-item[data-path="${CSS.escape(newPath)}"]`) ||
+                          document.querySelector(`.tree-folder-header[title="${CSS.escape(newName)}"]`);
             if (newEl) {
               selectExplorerItem(newPath, newEl);
             }
@@ -6233,9 +6495,17 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  async function deleteExplorerFile(filePath) {
-    if (!filePath || !fs.existsSync(filePath)) return;
-    const fileName = path.basename(filePath);
+  async function deleteExplorerItem(itemPath) {
+    if (!itemPath || !fs.existsSync(itemPath)) return;
+    const itemName = path.basename(itemPath);
+    let isDir = false;
+    try {
+      isDir = fs.statSync(itemPath).isDirectory();
+    } catch (_) {}
+
+    const confirmMsg = isDir
+      ? (i18n.t('dialog_delete_folder_confirm', { name: itemName }) || `Are you sure you want to move the folder "${itemName}" and all its contents to Trash?`)
+      : (i18n.t('dialog_delete_confirm', { name: itemName }) || `Are you sure you want to move "${itemName}" to Trash?`);
 
     const answer = dialog.showMessageBoxSync({
       type: 'warning',
@@ -6243,41 +6513,116 @@ window.addEventListener("DOMContentLoaded", () => {
       defaultId: 0,
       cancelId: 1,
       title: i18n.t('dialog_delete_title') || 'Move to Trash',
-      message: i18n.t('dialog_delete_confirm', { name: fileName }) || `Are you sure you want to move "${fileName}" to Trash?`
+      message: confirmMsg
     });
 
     if (answer !== 0) return;
 
     try {
       if (shell && typeof shell.trashItem === 'function') {
-        await shell.trashItem(filePath);
+        await shell.trashItem(itemPath);
       } else if (shell && typeof shell.moveItemToTrash === 'function') {
-        shell.moveItemToTrash(filePath);
+        shell.moveItemToTrash(itemPath);
       } else {
-        fs.unlinkSync(filePath);
+        if (isDir) {
+          fs.rmSync(itemPath, { recursive: true, force: true });
+        } else {
+          fs.unlinkSync(itemPath);
+        }
       }
     } catch (err) {
       dialog.showErrorBox(i18n.t('dialog_delete_title') || 'Error', err.message);
       return;
     }
 
-    const openTabs = tabs.filter(t => t.filePath && path.resolve(t.filePath) === path.resolve(filePath));
+    const normalItemPath = path.resolve(itemPath);
+    const itemDirPrefix = normalItemPath + path.sep;
+    const openTabs = tabs.filter(t => {
+      if (!t.filePath) return false;
+      const normalTabPath = path.resolve(t.filePath);
+      return normalTabPath === normalItemPath || normalTabPath.startsWith(itemDirPrefix);
+    });
+
     for (const t of openTabs) {
       t.isDirty = false;
       closeTab(t.id);
     }
 
     clearExplorerSelection();
-    showNotification(i18n.t('notif_item_deleted', { name: fileName }) || `"${fileName}" moved to Trash`, 'info');
+    showNotification(i18n.t('notif_item_deleted', { name: itemName }) || `"${itemName}" moved to Trash`, 'info');
 
     if (currentFolderPath) {
-      openFolder(currentFolderPath);
+      if (normalItemPath === path.resolve(currentFolderPath)) {
+        closeFolder();
+      } else {
+        openFolder(currentFolderPath);
+      }
     }
   }
+
+  const deleteExplorerFile = deleteExplorerItem;
 
   function isMarkdownFile(filePath) { return typeof filePath === 'string' && filePath.toLowerCase().endsWith('.md'); }
   function isPdfFile(filePath) { return typeof filePath === 'string' && filePath.toLowerCase().endsWith('.pdf'); }
   function isSupportedExplorerFile(filePath) { return isMarkdownFile(filePath) || isPdfFile(filePath); }
+
+  function moveFileToFolder(sourcePath, targetFolder) {
+    if (!sourcePath || !targetFolder) return;
+    const normalSource = path.resolve(sourcePath);
+    const normalTarget = path.resolve(targetFolder);
+
+    if (!fs.existsSync(normalSource)) return;
+    if (!fs.existsSync(normalTarget)) return;
+
+    try {
+      if (!fs.statSync(normalTarget).isDirectory()) return;
+    } catch (_) {
+      return;
+    }
+
+    // Do not move into its current directory
+    if (path.dirname(normalSource) === normalTarget) return;
+
+    const fileName = path.basename(normalSource);
+    const destPath = path.join(normalTarget, fileName);
+
+    if (fs.existsSync(destPath)) {
+      dialog.showErrorBox(
+        i18n.t('dialog_error_title') || 'Error',
+        i18n.t('dialog_file_exists') || 'A file with this name already exists in destination.'
+      );
+      return;
+    }
+
+    try {
+      fs.renameSync(normalSource, destPath);
+    } catch (err) {
+      dialog.showErrorBox(i18n.t('dialog_error_title') || 'Error', err.message);
+      return;
+    }
+
+    // Aggiorna schede aperte se il file spostato è aperto
+    tabs.forEach(tab => {
+      if (tab.filePath && path.resolve(tab.filePath) === normalSource) {
+        tab.filePath = destPath;
+        tab.title = fileName;
+        if (tab.id === activeTabId) {
+          currentFilePath = destPath;
+          if (typeof updateTitlebarTitle === 'function') updateTitlebarTitle();
+        }
+      }
+    });
+    if (typeof renderTabs === 'function') renderTabs();
+
+    if (currentFolderPath) {
+      openFolder(currentFolderPath);
+    }
+
+    const folderName = path.basename(normalTarget);
+    if (typeof showNotification === 'function') {
+      showNotification(i18n.t('notif_file_moved', { name: fileName, folder: folderName }), 'success');
+    }
+  }
 
   function createFileTree(folderPath, parentElement) {
     if (!parentElement) return;
@@ -6317,7 +6662,27 @@ window.addEventListener("DOMContentLoaded", () => {
             e.preventDefault();
             e.stopPropagation();
             selectExplorerItem(itemPath, folderHeader);
-            showFolderContextMenu(itemPath);
+            showFolderContextMenu(itemPath, folderHeader);
+          });
+          folderHeader.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'move';
+            folderHeader.classList.add('drag-over');
+          });
+          folderHeader.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            folderHeader.classList.remove('drag-over');
+          });
+          folderHeader.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            folderHeader.classList.remove('drag-over');
+            const sourcePath = e.dataTransfer.getData('application/x-mark-explorer-file') || e.dataTransfer.getData('text/plain');
+            if (sourcePath) {
+              moveFileToFolder(sourcePath, itemPath);
+            }
           });
         });
       // Files (.md and .pdf)
@@ -6335,10 +6700,20 @@ window.addEventListener("DOMContentLoaded", () => {
           fileElement.title = item;
           fileElement.dataset.path = itemPath;
           fileElement.tabIndex = -1;
+          fileElement.draggable = true;
           fileElement.innerHTML = `
             <span class="tree-file-icon ${isPdf ? 'pdf-icon' : ''}">${isPdf ? PDF_FILE_SVG : FILE_SVG}</span>
             <span class="tree-label">${item}</span>
           `;
+          fileElement.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('application/x-mark-explorer-file', itemPath);
+            e.dataTransfer.setData('text/plain', itemPath);
+            e.dataTransfer.effectAllowed = 'move';
+            fileElement.classList.add('is-dragging');
+          });
+          fileElement.addEventListener('dragend', () => {
+            fileElement.classList.remove('is-dragging');
+          });
           fileElement.addEventListener('click', (e) => {
             selectExplorerItem(itemPath, fileElement);
             openFileInTab(itemPath);
@@ -6427,7 +6802,13 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   btnCode && btnCode.addEventListener("click", () => {
     if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive) {
-      insertCodeBlockInVisualMode();
+      const sel = window.getSelection();
+      const lineEl = sel?.anchorNode ? (typeof getLineFromNode === 'function' ? getLineFromNode(sel.anchorNode) : null) : null;
+      if (sel && !sel.isCollapsed && lineEl && lineEl.contains(sel.anchorNode) && lineEl.contains(sel.focusNode)) {
+        applyFormattingToActiveVisualBlock('`', '`', 'code');
+      } else {
+        insertCodeBlockInVisualMode();
+      }
       return;
     }
     executeAction("Code block", () => preserveScroll(() => { formatAsCode(); }));
@@ -6445,7 +6826,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   });
   btnUl && btnUl.addEventListener("click", () => {
-    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive && applyFormattingToActiveVisualBlock('- ', '', 'elem')) return;
+    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive && (typeof applyListInVisualMode === 'function' ? applyListInVisualMode('bullet') : applyFormattingToActiveVisualBlock('- ', '', 'elem'))) return;
     executeAction("Bullet List", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.substring(start, end);
       const listMd = `* ${selected || 'elem'}`; editor.setRangeText(listMd, start, end, 'end');
@@ -6457,7 +6838,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   });
   btnOl && btnOl.addEventListener("click", () => {
-    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive && applyFormattingToActiveVisualBlock('1. ', '', 'elem')) return;
+    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive && (typeof applyListInVisualMode === 'function' ? applyListInVisualMode('number') : applyFormattingToActiveVisualBlock('1. ', '', 'elem'))) return;
     executeAction("Numbered List", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.substring(start, end);
       const listMd = `1. ${selected || 'elem'}`; editor.setRangeText(listMd, start, end, 'end');
@@ -6473,7 +6854,11 @@ window.addEventListener("DOMContentLoaded", () => {
     executeAction("Link", () => preserveScroll(() => insertMarkdownLinkBtn()));
   });
   btnHr && btnHr.addEventListener("click", () => {
-    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive && applyFormattingToActiveVisualBlock('---\n', '', '')) return;
+    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive) {
+      if (typeof insertHorizontalRuleInVisualMode === 'function') insertHorizontalRuleInVisualMode();
+      else applyFormattingToActiveVisualBlock('---\n', '', '');
+      return;
+    }
     executeAction("Horizontal Rule", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd; editor.setRangeText("***\n", start, end, 'end');
       editor.focus(); editor.setSelectionRange(start + 4, start + 4);
@@ -6496,7 +6881,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   });
   btnQuote && btnQuote.addEventListener("click", () => {
-    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive && applyFormattingToActiveVisualBlock('> ', '', 'quote')) return;
+    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive && (typeof applyQuoteInVisualMode === 'function' ? applyQuoteInVisualMode() : applyFormattingToActiveVisualBlock('> ', '', 'quote'))) return;
     executeAction("Quote", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.substring(start, end);
       const quoteMd = `> ${selected || 'quote'}`;
@@ -6509,6 +6894,10 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   });
   btnTable && btnTable.addEventListener("click", () => {
+    if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive) {
+      if (typeof insertTableBlockInVisualMode === 'function') insertTableBlockInVisualMode();
+      return;
+    }
     executeAction("Table", () => { preserveScroll(() => {
       const start = editor.selectionStart; const end = editor.selectionEnd;
       const tableMd = `| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |\n| Cell 3   | Cell 4   |`;
@@ -6581,7 +6970,6 @@ window.addEventListener("DOMContentLoaded", () => {
       'export-html': isMac ? ['⇧', '⌘', 'E'] : ['Ctrl', 'Shift', 'E'],
       'undo': isMac ? ['⌘', 'Z'] : ['Ctrl', 'Z'],
       'find': isMac ? ['⌘', 'F'] : ['Ctrl', 'F'],
-      'format-markdown': isMac ? ['⌘', 'K'] : ['Ctrl', 'K'],
       'insert-link': isMac ? ['⌘', 'L'] : ['Ctrl', 'L'],
       'insert-image': isMac ? ['⇧', '⌘', 'I'] : ['Ctrl', 'Shift', 'I'],
       'paste-image': isMac ? ['⇧', '⌘', 'V'] : ['Ctrl', 'Shift', 'V'],
@@ -7213,6 +7601,10 @@ window.addEventListener("DOMContentLoaded", () => {
       updateWordCount();
     }
 
+    if (typeof updateExplorerFolderBtn === "function") {
+      updateExplorerFolderBtn();
+    }
+
     ipcRenderer.send("app-language-changed", lang);
   }
 
@@ -7390,6 +7782,11 @@ window.addEventListener("DOMContentLoaded", () => {
         updateEditorOverlay();
         if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive) {
           if (typeof syncVisualModeFromEditor === 'function') syncVisualModeFromEditor();
+        }
+        if (typeof visualUndoStack !== 'undefined') {
+          visualUndoStack = Array.isArray(targetTab.visualUndoStack) ? targetTab.visualUndoStack : [];
+          visualRedoStack = Array.isArray(targetTab.visualRedoStack) ? targetTab.visualRedoStack : [];
+          currentVisualSnapshot = targetTab.currentVisualSnapshot || (typeof getVisualSnapshot === 'function' ? getVisualSnapshot() : null);
         }
         setDirty(true);
       },
@@ -7615,6 +8012,18 @@ window.addEventListener("DOMContentLoaded", () => {
     if (typeof saveStateForActiveTab === 'function') {
       saveStateForActiveTab();
     }
+    // Fallback autosave: se autosaveSwitch è attivo, salva prima silenziosamente tutti i file modificati che sono già stati salvati almeno una volta sul disco (hanno filePath)
+    if (autosaveSwitch && autosaveSwitch.checked) {
+      for (const t of tabs) {
+        if (t.isDirty && t.filePath && !t.isPdf) {
+          try {
+            saveSpecificTab(t);
+          } catch (err) {
+            console.error('[autosave beforeunload] Error saving file:', t.filePath, err);
+          }
+        }
+      }
+    }
     const dirtyTabs = tabs.filter(t => t.isDirty);
     if (dirtyTabs.length > 0) {
       for (const t of dirtyTabs) {
@@ -7653,6 +8062,8 @@ window.addEventListener("DOMContentLoaded", () => {
       editor.style.fontSize = size + 'px';
       overlay.style.fontSize = size + 'px';
     }
+    const tp = document.getElementById('typewriter-placeholder');
+    if (tp) tp.style.fontSize = size + 'px';
     const preview = document.getElementById('preview');
     if (preview) {
       preview.style.fontSize = size + 'px';
@@ -7661,6 +8072,8 @@ window.addEventListener("DOMContentLoaded", () => {
     if (ve) {
       ve.style.fontSize = size + 'px';
     }
+    const vtp = document.getElementById('visual-typewriter-placeholder');
+    if (vtp) vtp.style.fontSize = size + 'px';
   }
 
   // --- CARICAMENTO INITIALE DELLE NUOVE IMPOSTAZIONI DA LOCALSTORAGE ---
@@ -7735,7 +8148,7 @@ window.addEventListener("DOMContentLoaded", () => {
       const level = parseInt(item.dataset.level, 10);
       if (!level) return;
 
-      if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive && applyFormattingToActiveVisualBlock("#".repeat(level) + " ", "", "Title")) return;
+      if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive && (typeof applyHeadingInVisualMode === 'function' ? applyHeadingInVisualMode(level) : applyFormattingToActiveVisualBlock("#".repeat(level) + " ", "", "Title"))) return;
 
       preserveScroll(() => {
         const start = editor.selectionStart;
@@ -8143,7 +8556,8 @@ window.addEventListener("DOMContentLoaded", () => {
           // EDIT ACTIONS
           case 'undo':
             if (isVisualModeActive && visualEditor) {
-              document.execCommand('undo');
+              if (typeof visualModeUndo === 'function') visualModeUndo();
+              else document.execCommand('undo');
             } else if (editor) {
               editor.focus();
               document.execCommand('undo');
@@ -8152,7 +8566,8 @@ window.addEventListener("DOMContentLoaded", () => {
 
           case 'redo':
             if (isVisualModeActive && visualEditor) {
-              document.execCommand('redo');
+              if (typeof visualModeRedo === 'function') visualModeRedo();
+              else document.execCommand('redo');
             } else if (editor) {
               editor.focus();
               document.execCommand('redo');
@@ -9403,18 +9818,18 @@ window.addEventListener("DOMContentLoaded", () => {
   function insertCodeBlockInVisualMode() {
     if (!visualEditor) return;
     const sel = window.getSelection();
-    let lineEl = sel?.anchorNode ? getLineFromNode(sel.anchorNode) : null;
+    let lineEl = sel?.anchorNode ? (typeof getLineFromNode === 'function' ? getLineFromNode(sel.anchorNode) : null) : null;
     if (!lineEl) {
       const lines = visualEditor.querySelectorAll('.ve-line');
       if (lines.length > 0) lineEl = lines[lines.length - 1];
     }
 
-    let codeBody = 'code';
+    let codeBody = '';
     if (sel && !sel.isCollapsed && lineEl && lineEl.contains(sel.anchorNode) && lineEl.contains(sel.focusNode)) {
-      const selected = sel.toString().trim();
+      const selected = sel.toString();
       if (selected) codeBody = selected;
     } else if (lineEl) {
-      const raw = getLineRawText(lineEl).trim();
+      const raw = getLineRawText(lineEl);
       if (raw && raw !== '<br>') {
         codeBody = raw;
       }
@@ -9428,7 +9843,11 @@ window.addEventListener("DOMContentLoaded", () => {
     });
 
     if (lineEl && lineEl.parentElement === visualEditor) {
-      lineEl.replaceWith(codeBlock);
+      if (getLineRawText(lineEl).trim() === '') {
+        lineEl.replaceWith(codeBlock);
+      } else {
+        lineEl.after(codeBlock);
+      }
     } else if (visualEditor.children.length > 0) {
       visualEditor.appendChild(codeBlock);
     } else {
@@ -9438,6 +9857,227 @@ window.addEventListener("DOMContentLoaded", () => {
     // Attiva la modalità di modifica del blocco codice per inserire comandi
     activateBlockEditor(codeBlock);
     syncVisualModeToEditor();
+    if (typeof saveVisualSnapshotImmediate === 'function') {
+      saveVisualSnapshotImmediate();
+    }
+  }
+
+  function insertMathBlockInVisualMode() {
+    if (!visualEditor) return;
+    const sel = window.getSelection();
+    let lineEl = sel?.anchorNode ? (typeof getLineFromNode === 'function' ? getLineFromNode(sel.anchorNode) : null) : null;
+    if (!lineEl) {
+      const lines = visualEditor.querySelectorAll('.ve-line');
+      if (lines.length > 0) lineEl = lines[lines.length - 1];
+    }
+
+    let mathBody = '';
+    if (sel && !sel.isCollapsed && lineEl && lineEl.contains(sel.anchorNode) && lineEl.contains(sel.focusNode)) {
+      const selected = sel.toString().trim();
+      if (selected) mathBody = selected;
+    }
+
+    const mathBlock = createMathBlockElement({
+      type: 'math',
+      raw: `$$\n${mathBody}\n$$`,
+      lines: ['$$', mathBody, '$$']
+    });
+
+    if (lineEl && lineEl.parentElement === visualEditor) {
+      if (getLineRawText(lineEl).trim() === '') {
+        lineEl.replaceWith(mathBlock);
+      } else {
+        lineEl.after(mathBlock);
+      }
+    } else {
+      visualEditor.appendChild(mathBlock);
+    }
+
+    activateBlockEditor(mathBlock);
+    syncVisualModeToEditor();
+    if (typeof saveVisualSnapshotImmediate === 'function') {
+      saveVisualSnapshotImmediate();
+    }
+  }
+
+  function insertTableBlockInVisualMode() {
+    if (!visualEditor) return;
+    const sel = window.getSelection();
+    let lineEl = sel?.anchorNode ? (typeof getLineFromNode === 'function' ? getLineFromNode(sel.anchorNode) : null) : null;
+    if (!lineEl) {
+      const lines = visualEditor.querySelectorAll('.ve-line');
+      if (lines.length > 0) lineEl = lines[lines.length - 1];
+    }
+
+    const tableRaw = `| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |\n| Cell 3   | Cell 4   |`;
+    const tableLines = tableRaw.split('\n');
+    const tableBlock = createTableBlockElement({
+      type: 'table',
+      raw: tableRaw,
+      lines: tableLines
+    });
+
+    if (lineEl && lineEl.parentElement === visualEditor) {
+      if (getLineRawText(lineEl).trim() === '') {
+        lineEl.replaceWith(tableBlock);
+      } else {
+        lineEl.after(tableBlock);
+      }
+    } else {
+      visualEditor.appendChild(tableBlock);
+    }
+
+    activateBlockEditor(tableBlock);
+    syncVisualModeToEditor();
+    if (typeof saveVisualSnapshotImmediate === 'function') {
+      saveVisualSnapshotImmediate();
+    }
+  }
+
+  function insertHorizontalRuleInVisualMode() {
+    if (!visualEditor) return;
+    const sel = window.getSelection();
+    let lineEl = sel?.anchorNode ? (typeof getLineFromNode === 'function' ? getLineFromNode(sel.anchorNode) : null) : null;
+    if (!lineEl) {
+      const lines = visualEditor.querySelectorAll('.ve-line');
+      if (lines.length > 0) lineEl = lines[lines.length - 1];
+    }
+    const hrEl = document.createElement('div');
+    hrEl.setAttribute('data-ve-line', 'true');
+    const parsed = parseVeLine('---', false, -1);
+    hrEl.className = parsed.className;
+    hrEl.innerHTML = parsed.html;
+
+    const nextLine = document.createElement('div');
+    nextLine.className = 've-line';
+    nextLine.setAttribute('data-ve-line', 'true');
+    nextLine.innerHTML = '<br>';
+
+    if (lineEl && lineEl.parentElement === visualEditor) {
+      if (getLineRawText(lineEl).trim() === '') {
+        lineEl.replaceWith(hrEl);
+      } else {
+        lineEl.after(hrEl);
+      }
+      hrEl.after(nextLine);
+    } else {
+      visualEditor.appendChild(hrEl);
+      visualEditor.appendChild(nextLine);
+    }
+    setCaretOffsetInLine(nextLine, 0);
+    syncVisualModeToEditor();
+    if (typeof saveVisualSnapshotImmediate === 'function') {
+      saveVisualSnapshotImmediate();
+    }
+  }
+
+  function applyHeadingInVisualMode(level) {
+    if (!isVisualModeActive || !visualEditor) return false;
+    const selInfo = typeof getSelectedVisualLines === 'function' ? getSelectedVisualLines() : null;
+    const lines = selInfo && selInfo.isMultiLine ? selInfo.lines : [selInfo?.startLine || (window.getSelection()?.anchorNode ? getLineFromNode(window.getSelection().anchorNode) : null)];
+    const validLines = lines.filter(Boolean);
+    if (validLines.length === 0) {
+      const allLines = visualEditor.querySelectorAll('.ve-line');
+      if (allLines.length > 0) validLines.push(allLines[allLines.length - 1]);
+      else return false;
+    }
+
+    const targetPrefix = '#'.repeat(level) + ' ';
+
+    validLines.forEach(lineEl => {
+      const raw = getLineRawText(lineEl);
+      const headingMatch = raw.match(/^(\s*)(#{1,6})\s+(.*)$/);
+      let newRaw = '';
+      if (headingMatch) {
+        const currentLevel = headingMatch[2].length;
+        const indent = headingMatch[1];
+        const content = headingMatch[3];
+        if (currentLevel === level) {
+          // Toggle off: remove heading
+          newRaw = indent + content;
+        } else {
+          // Change heading level
+          newRaw = indent + targetPrefix + content;
+        }
+      } else {
+        newRaw = targetPrefix + raw;
+      }
+      const parsed = parseVeLine(newRaw, true, 0);
+      lineEl.className = parsed.className;
+      lineEl.innerHTML = parsed.html;
+    });
+
+    if (validLines.length === 1) {
+      setCaretOffsetInLine(validLines[0], targetPrefix.length);
+    }
+    syncVisualModeToEditor();
+    if (typeof saveVisualSnapshotImmediate === 'function') {
+      saveVisualSnapshotImmediate();
+    }
+    return true;
+  }
+
+  function applyQuoteInVisualMode() {
+    if (!isVisualModeActive || !visualEditor) return false;
+    const selInfo = typeof getSelectedVisualLines === 'function' ? getSelectedVisualLines() : null;
+    const lines = selInfo && selInfo.isMultiLine ? selInfo.lines : [selInfo?.startLine || (window.getSelection()?.anchorNode ? getLineFromNode(window.getSelection().anchorNode) : null)];
+    const validLines = lines.filter(Boolean);
+    if (validLines.length === 0) return false;
+
+    validLines.forEach(lineEl => {
+      const raw = getLineRawText(lineEl);
+      const quoteMatch = raw.match(/^(\s*)(>\s?)(.*)$/);
+      let newRaw = '';
+      if (quoteMatch) {
+        newRaw = quoteMatch[1] + quoteMatch[3];
+      } else {
+        newRaw = '> ' + raw;
+      }
+      const parsed = parseVeLine(newRaw, true, 0);
+      lineEl.className = parsed.className;
+      lineEl.innerHTML = parsed.html;
+    });
+
+    if (validLines.length === 1) {
+      setCaretOffsetInLine(validLines[0], 2);
+    }
+    syncVisualModeToEditor();
+    if (typeof saveVisualSnapshotImmediate === 'function') {
+      saveVisualSnapshotImmediate();
+    }
+    return true;
+  }
+
+  function applyListInVisualMode(type = 'bullet') {
+    if (!isVisualModeActive || !visualEditor) return false;
+    const selInfo = typeof getSelectedVisualLines === 'function' ? getSelectedVisualLines() : null;
+    const lines = selInfo && selInfo.isMultiLine ? selInfo.lines : [selInfo?.startLine || (window.getSelection()?.anchorNode ? getLineFromNode(window.getSelection().anchorNode) : null)];
+    const validLines = lines.filter(Boolean);
+    if (validLines.length === 0) return false;
+
+    validLines.forEach((lineEl, idx) => {
+      const raw = getLineRawText(lineEl);
+      const prefix = type === 'number' ? `${idx + 1}. ` : '- ';
+      const listMatch = raw.match(/^(\s*)([-*+]|\d+\.)\s+(.*)$/);
+      let newRaw = '';
+      if (listMatch) {
+        newRaw = listMatch[1] + listMatch[3];
+      } else {
+        newRaw = prefix + raw;
+      }
+      const parsed = parseVeLine(newRaw, true, 0);
+      lineEl.className = parsed.className;
+      lineEl.innerHTML = parsed.html;
+    });
+
+    if (validLines.length === 1) {
+      setCaretOffsetInLine(validLines[0], type === 'number' ? 3 : 2);
+    }
+    syncVisualModeToEditor();
+    if (typeof saveVisualSnapshotImmediate === 'function') {
+      saveVisualSnapshotImmediate();
+    }
+    return true;
   }
 
   function activateBlockEditor(blockEl) {
@@ -9595,6 +10235,9 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     syncVisualModeToEditor();
+    if (typeof saveVisualSnapshotImmediate === 'function') {
+      saveVisualSnapshotImmediate();
+    }
     return createdLineEls;
   }
 
@@ -9817,11 +10460,22 @@ window.addEventListener("DOMContentLoaded", () => {
 
     if (changed) {
       syncVisualModeToEditor();
+      if (typeof saveVisualSnapshotImmediate === 'function') {
+        saveVisualSnapshotImmediate();
+      }
     }
   }
 
   function getLineFromNode(node) {
     if (!node || !visualEditor) return null;
+    if (node === visualEditor) {
+      const sel = window.getSelection();
+      const offset = sel ? sel.anchorOffset : 0;
+      const child = visualEditor.children[Math.min(offset, Math.max(0, visualEditor.children.length - 1))];
+      if (child && child.classList.contains('ve-line')) return child;
+      const lines = visualEditor.querySelectorAll('.ve-line');
+      return lines.length > 0 ? lines[lines.length - 1] : null;
+    }
     let curr = node.nodeType === 3 ? node.parentElement : node;
     while (curr && curr !== visualEditor) {
       if (curr.classList && curr.classList.contains('ve-line')) {
@@ -10118,6 +10772,242 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // ===== VISUAL MODE UNDO / REDO MANAGER =====
+  let visualUndoStack = [];
+  let visualRedoStack = [];
+  let currentVisualSnapshot = null;
+  let visualTypingTimer = null;
+  let isVisualTypingBurst = false;
+  let isRestoringVisualSnapshot = false;
+  const MAX_VISUAL_HISTORY = 150;
+
+  function getVisualCaretPosition() {
+    if (!visualEditor) return null;
+    const sel = window.getSelection();
+    if (!sel || !sel.anchorNode || !visualEditor.contains(sel.anchorNode)) return null;
+
+    const lineEl = getLineFromNode(sel.anchorNode);
+    if (!lineEl) return null;
+
+    const offset = getCaretOffsetInLine(lineEl);
+    const allLines = Array.from(visualEditor.querySelectorAll('.ve-line'));
+    const lineIndex = allLines.indexOf(lineEl);
+
+    const blockEl = lineEl.closest('.ve-block');
+    let blockIndex = -1;
+    let lineInBlockIndex = -1;
+    if (blockEl) {
+      const allBlocks = Array.from(visualEditor.querySelectorAll('.ve-block'));
+      blockIndex = allBlocks.indexOf(blockEl);
+      const blockLines = Array.from(blockEl.querySelectorAll('.ve-line'));
+      lineInBlockIndex = blockLines.indexOf(lineEl);
+    }
+    return { lineIndex, offset, blockIndex, lineInBlockIndex };
+  }
+
+  function getVisualSnapshot() {
+    if (!visualEditor) return null;
+    return {
+      markdown: getVisualEditorMarkdown(),
+      cursor: getVisualCaretPosition()
+    };
+  }
+
+  function initVisualHistory() {
+    if (!isVisualModeActive) return;
+    const currentMd = getVisualEditorMarkdown();
+    const cursor = getVisualCaretPosition();
+    currentVisualSnapshot = { markdown: currentMd, cursor };
+    visualUndoStack = [];
+    visualRedoStack = [];
+    isVisualTypingBurst = false;
+    if (visualTypingTimer) {
+      clearTimeout(visualTypingTimer);
+      visualTypingTimer = null;
+    }
+  }
+
+  function finalizeVisualTypingBurst() {
+    if (visualTypingTimer) {
+      clearTimeout(visualTypingTimer);
+      visualTypingTimer = null;
+    }
+    if (!isVisualTypingBurst) return;
+    isVisualTypingBurst = false;
+    saveVisualSnapshotImmediate();
+  }
+
+  function recordVisualChange(isTyping = false) {
+    if (isRestoringVisualSnapshot || !isVisualModeActive) return;
+
+    if (isTyping) {
+      if (!isVisualTypingBurst) {
+        if (!currentVisualSnapshot) {
+          currentVisualSnapshot = getVisualSnapshot();
+        }
+        isVisualTypingBurst = true;
+      }
+      if (visualTypingTimer) clearTimeout(visualTypingTimer);
+      visualTypingTimer = setTimeout(() => {
+        finalizeVisualTypingBurst();
+      }, 400);
+      return;
+    }
+
+    finalizeVisualTypingBurst();
+    saveVisualSnapshotImmediate();
+  }
+
+  function saveVisualSnapshotImmediate() {
+    if (isRestoringVisualSnapshot || !isVisualModeActive) return;
+    const currentMd = getVisualEditorMarkdown();
+    const currentCursor = getVisualCaretPosition();
+
+    if (!currentVisualSnapshot) {
+      currentVisualSnapshot = { markdown: currentMd, cursor: currentCursor };
+      return;
+    }
+
+    if (currentVisualSnapshot.markdown === currentMd) {
+      currentVisualSnapshot.cursor = currentCursor;
+      return;
+    }
+
+    visualUndoStack.push(currentVisualSnapshot);
+    if (visualUndoStack.length > MAX_VISUAL_HISTORY) {
+      visualUndoStack.shift();
+    }
+    currentVisualSnapshot = { markdown: currentMd, cursor: currentCursor };
+    visualRedoStack = [];
+  }
+
+  function restoreVisualSnapshot(snapshot) {
+    if (!snapshot || !visualEditor) return;
+    setVisualEditorMarkdown(snapshot.markdown);
+
+    if (editor) {
+      isProgrammaticEdit = true;
+      editor.value = snapshot.markdown;
+      isProgrammaticEdit = false;
+
+      const activeTab = typeof getActiveTab === 'function' ? getActiveTab() : null;
+      if (activeTab) {
+        activeTab.content = snapshot.markdown;
+      }
+      setDirty(true);
+      if (typeof updateWordCount === 'function') updateWordCount();
+      if (typeof updatePreview === 'function') updatePreview();
+      if (typeof updateEditorOverlay === 'function') updateEditorOverlay();
+    }
+
+    const cursor = snapshot.cursor;
+    if (!cursor) {
+      const firstLine = visualEditor.querySelector('.ve-line');
+      if (firstLine) setCaretOffsetInLine(firstLine, 0);
+      return;
+    }
+
+    if (cursor.blockIndex >= 0) {
+      const allBlocks = Array.from(visualEditor.querySelectorAll('.ve-block'));
+      if (cursor.blockIndex < allBlocks.length) {
+        const targetBlock = allBlocks[cursor.blockIndex];
+        activateBlockEditor(targetBlock);
+        const blockLines = Array.from(targetBlock.querySelectorAll('.ve-line'));
+        if (blockLines.length > 0) {
+          const lineIdx = Math.min(Math.max(0, cursor.lineInBlockIndex), blockLines.length - 1);
+          const targetLine = blockLines[lineIdx];
+          const maxOffset = getLineRawText(targetLine).length;
+          const offset = Math.min(Math.max(0, cursor.offset), maxOffset);
+          setCaretOffsetInLine(targetLine, offset);
+          targetLine.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+          return;
+        }
+      }
+    }
+
+    const allLines = Array.from(visualEditor.querySelectorAll('.ve-line'));
+    if (allLines.length > 0) {
+      const lineIdx = Math.min(Math.max(0, cursor.lineIndex), allLines.length - 1);
+      const targetLine = allLines[lineIdx];
+      const maxOffset = getLineRawText(targetLine).length;
+      const offset = Math.min(Math.max(0, cursor.offset), maxOffset);
+      lastActiveLineEl = targetLine;
+      setCaretOffsetInLine(targetLine, offset);
+      targetLine.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+    }
+  }
+
+  function visualModeUndo() {
+    if (!isVisualModeActive) return;
+
+    if (isVisualTypingBurst) {
+      if (visualTypingTimer) {
+        clearTimeout(visualTypingTimer);
+        visualTypingTimer = null;
+      }
+      isVisualTypingBurst = false;
+
+      const currentMd = getVisualEditorMarkdown();
+      const currentCursor = getVisualCaretPosition();
+
+      if (currentVisualSnapshot && currentVisualSnapshot.markdown !== currentMd) {
+        visualRedoStack.push({ markdown: currentMd, cursor: currentCursor });
+        const targetState = currentVisualSnapshot;
+        isRestoringVisualSnapshot = true;
+        try {
+          restoreVisualSnapshot(targetState);
+        } finally {
+          isRestoringVisualSnapshot = false;
+        }
+        return;
+      }
+    }
+
+    if (visualUndoStack.length === 0) {
+      return;
+    }
+
+    const currentMd = getVisualEditorMarkdown();
+    const currentCursor = getVisualCaretPosition();
+    const currentState = { markdown: currentMd, cursor: currentCursor };
+
+    const prevState = visualUndoStack.pop();
+    visualRedoStack.push(currentState);
+    currentVisualSnapshot = prevState;
+
+    isRestoringVisualSnapshot = true;
+    try {
+      restoreVisualSnapshot(prevState);
+    } finally {
+      isRestoringVisualSnapshot = false;
+    }
+  }
+
+  function visualModeRedo() {
+    if (!isVisualModeActive) return;
+
+    finalizeVisualTypingBurst();
+
+    if (visualRedoStack.length === 0) {
+      return;
+    }
+
+    const currentMd = getVisualEditorMarkdown();
+    const currentCursor = getVisualCaretPosition();
+    const currentState = { markdown: currentMd, cursor: currentCursor };
+
+    const nextState = visualRedoStack.pop();
+    visualUndoStack.push(currentState);
+    currentVisualSnapshot = nextState;
+
+    isRestoringVisualSnapshot = true;
+    try {
+      restoreVisualSnapshot(nextState);
+    } finally {
+      isRestoringVisualSnapshot = false;
+    }
+  }
+
   let syncTimeout = null;
   function syncVisualModeToEditor(force = false) {
     if ((!isVisualModeActive && !force) || !editor) return;
@@ -10192,6 +11082,10 @@ window.addEventListener("DOMContentLoaded", () => {
       if (veContainer) veContainer.classList.remove("hidden");
 
       syncVisualModeFromEditor();
+      initVisualHistory();
+      if ((!editor || editor.value.length === 0) && typeof startTypewriterEffect === 'function') {
+        startTypewriterEffect();
+      }
       if (ve) {
         ve.focus();
       }
@@ -10204,6 +11098,9 @@ window.addEventListener("DOMContentLoaded", () => {
       containerEl.className = previousViewMode || "split-view";
 
       updatePreview();
+      if ((!editor || editor.value.length === 0) && typeof startTypewriterEffect === 'function') {
+        startTypewriterEffect();
+      }
       editor?.focus();
     }
 
@@ -10230,6 +11127,13 @@ window.addEventListener("DOMContentLoaded", () => {
     let found = false;
     function walk(node) {
       if (found) return;
+      if (node === container && node.nodeType === 1) {
+        for (let i = 0; i < inOffset && i < node.childNodes.length; i++) {
+          walk(node.childNodes[i]);
+        }
+        found = true;
+        return;
+      }
       if (node.nodeType === 3) {
         if (node === container) {
           offset += inOffset;
@@ -10256,14 +11160,175 @@ window.addEventListener("DOMContentLoaded", () => {
     return offset;
   }
 
+  function setSelectionRangeInLine(lineEl, startOffset, endOffset) {
+    if (!lineEl) return;
+    const sel = window.getSelection();
+    if (!sel) return;
+
+    if (startOffset === endOffset) {
+      setCaretOffsetInLine(lineEl, startOffset);
+      return;
+    }
+
+    let currentOffset = 0;
+    let startNode = null, startNodeOffset = 0;
+    let endNode = null, endNodeOffset = 0;
+
+    function walk(node) {
+      if (startNode && endNode) return;
+      if (node.nodeType === 3) {
+        const len = node.nodeValue.length;
+        if (!startNode && currentOffset + len >= startOffset) {
+          startNode = node;
+          startNodeOffset = Math.max(0, Math.min(len, startOffset - currentOffset));
+        }
+        if (!endNode && currentOffset + len >= endOffset) {
+          endNode = node;
+          endNodeOffset = Math.max(0, Math.min(len, endOffset - currentOffset));
+        }
+        currentOffset += len;
+      } else if (node.nodeType === 1) {
+        if (node.hasAttribute('data-ve-ui') ||
+            node.classList.contains('ve-task-checkbox') ||
+            node.classList.contains('ve-bullet-dot') ||
+            node.classList.contains('ve-number-label') ||
+            node.classList.contains('ve-image-wrapper') ||
+            node.classList.contains('katex-inline-container')) {
+          return;
+        }
+        for (let child = node.firstChild; child; child = child.nextSibling) {
+          walk(child);
+          if (startNode && endNode) return;
+        }
+      }
+    }
+
+    walk(lineEl);
+
+    if (startNode && !endNode) {
+      let lastTextNode = null;
+      function findLast(n) {
+        if (n.nodeType === 3) { lastTextNode = n; return; }
+        if (n.nodeType === 1) {
+          if (n.hasAttribute('data-ve-ui')) return;
+          for (let c = n.lastChild; c; c = c.previousSibling) {
+            findLast(c);
+            if (lastTextNode) return;
+          }
+        }
+      }
+      findLast(lineEl);
+      if (lastTextNode) {
+        endNode = lastTextNode;
+        endNodeOffset = lastTextNode.nodeValue.length;
+      }
+    }
+
+    if (startNode && endNode) {
+      const range = document.createRange();
+      range.setStart(startNode, startNodeOffset);
+      range.setEnd(endNode, endNodeOffset);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } else {
+      setCaretOffsetInLine(lineEl, endOffset);
+    }
+  }
+
+  function getSelectedVisualLines() {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || !visualEditor) return null;
+    const anchorLine = getLineFromNode(sel.anchorNode);
+    const focusLine = getLineFromNode(sel.focusNode);
+    if (!anchorLine || !focusLine) return null;
+
+    if (anchorLine === focusLine) {
+      return { isMultiLine: false, startLine: anchorLine, endLine: anchorLine };
+    }
+
+    const position = anchorLine.compareDocumentPosition(focusLine);
+    let startLine = anchorLine;
+    let endLine = focusLine;
+    let startContainer = sel.anchorNode;
+    let startOffset = sel.anchorOffset;
+    let endContainer = sel.focusNode;
+    let endOffset = sel.focusOffset;
+
+    if (position & Node.DOCUMENT_POSITION_PRECEDING) {
+      startLine = focusLine;
+      endLine = anchorLine;
+      startContainer = sel.focusNode;
+      startOffset = sel.focusOffset;
+      endContainer = sel.anchorNode;
+      endOffset = sel.anchorOffset;
+    }
+
+    const allLines = Array.from(visualEditor.querySelectorAll('.ve-line'));
+    const startIdx = allLines.indexOf(startLine);
+    const endIdx = allLines.indexOf(endLine);
+    if (startIdx === -1 || endIdx === -1) {
+      return { isMultiLine: false, startLine: anchorLine, endLine: anchorLine };
+    }
+
+    const selectedLines = allLines.slice(Math.min(startIdx, endIdx), Math.max(startIdx, endIdx) + 1);
+    return {
+      isMultiLine: true,
+      lines: selectedLines,
+      startLine,
+      endLine,
+      startOffsetInLine: getRangeOffsetInLine(startLine, startContainer, startOffset),
+      endOffsetInLine: getRangeOffsetInLine(endLine, endContainer, endOffset)
+    };
+  }
+
   function applyFormattingToActiveVisualBlock(prefix, suffix, defaultText = 'text') {
     if (!isVisualModeActive || !visualEditor) return false;
     const sel = window.getSelection();
-    let lineEl = sel?.anchorNode ? getLineFromNode(sel.anchorNode) : null;
+    let lineEl = sel?.anchorNode ? (typeof getLineFromNode === 'function' ? getLineFromNode(sel.anchorNode) : null) : null;
     if (!lineEl) {
       const lines = visualEditor.querySelectorAll('.ve-line');
       if (lines.length > 0) lineEl = lines[lines.length - 1];
       else return false;
+    }
+
+    // Check if multi-line selection
+    const selInfo = typeof getSelectedVisualLines === 'function' ? getSelectedVisualLines() : null;
+    if (selInfo && selInfo.isMultiLine && selInfo.lines.length > 1) {
+      selInfo.lines.forEach((l, idx) => {
+        const raw = getLineRawText(l);
+        let newRaw = raw;
+        if (suffix) {
+          if (idx === 0) {
+            const start = selInfo.startOffsetInLine;
+            const before = raw.slice(0, start);
+            const selected = raw.slice(start);
+            newRaw = before + prefix + selected + suffix;
+          } else if (idx === selInfo.lines.length - 1) {
+            const end = selInfo.endOffsetInLine;
+            const selected = raw.slice(0, end);
+            const after = raw.slice(end);
+            newRaw = prefix + selected + suffix + after;
+          } else {
+            newRaw = prefix + raw + suffix;
+          }
+        } else {
+          newRaw = prefix + raw;
+        }
+        if (l.classList.contains('ve-code-line') || l.classList.contains('ve-code-fence') ||
+            l.classList.contains('ve-math-line') || l.classList.contains('ve-math-fence') ||
+            l.classList.contains('ve-table-line')) {
+          l.innerHTML = escapeVeHtml(newRaw) || '<br>';
+        } else {
+          const parsed = parseVeLine(newRaw, false, -1);
+          l.className = parsed.className;
+          l.innerHTML = parsed.html;
+        }
+      });
+      syncVisualModeToEditor();
+      if (typeof saveVisualSnapshotImmediate === 'function') {
+        saveVisualSnapshotImmediate();
+      }
+      return true;
     }
 
     const rawText = getLineRawText(lineEl);
@@ -10287,16 +11352,73 @@ window.addEventListener("DOMContentLoaded", () => {
       endOffset = tmp;
     }
 
-    const selectedText = rawText.slice(startOffset, endOffset) || defaultText;
-    const replacement = prefix + selectedText + suffix;
-    const newRaw = rawText.slice(0, startOffset) + replacement + rawText.slice(endOffset);
-    const newCaret = startOffset + prefix.length + selectedText.length;
+    const hasSelection = startOffset !== endOffset;
+    let selectedText = hasSelection ? rawText.slice(startOffset, endOffset) : '';
 
-    const parsed = parseVeLine(newRaw, true, newCaret);
-    lineEl.className = parsed.className;
-    lineEl.innerHTML = parsed.html;
-    setCaretOffsetInLine(lineEl, newCaret);
+    // Check if already formatted to toggle off
+    let isAlreadyFormatted = false;
+    let unformattedStart = startOffset;
+    let unformattedEnd = endOffset;
+    let unwrappedText = selectedText;
+
+    if (suffix && hasSelection) {
+      if (selectedText.startsWith(prefix) && selectedText.endsWith(suffix) && selectedText.length >= prefix.length + suffix.length) {
+        isAlreadyFormatted = true;
+        unwrappedText = selectedText.slice(prefix.length, selectedText.length - suffix.length);
+      } else if (
+        startOffset >= prefix.length &&
+        rawText.slice(startOffset - prefix.length, startOffset) === prefix &&
+        rawText.slice(endOffset, endOffset + suffix.length) === suffix
+      ) {
+        isAlreadyFormatted = true;
+        unformattedStart = startOffset - prefix.length;
+        unformattedEnd = endOffset + suffix.length;
+        unwrappedText = selectedText;
+      }
+    }
+
+    let replacement = '';
+    let newRaw = '';
+    let selectStart = startOffset;
+    let selectEnd = endOffset;
+
+    if (isAlreadyFormatted) {
+      replacement = unwrappedText;
+      newRaw = rawText.slice(0, unformattedStart) + replacement + rawText.slice(unformattedEnd);
+      selectStart = unformattedStart;
+      selectEnd = unformattedStart + replacement.length;
+    } else {
+      const textToWrap = selectedText || (hasSelection ? '' : (defaultText === 'text' ? '' : defaultText));
+      replacement = prefix + textToWrap + suffix;
+      newRaw = rawText.slice(0, startOffset) + replacement + rawText.slice(endOffset);
+      if (hasSelection || textToWrap.length > 0) {
+        selectStart = startOffset + prefix.length;
+        selectEnd = selectStart + textToWrap.length;
+      } else {
+        selectStart = startOffset + prefix.length;
+        selectEnd = selectStart;
+      }
+    }
+
+    if (lineEl.classList.contains('ve-code-line') || lineEl.classList.contains('ve-code-fence') ||
+        lineEl.classList.contains('ve-math-line') || lineEl.classList.contains('ve-math-fence') ||
+        lineEl.classList.contains('ve-table-line')) {
+      lineEl.innerHTML = escapeVeHtml(newRaw) || '<br>';
+    } else {
+      const parsed = parseVeLine(newRaw, true, selectStart);
+      lineEl.className = parsed.className;
+      lineEl.innerHTML = parsed.html;
+    }
+
+    if (selectStart === selectEnd) {
+      setCaretOffsetInLine(lineEl, selectStart);
+    } else {
+      setSelectionRangeInLine(lineEl, selectStart, selectEnd);
+    }
     syncVisualModeToEditor();
+    if (typeof saveVisualSnapshotImmediate === 'function') {
+      saveVisualSnapshotImmediate();
+    }
     return true;
   }
 
@@ -10306,6 +11428,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
     // Paste handler for images and text in Visual Mode
     visualEditor.addEventListener('paste', async (e) => {
+      stopTypewriterEffect();
       const clipboardItems = e.clipboardData?.items || [];
       for (let i = 0; i < clipboardItems.length; i++) {
         const item = clipboardItems[i];
@@ -10354,6 +11477,7 @@ window.addEventListener("DOMContentLoaded", () => {
               setVisualEditorMarkdown(getVisualEditorMarkdown() + '\n' + markdownImage);
             }
             syncVisualModeToEditor();
+            saveVisualSnapshotImmediate();
           };
           reader.readAsArrayBuffer(blob);
           return;
@@ -10369,6 +11493,7 @@ window.addEventListener("DOMContentLoaded", () => {
         if (lineEl && lineEl.closest('.ve-block.ve-active')) {
           document.execCommand('insertText', false, pastedText);
           syncVisualModeToEditor();
+          saveVisualSnapshotImmediate();
           return;
         }
 
@@ -10416,12 +11541,30 @@ window.addEventListener("DOMContentLoaded", () => {
 
         checkAndFormatCompletedBlocks(visualEditor);
         syncVisualModeToEditor();
+        saveVisualSnapshotImmediate();
         return;
+      }
+    });
+
+    visualEditor.addEventListener('beforeinput', () => {
+      if (typeof isTypewriterActive !== 'undefined' && isTypewriterActive) {
+        stopTypewriterEffect();
       }
     });
 
     let isHandlingInput = false;
     visualEditor.addEventListener('input', () => {
+      if (typeof isTypewriterActive !== 'undefined' && isTypewriterActive) {
+        stopTypewriterEffect();
+      } else if (!editor || editor.value.length === 0) {
+        if (typewriterIdleTimer) clearTimeout(typewriterIdleTimer);
+        typewriterIdleTimer = setTimeout(() => {
+          const isStillEmpty = (!editor || editor.value.length === 0) && (typeof getVisualEditorMarkdown !== 'function' || getVisualEditorMarkdown().length === 0);
+          if (isStillEmpty && !isTypewriterActive && typeof startTypewriterEffect === 'function') {
+            startTypewriterEffect();
+          }
+        }, 500);
+      }
       if (isHandlingInput) return;
       isHandlingInput = true;
       try {
@@ -10435,6 +11578,7 @@ window.addEventListener("DOMContentLoaded", () => {
             setCaretOffsetInLine(fl, 0);
           }
           syncVisualModeToEditor();
+          recordVisualChange(true);
           return;
         }
 
@@ -10463,6 +11607,7 @@ window.addEventListener("DOMContentLoaded", () => {
             }
           }
           syncVisualModeToEditor();
+          recordVisualChange(true);
           return;
         }
 
@@ -10473,6 +11618,7 @@ window.addEventListener("DOMContentLoaded", () => {
         lineEl.innerHTML = parsed.html;
         setCaretOffsetInLine(lineEl, caretOffset);
         syncVisualModeToEditor();
+        recordVisualChange(true);
 
         // Real-time block completion detection
         debouncedCheckAndFormatCompletedBlocks(visualEditor);
@@ -10482,6 +11628,205 @@ window.addEventListener("DOMContentLoaded", () => {
     });
 
     visualEditor.addEventListener('keydown', (e) => {
+      if (typeof isTypewriterActive !== 'undefined' && isTypewriterActive && !['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Tab'].includes(e.key)) {
+        stopTypewriterEffect();
+      }
+      const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+      if (isCmdOrCtrl && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        e.stopPropagation();
+        visualModeUndo();
+        return;
+      }
+      if ((isCmdOrCtrl && e.altKey && !e.shiftKey && e.key.toLowerCase() === 'z') ||
+          (isCmdOrCtrl && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z') ||
+          (!isMac && e.ctrlKey && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'y')) {
+        e.preventDefault();
+        e.stopPropagation();
+        visualModeRedo();
+        return;
+      }
+
+      // Visual Mode text formatting and block insertion shortcuts
+      if (isCmdOrCtrl && !e.altKey) {
+        if (e.shiftKey) {
+          switch (e.key.toLowerCase()) {
+            case "x":
+            case "s":
+              e.preventDefault();
+              e.stopPropagation();
+              applyFormattingToActiveVisualBlock('~~', '~~', 'strikethrough');
+              return;
+            case "m":
+            case "k":
+              e.preventDefault();
+              e.stopPropagation();
+              insertMathBlockInVisualMode();
+              return;
+            case "t":
+              e.preventDefault();
+              e.stopPropagation();
+              insertTableBlockInVisualMode();
+              return;
+            case "q":
+            case ">":
+              e.preventDefault();
+              e.stopPropagation();
+              applyQuoteInVisualMode();
+              return;
+            case "c":
+              e.preventDefault();
+              e.stopPropagation();
+              insertCodeBlockInVisualMode();
+              return;
+            case "u":
+            case "8":
+            case "*":
+              e.preventDefault();
+              e.stopPropagation();
+              applyListInVisualMode('bullet');
+              return;
+            case "o":
+            case "7":
+            case "&":
+              e.preventDefault();
+              e.stopPropagation();
+              applyListInVisualMode('number');
+              return;
+            case "h":
+            case "-":
+            case "_":
+              e.preventDefault();
+              e.stopPropagation();
+              insertHorizontalRuleInVisualMode();
+              return;
+          }
+        } else {
+          switch (e.key.toLowerCase()) {
+            case "b":
+              e.preventDefault();
+              e.stopPropagation();
+              applyFormattingToActiveVisualBlock('**', '**', 'bold');
+              return;
+            case "i":
+              e.preventDefault();
+              e.stopPropagation();
+              applyFormattingToActiveVisualBlock('*', '*', 'italic');
+              return;
+            case "u":
+              e.preventDefault();
+              e.stopPropagation();
+              applyFormattingToActiveVisualBlock('<u>', '</u>', 'underline');
+              return;
+            case "l":
+              e.preventDefault();
+              e.stopPropagation();
+              applyFormattingToActiveVisualBlock('[', '](url)', 'link text');
+              return;
+            case "`":
+            case "h":
+            case "e": {
+              e.preventDefault();
+              e.stopPropagation();
+              const sel = window.getSelection();
+              const lineEl = sel?.anchorNode ? getLineFromNode(sel.anchorNode) : null;
+              if (sel && !sel.isCollapsed && lineEl && lineEl.contains(sel.anchorNode) && lineEl.contains(sel.focusNode)) {
+                applyFormattingToActiveVisualBlock('`', '`', 'code');
+              } else {
+                insertCodeBlockInVisualMode();
+              }
+              return;
+            }
+            case "1":
+            case "2":
+            case "3":
+            case "4":
+            case "5":
+            case "6":
+              e.preventDefault();
+              e.stopPropagation();
+              applyHeadingInVisualMode(parseInt(e.key, 10));
+              return;
+          }
+        }
+      }
+
+      const vePairs = { '(': ')', '[': ']', '{': '}', '"': '"', "'": "'", '`': '`' };
+      const veWrapPairs = { ...vePairs, '*': '*', '_': '_', '~': '~', '$': '$', '<': '>' };
+      const veClosingChars = [')', ']', '}', '"', "'", '`'];
+
+      // 1. Overtyping: se premo un carattere di chiusura ed il cursore si trova proprio prima di quel carattere, avanza
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && veClosingChars.includes(e.key)) {
+        const sel = window.getSelection();
+        if (sel && sel.isCollapsed && sel.anchorNode) {
+          const lineEl = getLineFromNode(sel.anchorNode);
+          if (lineEl) {
+            const caretOffset = getCaretOffsetInLine(lineEl);
+            const rawText = getLineRawText(lineEl);
+            if (caretOffset < rawText.length && rawText.charAt(caretOffset) === e.key) {
+              e.preventDefault();
+              e.stopPropagation();
+              setCaretOffsetInLine(lineEl, caretOffset + 1);
+              return;
+            }
+          }
+        }
+      }
+
+      // 2. Selection wrapping con parentesi o simboli markdown (quando c'è testo selezionato)
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && veWrapPairs[e.key]) {
+        const sel = window.getSelection();
+        if (sel && !sel.isCollapsed && sel.anchorNode) {
+          const lineEl = getLineFromNode(sel.anchorNode);
+          if (lineEl) {
+            e.preventDefault();
+            e.stopPropagation();
+            applyFormattingToActiveVisualBlock(e.key, veWrapPairs[e.key], '');
+            return;
+          }
+        }
+      }
+
+      // 3. Auto-close apertura quando non c'è selezione
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && Object.keys(vePairs).includes(e.key)) {
+        const sel = window.getSelection();
+        if (sel && sel.isCollapsed && sel.anchorNode) {
+          const lineEl = getLineFromNode(sel.anchorNode);
+          if (lineEl) {
+            const caretOffset = getCaretOffsetInLine(lineEl);
+            const rawText = getLineRawText(lineEl);
+            if (e.key === "'" && caretOffset > 0 && /\w/.test(rawText.charAt(caretOffset - 1))) {
+              // Lascia digitare il singolo apice come apostrofo in parola
+            } else {
+              e.preventDefault();
+              e.stopPropagation();
+              const pair = vePairs[e.key];
+              const left = rawText.slice(0, caretOffset);
+              const right = rawText.slice(caretOffset);
+              const newRaw = left + e.key + pair + right;
+              const newCaret = caretOffset + 1;
+
+              const insideBlock = lineEl.closest('.ve-block.ve-active');
+              if (insideBlock || lineEl.classList.contains('ve-code-line') || lineEl.classList.contains('ve-math-line') || lineEl.classList.contains('ve-table-line')) {
+                lineEl.textContent = newRaw;
+                setCaretOffsetInLine(lineEl, newCaret);
+              } else {
+                const parsed = parseVeLine(newRaw, true, newCaret);
+                lineEl.className = parsed.className;
+                lineEl.innerHTML = parsed.html;
+                setCaretOffsetInLine(lineEl, newCaret);
+                if (typeof debouncedCheckAndFormatCompletedBlocks === 'function') {
+                  debouncedCheckAndFormatCompletedBlocks(visualEditor);
+                }
+              }
+              syncVisualModeToEditor();
+              recordVisualChange(true);
+              return;
+            }
+          }
+        }
+      }
+
       // Navigation with ArrowUp / ArrowDown inside active block editor
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         const sel = window.getSelection();
@@ -10556,6 +11901,7 @@ window.addEventListener("DOMContentLoaded", () => {
             setCaretOffsetInLine(newLineEl, 0);
             newLineEl.scrollIntoView({ behavior: 'auto', block: 'nearest' });
             syncVisualModeToEditor();
+            saveVisualSnapshotImmediate();
             return;
           }
 
@@ -10572,6 +11918,7 @@ window.addEventListener("DOMContentLoaded", () => {
           lineEl.after(newLineEl);
           setCaretOffsetInLine(newLineEl, 0);
           syncVisualModeToEditor();
+          saveVisualSnapshotImmediate();
           return;
         }
 
@@ -10603,6 +11950,7 @@ window.addEventListener("DOMContentLoaded", () => {
             setCaretOffsetInLine(newLineEl, 0);
             newLineEl.scrollIntoView({ behavior: 'auto', block: 'nearest' });
             syncVisualModeToEditor();
+            saveVisualSnapshotImmediate();
             return;
           }
 
@@ -10630,6 +11978,7 @@ window.addEventListener("DOMContentLoaded", () => {
           setCaretOffsetInLine(newLineEl, 2);
           newLineEl.scrollIntoView({ behavior: 'auto', block: 'nearest' });
           syncVisualModeToEditor();
+          saveVisualSnapshotImmediate();
           return;
         }
 
@@ -10659,6 +12008,7 @@ window.addEventListener("DOMContentLoaded", () => {
           setCaretOffsetInLine(newLineEl, 0);
           newLineEl.scrollIntoView({ behavior: 'auto', block: 'nearest' });
           syncVisualModeToEditor();
+          saveVisualSnapshotImmediate();
           return;
         }
 
@@ -10672,6 +12022,7 @@ window.addEventListener("DOMContentLoaded", () => {
             lineEl.className = 've-line';
             setCaretOffsetInLine(lineEl, 0);
             syncVisualModeToEditor();
+            saveVisualSnapshotImmediate();
             return;
           }
 
@@ -10698,6 +12049,7 @@ window.addEventListener("DOMContentLoaded", () => {
           setCaretOffsetInLine(newLineEl, 2);
           newLineEl.scrollIntoView({ behavior: 'auto', block: 'nearest' });
           syncVisualModeToEditor();
+          saveVisualSnapshotImmediate();
           return;
         }
 
@@ -10720,6 +12072,7 @@ window.addEventListener("DOMContentLoaded", () => {
               lineEl.innerHTML = parsedCurr.html;
               setCaretOffsetInLine(lineEl, newRaw.length);
               syncVisualModeToEditor();
+              saveVisualSnapshotImmediate();
               return;
             } else {
               currLineText = '';
@@ -10728,6 +12081,7 @@ window.addEventListener("DOMContentLoaded", () => {
               lineEl.innerHTML = parsedCurr.html;
               setCaretOffsetInLine(lineEl, 0);
               syncVisualModeToEditor();
+              saveVisualSnapshotImmediate();
               return;
             }
           } else {
@@ -10749,6 +12103,7 @@ window.addEventListener("DOMContentLoaded", () => {
                 lineEl.innerHTML = parsedCurr.html;
                 setCaretOffsetInLine(lineEl, newRaw.length);
                 syncVisualModeToEditor();
+                saveVisualSnapshotImmediate();
                 return;
               } else {
                 currLineText = '';
@@ -10757,6 +12112,7 @@ window.addEventListener("DOMContentLoaded", () => {
                 lineEl.innerHTML = parsedCurr.html;
                 setCaretOffsetInLine(lineEl, 0);
                 syncVisualModeToEditor();
+                saveVisualSnapshotImmediate();
                 return;
               }
             } else {
@@ -10778,6 +12134,7 @@ window.addEventListener("DOMContentLoaded", () => {
                   lineEl.innerHTML = parsedCurr.html;
                   setCaretOffsetInLine(lineEl, newRaw.length);
                   syncVisualModeToEditor();
+                  saveVisualSnapshotImmediate();
                   return;
                 } else {
                   currLineText = '';
@@ -10786,6 +12143,7 @@ window.addEventListener("DOMContentLoaded", () => {
                   lineEl.innerHTML = parsedCurr.html;
                   setCaretOffsetInLine(lineEl, 0);
                   syncVisualModeToEditor();
+                  saveVisualSnapshotImmediate();
                   return;
                 }
               } else {
@@ -10817,12 +12175,48 @@ window.addEventListener("DOMContentLoaded", () => {
         newLineEl.scrollIntoView({ behavior: 'auto', block: 'nearest' });
         checkAndFormatCompletedBlocks(visualEditor);
         syncVisualModeToEditor();
+        saveVisualSnapshotImmediate();
         return;
       }
 
       if (e.key === 'Backspace') {
         const sel = window.getSelection();
         if (!sel || !sel.isCollapsed || !sel.anchorNode) return;
+
+        // Auto-delete pair se il cursore è direttamente tra parentesi o simboli accoppiati
+        if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+          const lineEl = getLineFromNode(sel.anchorNode);
+          if (lineEl) {
+            const caretOffset = getCaretOffsetInLine(lineEl);
+            const rawText = getLineRawText(lineEl);
+            if (caretOffset > 0 && caretOffset < rawText.length) {
+              const prevChar = rawText.charAt(caretOffset - 1);
+              const nextChar = rawText.charAt(caretOffset);
+              if (vePairs[prevChar] && vePairs[prevChar] === nextChar) {
+                e.preventDefault();
+                e.stopPropagation();
+                const left = rawText.slice(0, caretOffset - 1);
+                const right = rawText.slice(caretOffset + 1);
+                const newRaw = left + right;
+                const newCaret = caretOffset - 1;
+
+                const insideBlock = lineEl.closest('.ve-block.ve-active');
+                if (insideBlock || lineEl.classList.contains('ve-code-line') || lineEl.classList.contains('ve-math-line') || lineEl.classList.contains('ve-table-line')) {
+                  lineEl.textContent = newRaw;
+                  setCaretOffsetInLine(lineEl, newCaret);
+                } else {
+                  const parsed = parseVeLine(newRaw, true, newCaret);
+                  lineEl.className = parsed.className;
+                  lineEl.innerHTML = parsed.html;
+                  setCaretOffsetInLine(lineEl, newCaret);
+                }
+                syncVisualModeToEditor();
+                recordVisualChange(true);
+                return;
+              }
+            }
+          }
+        }
 
         // Check if an inactive block itself or its preview is selected/focused
         let focusedBlock = sel.anchorNode.nodeType === 1 && sel.anchorNode.classList.contains('ve-block')
@@ -10834,6 +12228,7 @@ window.addEventListener("DOMContentLoaded", () => {
           if (isBlockEmpty(focusedBlock)) {
             focusedBlock.remove();
             syncVisualModeToEditor();
+            saveVisualSnapshotImmediate();
             return;
           }
           activateBlockEditor(focusedBlock);
@@ -10850,6 +12245,7 @@ window.addEventListener("DOMContentLoaded", () => {
             }
           }
           syncVisualModeToEditor();
+          saveVisualSnapshotImmediate();
           return;
         }
 
@@ -10892,6 +12288,7 @@ window.addEventListener("DOMContentLoaded", () => {
                   }
                 }
                 syncVisualModeToEditor();
+                saveVisualSnapshotImmediate();
                 return;
               }
 
@@ -10903,6 +12300,7 @@ window.addEventListener("DOMContentLoaded", () => {
               lastActiveLineEl = prevElem;
               setCaretOffsetInLine(prevElem, joinOffset);
               syncVisualModeToEditor();
+              saveVisualSnapshotImmediate();
               return;
             } else if (prevElem.classList.contains('ve-block')) {
               e.preventDefault();
@@ -10913,6 +12311,7 @@ window.addEventListener("DOMContentLoaded", () => {
                   lineEl.remove();
                 }
                 syncVisualModeToEditor();
+                saveVisualSnapshotImmediate();
                 return;
               }
               activateBlockEditor(prevElem);
@@ -10932,6 +12331,7 @@ window.addEventListener("DOMContentLoaded", () => {
                 lineEl.remove();
               }
               syncVisualModeToEditor();
+              saveVisualSnapshotImmediate();
               return;
             }
           } else if (insideBlock) {
@@ -10948,6 +12348,7 @@ window.addEventListener("DOMContentLoaded", () => {
               firstUnwrappedLine.remove();
               setCaretOffsetInLine(prevBeforeBlock, joinOffset);
               syncVisualModeToEditor();
+              saveVisualSnapshotImmediate();
             }
             return;
           }
@@ -10967,6 +12368,7 @@ window.addEventListener("DOMContentLoaded", () => {
           if (isBlockEmpty(focusedBlock)) {
             focusedBlock.remove();
             syncVisualModeToEditor();
+            saveVisualSnapshotImmediate();
             return;
           }
           activateBlockEditor(focusedBlock);
@@ -10983,6 +12385,7 @@ window.addEventListener("DOMContentLoaded", () => {
             }
           }
           syncVisualModeToEditor();
+          saveVisualSnapshotImmediate();
           return;
         }
 
@@ -11000,6 +12403,7 @@ window.addEventListener("DOMContentLoaded", () => {
             if (isBlockEmpty(nextElem)) {
               nextElem.remove();
               syncVisualModeToEditor();
+              saveVisualSnapshotImmediate();
               return;
             }
             activateBlockEditor(nextElem);
@@ -11019,6 +12423,7 @@ window.addEventListener("DOMContentLoaded", () => {
               lineEl.remove();
             }
             syncVisualModeToEditor();
+            saveVisualSnapshotImmediate();
             return;
           } else if (insideBlock && !nextElem) {
             // Delete at the very end of the last line of an active block
@@ -11033,6 +12438,7 @@ window.addEventListener("DOMContentLoaded", () => {
               nextAfterBlock.remove();
               setCaretOffsetInLine(lastUnwrappedLine, lastRaw.length);
               syncVisualModeToEditor();
+              saveVisualSnapshotImmediate();
             }
             return;
           }
@@ -11047,6 +12453,13 @@ window.addEventListener("DOMContentLoaded", () => {
         if (!lineEl) return;
         const caretOffset = getCaretOffsetInLine(lineEl);
         const rawText = getLineRawText(lineEl);
+
+        // Se il cursore si trova proprio prima di un carattere di chiusura (e non stiamo usando Shift+Tab), avanza oltre
+        if (!e.shiftKey && sel.isCollapsed && caretOffset < rawText.length && veClosingChars.includes(rawText.charAt(caretOffset))) {
+          e.stopPropagation();
+          setCaretOffsetInLine(lineEl, caretOffset + 1);
+          return;
+        }
 
         // Controllo se la riga è un elemento di lista (trattino, numerata, checkbox)
         const isBulletList = rawText.match(/^(\s*)([-*+])\s*(.*)$/);
@@ -11064,6 +12477,7 @@ window.addEventListener("DOMContentLoaded", () => {
               lineEl.innerHTML = parsed.html;
               setCaretOffsetInLine(lineEl, newOffset);
               syncVisualModeToEditor();
+              saveVisualSnapshotImmediate();
             } else if (rawText.startsWith(' ')) {
               const newRaw = rawText.slice(1);
               const newOffset = Math.max(0, caretOffset - 1);
@@ -11072,6 +12486,7 @@ window.addEventListener("DOMContentLoaded", () => {
               lineEl.innerHTML = parsed.html;
               setCaretOffsetInLine(lineEl, newOffset);
               syncVisualModeToEditor();
+              saveVisualSnapshotImmediate();
             }
           } else {
             // Indent: aggiunge 2 spazi ALL'INIZIO della riga per creare la sottolista
@@ -11082,6 +12497,7 @@ window.addEventListener("DOMContentLoaded", () => {
             lineEl.innerHTML = parsed.html;
             setCaretOffsetInLine(lineEl, newOffset);
             syncVisualModeToEditor();
+            saveVisualSnapshotImmediate();
           }
           return;
         }
@@ -11096,6 +12512,7 @@ window.addEventListener("DOMContentLoaded", () => {
             lineEl.innerHTML = parsed.html;
             setCaretOffsetInLine(lineEl, newOffset);
             syncVisualModeToEditor();
+            saveVisualSnapshotImmediate();
           }
         } else {
           const newRaw = rawText.slice(0, caretOffset) + '  ' + rawText.slice(caretOffset);
@@ -11105,6 +12522,7 @@ window.addEventListener("DOMContentLoaded", () => {
           lineEl.innerHTML = parsed.html;
           setCaretOffsetInLine(lineEl, newOffset);
           syncVisualModeToEditor();
+          saveVisualSnapshotImmediate();
         }
         return;
       }
@@ -11242,6 +12660,7 @@ window.addEventListener("DOMContentLoaded", () => {
         lineEl.className = parsed.className;
         lineEl.innerHTML = parsed.html;
         syncVisualModeToEditor();
+        saveVisualSnapshotImmediate();
         return;
       }
 
@@ -11298,6 +12717,13 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   if (visualEditorContainer) {
+    visualEditorContainer.addEventListener('scroll', () => {
+      const vtp = document.getElementById('visual-typewriter-placeholder');
+      if (vtp && typeof isTypewriterActive !== 'undefined' && isTypewriterActive) {
+        vtp.scrollTop = visualEditorContainer.scrollTop;
+      }
+    });
+
     visualEditorContainer.addEventListener('click', (e) => {
       if (e.target === visualEditorContainer) {
         if (!visualEditor) return;

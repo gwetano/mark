@@ -42,7 +42,9 @@ const translations = {
     // Explorer
     explorer_title: "Explorer",
     new_file: "New file",
+    new_folder: "New folder",
     open_folder: "Open folder",
+    click_to_change_folder: "Click to change folder",
     refresh: "Refresh",
     close_explorer: "Close Explorer",
     collapse_folders: "Collapse all folders",
@@ -54,8 +56,6 @@ const translations = {
     context_copy: "Copy",
     context_paste: "Paste",
     context_select_all: "Select All",
-    context_format_markdown: "Format Markdown",
-    context_show_history: "Show Undo History",
     context_add_to_dictionary: "Add to Dictionary",
     context_no_suggestions: "(No spelling suggestions)",
     notif_word_added_to_dict: '"{word}" added to dictionary',
@@ -179,7 +179,6 @@ const translations = {
 
     shortcut_undo: "Undo",
     shortcut_find: "Find in document",
-    shortcut_format: "Format Markdown",
     shortcut_insert_link: "Insert link",
     shortcut_insert_image: "Insert image",
     shortcut_paste_image: "Paste image from clipboard",
@@ -189,9 +188,6 @@ const translations = {
     shortcut_solo_preview: "Solo Preview view mode",
     shortcut_toggle_theme: "Toggle Light / Dark theme",
     shortcut_exit_modal: "Close dialog / Exit reading mode",
-
-    // Undo History
-    history_title: "Undo History",
 
     // Collaboration Modal
     collab_title: "Collaborate",
@@ -309,8 +305,10 @@ const translations = {
     ctx_delete: "Move to Trash",
     dialog_delete_title: "Move to Trash",
     dialog_delete_confirm: "Are you sure you want to move \"{name}\" to Trash?",
+    dialog_delete_folder_confirm: "Are you sure you want to move the folder \"{name}\" and all its contents to Trash?",
     dialog_move_to_trash: "Move to Trash",
     dialog_file_exists: "A file with this name already exists.",
+    notif_file_moved: '"{name}" moved to "{folder}"',
     notif_item_deleted: "\"{name}\" moved to Trash",
     notif_path_copied: "Path copied to clipboard",
     notif_content_copied: "File content copied to clipboard",
@@ -399,7 +397,9 @@ const translations = {
     // Explorer
     explorer_title: "Explorer",
     new_file: "Nuovo file",
+    new_folder: "Nuova cartella",
     open_folder: "Apri cartella",
+    click_to_change_folder: "Clicca per cambiare cartella",
     refresh: "Aggiorna",
     close_explorer: "Chiudi explorer",
     collapse_folders: "Chiudi tutte le cartelle",
@@ -411,8 +411,6 @@ const translations = {
     context_copy: "Copia",
     context_paste: "Incolla",
     context_select_all: "Seleziona tutto",
-    context_format_markdown: "Formatta Markdown",
-    context_show_history: "Cronologia modifiche",
     context_add_to_dictionary: "Aggiungi al vocabolario",
     context_no_suggestions: "(Nessun suggerimento)",
     notif_word_added_to_dict: '"{word}" aggiunta al vocabolario',
@@ -536,7 +534,6 @@ const translations = {
 
     shortcut_undo: "Annulla ultima modifica",
     shortcut_find: "Cerca testo nel documento",
-    shortcut_format: "Formatta struttura Markdown",
     shortcut_insert_link: "Inserisci link",
     shortcut_insert_image: "Inserisci immagine da file",
     shortcut_paste_image: "Incolla immagine dagli appunti",
@@ -546,9 +543,6 @@ const translations = {
     shortcut_solo_preview: "Modalità solo Anteprima",
     shortcut_toggle_theme: "Alterna tema Chiaro / Scuro",
     shortcut_exit_modal: "Chiudi impostazioni / Esci da lettura",
-
-    // Undo History
-    history_title: "Cronologia modifiche",
 
     // Collaboration Modal
     collab_title: "Collabora",
@@ -666,8 +660,10 @@ const translations = {
     ctx_delete: "Sposta nel cestino",
     dialog_delete_title: "Sposta nel cestino",
     dialog_delete_confirm: "Sei sicuro di voler spostare \"{name}\" nel cestino?",
+    dialog_delete_folder_confirm: "Sei sicuro di voler spostare la cartella \"{name}\" e tutto il suo contenuto nel cestino?",
     dialog_move_to_trash: "Sposta nel cestino",
     dialog_file_exists: "Un file con questo nome esiste già.",
+    notif_file_moved: '"{name}" spostato in "{folder}"',
     notif_item_deleted: "\"{name}\" spostato nel cestino",
     notif_path_copied: "Percorso copiato negli appunti",
     notif_content_copied: "Contenuto del file copiato negli appunti",

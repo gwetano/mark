@@ -248,17 +248,6 @@ function createWindow() {
         accelerator: 'CmdOrCtrl+V',
         role: 'paste'
       }));
-      menu.append(new MenuItem({ type: 'separator' }));
-      menu.append(new MenuItem({
-        label: i18n.t('context_format_markdown'),
-        accelerator: 'CmdOrCtrl+K',
-        click: () => win.webContents.send('format-markdown')
-      }));
-      menu.append(new MenuItem({
-        label: i18n.t('context_show_history'),
-        accelerator: 'Ctrl+Alt+Z',
-        click: () => win.webContents.send('show-undo-history')
-      }));
     }
 
     // 3. AI Tool se c'è testo selezionato
