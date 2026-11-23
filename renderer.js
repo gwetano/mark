@@ -854,6 +854,105 @@ function setupExternalLinks() {
   });
 }
 
+// ====== FIREFOX-STYLE LINK PREVIEW TOOLTIP ======
+let linkPreviewTooltipEl = null;
+
+function showLinkPreview(url) {
+  if (!linkPreviewTooltipEl) {
+    linkPreviewTooltipEl = document.getElementById("link-preview-tooltip");
+  }
+  if (!linkPreviewTooltipEl || !url) return;
+  linkPreviewTooltipEl.textContent = url;
+  linkPreviewTooltipEl.classList.add("visible");
+}
+
+function hideLinkPreview() {
+  if (!linkPreviewTooltipEl) {
+    linkPreviewTooltipEl = document.getElementById("link-preview-tooltip");
+  }
+  if (!linkPreviewTooltipEl) return;
+  linkPreviewTooltipEl.classList.remove("visible");
+  linkPreviewTooltipEl.textContent = "";
+}
+
+function setupLinkPreviewTooltip() {
+  linkPreviewTooltipEl = document.getElementById("link-preview-tooltip");
+  const preview = document.getElementById("preview");
+  const visualEditor = document.getElementById("visual-editor");
+  const visualEditorContainer = document.getElementById("visual-editor-container");
+
+  function getLinkUrlFromTarget(target, containerType) {
+    if (!target) return null;
+    if (containerType === 'preview') {
+      const a = target.closest("a[href]");
+      if (a) {
+        return a.getAttribute("href") || a.href || null;
+      }
+    } else if (containerType === 'visual') {
+      const token = target.closest(".ve-token-link");
+      if (token) {
+        const urlEl = token.querySelector(".ve-link-url");
+        const url = urlEl ? urlEl.textContent.trim() : "";
+        if (url) return url;
+      }
+      const a = target.closest("a[href]");
+      if (a) {
+        return a.getAttribute("href") || a.href || null;
+      }
+    }
+    return null;
+  }
+
+  // Preview listeners
+  if (preview) {
+    preview.addEventListener("mouseover", (e) => {
+      const url = getLinkUrlFromTarget(e.target, 'preview');
+      if (url) {
+        showLinkPreview(url);
+      } else {
+        hideLinkPreview();
+      }
+    });
+
+    preview.addEventListener("mouseleave", () => {
+      hideLinkPreview();
+    });
+
+    preview.addEventListener("scroll", () => {
+      hideLinkPreview();
+    }, { passive: true });
+  }
+
+  // Visual Editor listeners
+  if (visualEditor) {
+    visualEditor.addEventListener("mouseover", (e) => {
+      const url = getLinkUrlFromTarget(e.target, 'visual');
+      if (url) {
+        showLinkPreview(url);
+      } else {
+        hideLinkPreview();
+      }
+    });
+
+    visualEditor.addEventListener("mouseleave", () => {
+      hideLinkPreview();
+    });
+
+    visualEditor.addEventListener("keydown", () => {
+      hideLinkPreview();
+    });
+  }
+
+  if (visualEditorContainer) {
+    visualEditorContainer.addEventListener("scroll", () => {
+      hideLinkPreview();
+    }, { passive: true });
+  }
+
+  window.addEventListener("blur", hideLinkPreview);
+  document.addEventListener("mouseleave", hideLinkPreview);
+}
+
 function insertMarkdownLink() {
   const dropdownExtra = document.getElementById("dropdown-extra");
   if (dropdownExtra) {
@@ -5717,6 +5816,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
     saveStateForActiveTab();
     closeAutocomplete();
+    if (typeof hideLinkPreview === 'function') hideLinkPreview();
 
     activeTabId = targetTab.id;
     currentFilePath = targetTab.filePath;
@@ -5990,6 +6090,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   async function closeTab(tabId) {
     if (isClosingTab) return false;
+    if (typeof hideLinkPreview === 'function') hideLinkPreview();
     const tabIndex = tabs.findIndex(t => t.id === tabId);
     if (tabIndex === -1) return true;
     const tab = tabs[tabIndex];
@@ -8181,6 +8282,7 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   btnViewEditor && btnViewEditor.addEventListener("click", () => {
+    if (typeof hideLinkPreview === 'function') hideLinkPreview();
     if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive) setVisualMode(false);
     const activeTab = getActiveTab();
     if (activeTab && activeTab.isPdf) return;
@@ -8193,6 +8295,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   btnViewSplit && btnViewSplit.addEventListener("click", () => {
+    if (typeof hideLinkPreview === 'function') hideLinkPreview();
     if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive) setVisualMode(false);
     const activeTab = getActiveTab();
     if (activeTab && activeTab.isPdf) return;
@@ -8213,6 +8316,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   btnViewPreview && btnViewPreview.addEventListener("click", () => {
+    if (typeof hideLinkPreview === 'function') hideLinkPreview();
     if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive) setVisualMode(false);
     const activeTab = getActiveTab();
     if (activeTab && activeTab.isPdf) return;
@@ -8378,6 +8482,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // ===== PRIMO RENDER + link esterni =====
   setupExternalLinks();
+  setupLinkPreviewTooltip();
   updatePreview();
 
   // ===== MOSTRA DOCUMENTO =====
@@ -11055,6 +11160,7 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   function setVisualMode(active) {
+    if (typeof hideLinkPreview === 'function') hideLinkPreview();
     const activeTab = typeof getActiveTab === 'function' ? getActiveTab() : null;
     if (active && activeTab && activeTab.isPdf) return;
 
