@@ -265,6 +265,14 @@
       </div>
 
       <div class="navbar-right">
+        <button id="btn-concept-map" class="icon-btn-navbar" data-i18n-title="concept_map" title="Concept Map">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="5" cy="6" r="3"/>
+            <circle cx="19" cy="6" r="3"/>
+            <circle cx="12" cy="19" r="3"/>
+            <path d="M7.5 7.5l7 0M6.5 8.5l4 8M17.5 8.5l-4 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
         <button id="btn-collab" data-i18n-title="collaborate" title="Collaborate">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
             <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
@@ -370,6 +378,7 @@
           </div>
         </div>
 
+        <div id="workspace-viewport" class="workspace-viewport">
         <div id="container">
           <div id="editor-container">
             <textarea id="editor" placeholder="" spellcheck="true"></textarea>
@@ -473,6 +482,213 @@
             <div id="pdf-pages-canvas-container" class="pdf-pages-canvas-container"></div>
           </div>
         </div>
+
+        <!-- DEDICATED CONCEPT MAP CONTAINER -->
+        <div id="concept-map-container" class="concept-map-container hidden">
+          <!-- SQUARED CONCEPT MAP TOP TOOLBAR -->
+          <div id="concept-map-toolbar" class="concept-map-toolbar">
+            <div class="concept-map-toolbar-left">
+              <div class="concept-map-search-box">
+                <input type="text" id="concept-map-search-input" data-i18n-placeholder="concept_map_search_placeholder" placeholder="Cerca nota o tag..." spellcheck="false" autocomplete="off" />
+                <div id="concept-map-search-suggestions" class="concept-map-search-suggestions hidden"></div>
+              </div>
+            </div>
+
+            <div class="concept-map-toolbar-right">
+              <button type="button" id="btn-graph-animate" class="concept-map-tool-btn" data-i18n-title="concept_map_animate" title="Animazione Dinamica">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 12h3l3-7 4 14 4-9 3 5 3-3"/>
+                </svg>
+              </button>
+              <button type="button" id="btn-graph-physics-toggle" class="concept-map-tool-btn" data-i18n-title="concept_map_physics" title="Fisica">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+              </button>
+              <button type="button" id="btn-graph-fit" class="concept-map-tool-btn" data-i18n-title="concept_map_fit" title="Centra">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                </svg>
+              </button>
+              <button type="button" id="btn-graph-refresh" class="concept-map-tool-btn" data-i18n-title="concept_map_refresh" title="Rianalizza">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="23 4 23 10 17 10"/>
+                  <polyline points="1 20 1 14 7 14"/>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- CANVAS VIEWPORT -->
+          <div id="concept-map-viewport" class="concept-map-viewport">
+            <canvas id="concept-map-canvas"></canvas>
+
+            <!-- FLOATING PHYSICS PANEL -->
+            <div id="concept-map-physics-panel" class="concept-map-physics-panel hidden">
+              <div class="physics-panel-header">
+                <span data-i18n="concept_map_physics">Fisica</span>
+                <button type="button" id="btn-close-physics-panel" class="physics-close-btn">&times;</button>
+              </div>
+              <div class="physics-panel-body">
+                <div class="physics-slider-row">
+                  <div class="physics-slider-label">
+                    <span data-i18n="concept_map_physics_repulsion">Repulsione</span>
+                    <div class="physics-val-box">
+                      <span id="physics-val-repulsion">220</span>
+                      <button type="button" class="physics-item-reset-btn hidden" data-param="repulsion" title="Reimposta">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                          <path d="M3 3v5h5"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  <input type="range" id="physics-slider-repulsion" min="40" max="600" value="220" step="10" />
+                </div>
+                <div class="physics-slider-row">
+                  <div class="physics-slider-label">
+                    <span data-i18n="concept_map_physics_distance">Distanza nodi</span>
+                    <div class="physics-val-box">
+                      <span id="physics-val-distance">130</span>
+                      <button type="button" class="physics-item-reset-btn hidden" data-param="linkDistance" title="Reimposta">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                          <path d="M3 3v5h5"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  <input type="range" id="physics-slider-distance" min="40" max="350" value="130" step="5" />
+                </div>
+                <div class="physics-slider-row">
+                  <div class="physics-slider-label">
+                    <span data-i18n="concept_map_physics_gravity">Gravità centro</span>
+                    <div class="physics-val-box">
+                      <span id="physics-val-gravity">0.008</span>
+                      <button type="button" class="physics-item-reset-btn hidden" data-param="gravity" title="Reimposta">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                          <path d="M3 3v5h5"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  <input type="range" id="physics-slider-gravity" min="0" max="0.06" value="0.008" step="0.002" />
+                </div>
+                <div class="physics-slider-row">
+                  <div class="physics-slider-label">
+                    <span data-i18n="concept_map_physics_friction">Inerzia / Attrito</span>
+                    <div class="physics-val-box">
+                      <span id="physics-val-friction">0.85</span>
+                      <button type="button" class="physics-item-reset-btn hidden" data-param="friction" title="Reimposta">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                          <path d="M3 3v5h5"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  <input type="range" id="physics-slider-friction" min="0.65" max="0.96" value="0.85" step="0.01" />
+                </div>
+                <div class="physics-switch-row">
+                  <span data-i18n="concept_map_physics_dynamic">Movimento dinamico (Idle)</span>
+                  <div class="physics-switch-wrapper">
+                    <button type="button" class="physics-item-reset-btn hidden" data-param="dynamicIdle" title="Reimposta">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                        <path d="M3 3v5h5"/>
+                      </svg>
+                    </button>
+                    <label class="switch-toggle">
+                      <input type="checkbox" id="physics-check-dynamic" />
+                      <span class="switch-slider"></span>
+                    </label>
+                  </div>
+                </div>
+                <div class="physics-switch-row">
+                  <span data-i18n="concept_map_physics_labels">Mostra etichette sempre</span>
+                  <div class="physics-switch-wrapper">
+                    <button type="button" class="physics-item-reset-btn hidden" data-param="showAllLabels" title="Reimposta">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                        <path d="M3 3v5h5"/>
+                      </svg>
+                    </button>
+                    <label class="switch-toggle">
+                      <input type="checkbox" id="physics-check-labels" checked />
+                      <span class="switch-slider"></span>
+                    </label>
+                  </div>
+                </div>
+                <div class="physics-switch-row">
+                  <span data-i18n="concept_map_physics_hide_orphans">Nascondi nodi orfani</span>
+                  <div class="physics-switch-wrapper">
+                    <button type="button" class="physics-item-reset-btn hidden" data-param="hideOrphans" title="Reimposta">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                        <path d="M3 3v5h5"/>
+                      </svg>
+                    </button>
+                    <label class="switch-toggle">
+                      <input type="checkbox" id="physics-check-hide-orphans" />
+                      <span class="switch-slider"></span>
+                    </label>
+                  </div>
+                </div>
+                <div class="physics-switch-row">
+                  <span data-i18n="concept_map_link_tags">Collega per tag</span>
+                  <div class="physics-switch-wrapper">
+                    <button type="button" class="physics-item-reset-btn hidden" data-param="linkByTags" title="Reimposta">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                        <path d="M3 3v5h5"/>
+                      </svg>
+                    </button>
+                    <label class="switch-toggle">
+                      <input type="checkbox" id="physics-check-link-tags" checked />
+                      <span class="switch-slider"></span>
+                    </label>
+                  </div>
+                </div>
+                <div class="physics-switch-row">
+                  <span data-i18n="concept_map_link_headings">Collega per titoli (H1, H2)</span>
+                  <div class="physics-switch-wrapper">
+                    <button type="button" class="physics-item-reset-btn hidden" data-param="linkByHeadings" title="Reimposta">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                        <path d="M3 3v5h5"/>
+                      </svg>
+                    </button>
+                    <label class="switch-toggle">
+                      <input type="checkbox" id="physics-check-link-headings" checked />
+                      <span class="switch-slider"></span>
+                    </label>
+                  </div>
+                </div>
+                <div class="physics-modifications-block">
+                  <div class="physics-divider"></div>
+                  <button type="button" id="btn-reset-graph-modifications" class="graph-modifications-reset-btn" data-i18n="concept_map_reset_modifications">Reimposta modifiche grafo</button>
+                  <div class="physics-modifications-hint" data-i18n="concept_map_reset_modifications_desc">Ripristina collegamenti, tag e titoli eliminati o aggiunti</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ACTIVE DEPTH / HIDDEN FILTER BANNER -->
+            <div id="concept-map-filter-banner" class="concept-map-filter-banner hidden"></div>
+
+            <!-- SELECTION BANNER (CONNECT MULTIPLE NODES) -->
+            <div id="concept-map-selection-banner" class="concept-map-selection-banner hidden"></div>
+
+            <!-- FOLDER COLOR LEGEND -->
+            <div id="concept-map-legend" class="concept-map-legend"></div>
+
+            <!-- EDGE / NODE HOVER TOOLTIP -->
+            <div id="concept-map-tooltip" class="concept-map-tooltip hidden"></div>
+          </div>
+        </div>
+        </div>
       </div>
     </div>
     <div id="footer">
@@ -497,6 +713,7 @@
   </div>
 
   <div id="notification-container"></div>
+  <div id="link-preview-tooltip" class="link-preview-tooltip" aria-hidden="true"></div>
 
   <script src="renderer.js"></script>
 
@@ -1238,6 +1455,45 @@
           </svg>
           <span data-i18n="drop_pill_code">Codice (.js, .py, .ts, .html, .css...)</span>
         </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- POP-UP MODAL PROGETTO MARK -->
+  <div id="mark-project-modal" class="modal hidden">
+    <div class="modal-overlay" id="mark-project-modal-overlay"></div>
+    <div class="modal-content mark-project-modal-content">
+      <div class="modal-header">
+        <div class="mark-project-header-left">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="5" cy="6" r="3"/>
+            <circle cx="19" cy="6" r="3"/>
+            <circle cx="12" cy="19" r="3"/>
+            <path d="M7.5 7.5l7 0M6.5 8.5l4 8M17.5 8.5l-4 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <h2 data-i18n="concept_map_modal_title">Progetto Mark</h2>
+        </div>
+        <button type="button" id="btn-close-mark-project-modal" class="collab-close-btn" data-i18n-title="win_close" title="Close">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body mark-project-modal-body">
+        <p class="mark-project-modal-desc" data-i18n="concept_map_modal_desc">
+          Vuoi creare un Progetto Mark in questa cartella?
+        </p>
+        <p class="mark-project-modal-subdesc" data-i18n="concept_map_modal_subdesc">
+          Verrà creata la cartella .mark/ nella root con il file graph.json per mappare collegamenti, tag e parole chiave tra i tuoi appunti.
+        </p>
+        <div class="mark-project-folder-box">
+          <span class="mark-project-folder-label">Cartella:</span>
+          <span id="mark-project-folder-path" class="mark-project-folder-path"></span>
+        </div>
+        <div class="mark-project-modal-actions">
+          <button type="button" id="btn-confirm-create-mark-project" class="collab-submit-btn" data-i18n="concept_map_modal_create">Crea Progetto</button>
+          <button type="button" id="btn-cancel-mark-project" class="collab-cancel-btn" data-i18n="concept_map_modal_cancel">Annulla</button>
+        </div>
       </div>
     </div>
   </div>
