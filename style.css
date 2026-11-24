@@ -43,6 +43,8 @@ body, button, input, textarea, select {
   --explorer-active: #a4d8fb;
   --explorer-border: #e2e2e2;
   --explorer-width: 250px;
+  --link-color: #0969da;
+  --link-hover-color: #0550ae;
 }
 
 code,
@@ -973,10 +975,59 @@ body.dark .empty-item-shortcut kbd {
   text-align: justify;
 }
 
-/* Assicura che i link lunghi possano andare a capo senza rompere il layout */
-#preview a {
+/* Assicura che i link lunghi possano andare a capo e abbiano stile/contrasto coerente */
+#preview a,
+.markdown-body a,
+.ve-link-text {
+  color: var(--link-color, #0969da);
+  text-decoration: underline;
+  text-underline-offset: 2.5px;
   word-break: break-word;
   overflow-wrap: anywhere;
+  cursor: pointer;
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+#preview a:hover,
+.markdown-body a:hover,
+.ve-link-text:hover {
+  color: var(--link-hover-color, #0550ae);
+}
+
+body.dark #preview a,
+body.dark .markdown-body a,
+body.dark .ve-link-text {
+  color: #58a6ff !important;
+}
+
+body.dark #preview a:hover,
+body.dark .markdown-body a:hover,
+body.dark .ve-link-text:hover {
+  color: #79c0ff !important;
+}
+
+/* Concept Map Tag Links (Obsidian [[tag]] style) */
+#preview a.concept-tag-link,
+.markdown-body a.concept-tag-link,
+.ve-token-wikilink .ve-link-text {
+  color: var(--link-color, #0969da);
+  text-decoration: underline;
+  text-underline-offset: 2.5px;
+  text-decoration-thickness: 1.5px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+body.dark #preview a.concept-tag-link,
+body.dark .markdown-body a.concept-tag-link,
+body.dark .ve-token-wikilink .ve-link-text {
+  color: #58a6ff !important;
+}
+
+body.dark #preview a.concept-tag-link:hover,
+body.dark .markdown-body a.concept-tag-link:hover,
+body.dark .ve-token-wikilink .ve-link-text:hover {
+  color: #79c0ff !important;
 }
 
 /* ====== EXPLORER PANEL STYLES ====== */
@@ -1369,6 +1420,8 @@ body.dark {
   --explorer-hover: #2a2d2e;
   --explorer-active: #094771;
   --explorer-border: rgba(255, 255, 255, 0.08);
+  --link-color: #58a6ff;
+  --link-hover-color: #79c0ff;
 }
 
 .mermaid {
@@ -6343,4 +6396,1003 @@ body.reading-mode-active .pdf-top-toolbar {
   opacity: 1;
   visibility: visible;
 }
+
+/* ====== NAVBAR CONCEPT MAP BUTTON ====== */
+#btn-concept-map {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  color: var(--fg);
+  padding: 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+  margin: 0 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+#btn-concept-map:hover {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #3b82f6 !important;
+}
+#btn-concept-map.active {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #3b82f6 !important;
+}
+#btn-concept-map.active:hover {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #3b82f6 !important;
+}
+#btn-concept-map:focus,
+#btn-concept-map:focus-visible,
+#btn-concept-map:active {
+  background: transparent !important;
+  background-color: transparent !important;
+  outline: none !important;
+}
+
+/* ====== WORKSPACE VIEWPORT ====== */
+.workspace-viewport {
+  display: flex;
+  flex-direction: row;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  height: calc(100% - 33px);
+  position: relative;
+  overflow: hidden;
+}
+
+.workspace-viewport.hidden {
+  display: none !important;
+}
+
+.workspace-viewport #container,
+.workspace-viewport .pdf-viewer-container,
+.workspace-viewport .concept-map-container {
+  height: 100% !important;
+}
+
+body.reading-mode-active .workspace-viewport {
+  height: 100vh !important;
+}
+
+/* ====== CONCEPT MAP CONTAINER ====== */
+.concept-map-container {
+  position: relative;
+  width: 100%;
+  flex: 1 1 100%;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--editor-bg);
+  overflow: hidden;
+  font-family: var(--font-family);
+}
+
+.concept-map-container button,
+.concept-map-container input,
+.concept-map-container select,
+.concept-map-container textarea,
+.concept-map-container span,
+.concept-map-container div {
+  font-family: var(--font-family);
+}
+
+.concept-map-container:not(.hidden) {
+  animation: conceptMapFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes conceptMapFadeIn {
+  from {
+    opacity: 0.65;
+    transform: scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.concept-map-container.hidden {
+  display: none !important;
+}
+
+/* Concept Map Top Toolbar (Brutalist Minimal) */
+.concept-map-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 38px;
+  padding: 0 12px;
+  background-color: var(--explorer-bg);
+  border-bottom: 1px solid var(--explorer-border);
+  gap: 12px;
+  user-select: none;
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.concept-map-toolbar-left,
+.concept-map-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.concept-map-stats {
+  font-size: 11px;
+  color: var(--fg);
+  opacity: 0.65;
+  white-space: nowrap;
+  font-family: var(--font-family);
+  letter-spacing: -0.2px;
+}
+
+.concept-map-search-box {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.concept-map-search-box input {
+  background-color: var(--editor-bg);
+  color: var(--fg);
+  border: 1px solid var(--explorer-border);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  width: 230px;
+  outline: none;
+  transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.concept-map-search-box input:focus {
+  width: 310px;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.concept-map-search-suggestions {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 310px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  border-radius: 0;
+  padding: 4px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  box-shadow: none !important;
+  z-index: 50;
+  pointer-events: auto;
+}
+
+.concept-map-search-suggestions.hidden {
+  display: none !important;
+}
+
+.search-suggestion-pill {
+  background: var(--editor-bg) !important;
+  background-color: var(--editor-bg) !important;
+  color: var(--fg);
+  border: 1px solid var(--explorer-border);
+  border-radius: 12px;
+  padding: 3px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 145px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: transform 0.14s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.12s, color 0.12s, box-shadow 0.14s, background-color 0.14s;
+  user-select: none;
+  animation: pillFadeIn 0.16s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+@keyframes pillFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+body.dark .search-suggestion-pill {
+  background: #1f1f1f !important;
+  background-color: #1f1f1f !important;
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.search-suggestion-pill:hover {
+  background: var(--editor-bg) !important;
+  background-color: var(--editor-bg) !important;
+  border-color: #3b82f6;
+  color: #3b82f6;
+  transform: translateY(-1.5px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+}
+
+body.dark .search-suggestion-pill:hover {
+  background: #252526 !important;
+  background-color: #252526 !important;
+  border-color: #58a6ff;
+  color: #58a6ff;
+  transform: translateY(-1.5px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
+}
+
+.search-suggestion-pill.active {
+  background: var(--editor-bg) !important;
+  background-color: var(--editor-bg) !important;
+  border-color: #3b82f6;
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+body.dark .search-suggestion-pill.active {
+  background: #252526 !important;
+  background-color: #252526 !important;
+  border-color: #58a6ff;
+  color: #58a6ff;
+  font-weight: 600;
+}
+
+.concept-map-tool-btn {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  color: var(--fg);
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 4px;
+  opacity: 0.75;
+  transition: opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1), transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), color 0.15s ease;
+  height: 26px;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0.65;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.concept-map-tool-btn:hover {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  opacity: 1;
+  color: var(--fg);
+}
+
+.concept-map-tool-btn.active {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  color: #3b82f6 !important;
+  opacity: 1;
+}
+
+.concept-map-tool-btn:focus,
+.concept-map-tool-btn:focus-visible,
+.concept-map-tool-btn:active {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Viewport and Canvas */
+.concept-map-viewport {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  height: calc(100% - 35px);
+  overflow: hidden;
+  background-color: var(--editor-bg);
+}
+
+#concept-map-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+
+/* Floating Physics Panel (Brutalist Minimal) */
+.concept-map-physics-panel {
+  position: absolute;
+  top: 40px;
+  right: 10px;
+  width: 230px;
+  background-color: var(--explorer-bg);
+  border: 1px solid var(--explorer-border);
+  border-radius: 4px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  z-index: 20;
+  overflow: hidden;
+  font-size: 11px;
+  user-select: none;
+}
+
+.concept-map-physics-panel:not(.hidden) {
+  animation: physicsPanelPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes physicsPanelPopIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.concept-map-physics-panel.hidden {
+  display: none !important;
+}
+
+.physics-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--explorer-border);
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--fg);
+}
+
+.physics-close-btn {
+  background: none;
+  border: none;
+  color: var(--fg);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.physics-close-btn:hover {
+  opacity: 1;
+}
+
+.physics-panel-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.physics-slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.physics-slider-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--fg);
+  font-size: 11px;
+}
+
+.physics-val-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.physics-val-box span {
+  font-family: var(--font-family);
+  font-size: 11px;
+  opacity: 0.75;
+  color: var(--fg);
+}
+
+.physics-slider-row input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--explorer-border);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  margin: 6px 0 2px 0;
+  padding: 0;
+  border: none;
+}
+
+.physics-slider-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  transition: transform 0.12s ease, background-color 0.12s ease;
+}
+
+.physics-slider-row input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
+  background: #2563eb;
+}
+
+.physics-slider-row input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  transition: transform 0.12s ease, background-color 0.12s ease;
+}
+
+.physics-slider-row input[type="range"]::-moz-range-track {
+  background: var(--explorer-border);
+  height: 4px;
+  border-radius: 2px;
+  border: none;
+}
+
+/* Modern Toggle Switch */
+.physics-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 0;
+  user-select: none;
+}
+
+.physics-switch-row > span {
+  font-size: 11px;
+  color: var(--fg);
+  opacity: 0.9;
+}
+
+.switch-toggle {
+  position: relative;
+  display: inline-block;
+  width: 32px;
+  height: 18px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.switch-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.switch-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--explorer-border);
+  border: 1px solid var(--explorer-border);
+  border-radius: 18px;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.switch-slider::before {
+  position: absolute;
+  content: "";
+  height: 12px;
+  width: 12px;
+  left: 2px;
+  bottom: 2px;
+  background-color: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.switch-toggle input:checked + .switch-slider {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.switch-toggle input:checked + .switch-slider::before {
+  transform: translateX(14px);
+}
+
+.physics-switch-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.physics-item-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  color: var(--fg);
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.15s ease;
+}
+
+.physics-item-reset-btn:hover {
+  opacity: 1;
+  color: #3b82f6;
+  transform: rotate(-45deg);
+}
+
+.physics-item-reset-btn.hidden {
+  display: none !important;
+}
+
+.physics-divider {
+  height: 1px;
+  background-color: var(--explorer-border);
+  margin: 10px 0;
+  opacity: 0.6;
+}
+
+.physics-modifications-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.graph-modifications-reset-btn {
+  background-color: transparent;
+  border: 1px solid var(--explorer-border);
+  color: var(--fg);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-family: var(--font-family);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  text-align: center;
+}
+
+.graph-modifications-reset-btn:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+}
+
+.physics-modifications-hint {
+  font-size: 10px;
+  color: var(--fg);
+  opacity: 0.55;
+  line-height: 1.35;
+  font-family: var(--font-family);
+}
+
+/* Active Depth / Hidden Filter Banner */
+.concept-map-filter-banner {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--editor-bg);
+  border: 1px solid var(--explorer-border);
+  border-radius: 18px;
+  padding: 3px 10px;
+  font-size: 11px;
+  color: var(--fg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 20;
+  user-select: none;
+}
+
+.concept-map-filter-banner.hidden {
+  display: none !important;
+}
+
+.filter-banner-title {
+  font-weight: 600;
+  color: #3b82f6;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filter-banner-depth-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.filter-banner-depth-btn {
+  background: transparent;
+  border: 1px solid var(--explorer-border);
+  color: var(--fg);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 10px;
+  cursor: pointer;
+  line-height: 1.2;
+  transition: all 0.12s;
+}
+
+.filter-banner-depth-btn:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.filter-banner-depth-btn.active {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.filter-banner-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--fg);
+  opacity: 0.6;
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 13px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  transition: opacity 0.12s, color 0.12s;
+}
+
+.filter-banner-close-btn:hover {
+  opacity: 1;
+  color: #ef4444;
+}
+
+/* Selection Banner for connecting nodes */
+.concept-map-selection-banner {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--editor-bg);
+  border: 1px solid var(--explorer-border);
+  border-radius: 18px;
+  padding: 3px 10px;
+  font-size: 11px;
+  color: var(--fg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 20;
+  user-select: none;
+  animation: bannerSlideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes bannerSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.concept-map-selection-banner.hidden {
+  display: none !important;
+}
+
+.selection-banner-action-btn {
+  background: #3b82f6;
+  border: none;
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s, transform 0.12s;
+}
+
+.selection-banner-action-btn:hover {
+  background-color: #2563eb;
+  transform: scale(1.04);
+}
+
+.selection-banner-action-btn:active {
+  transform: scale(0.96);
+}
+
+/* Folder Legend (Hidden: nodes are now uniform monochrome) */
+.concept-map-legend {
+  display: none !important;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #ffffff;
+  cursor: pointer;
+  opacity: 0.85;
+}
+
+.legend-item:hover {
+  opacity: 1;
+}
+
+.legend-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Tooltip (Interactive brutalist dark style) */
+.concept-map-tooltip {
+  position: absolute;
+  background-color: #000000;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-family: var(--font-family);
+  line-height: 1.35;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+  z-index: 40;
+  max-width: 280px;
+  white-space: normal;
+  word-break: break-word;
+  user-select: none;
+  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.16s ease, border-color 0.16s ease, max-width 0.16s ease, padding 0.16s ease;
+}
+
+.concept-map-tooltip.interactive {
+  transform: scale(1.025);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+  border-color: rgba(96, 165, 250, 0.45);
+  max-width: 320px;
+  padding: 8px 12px;
+}
+
+.concept-map-tooltip.hidden {
+  display: none !important;
+}
+
+.tooltip-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+  color: #60a5fa;
+  font-family: var(--font-family);
+}
+
+.tooltip-sub {
+  font-size: 10px;
+  opacity: 0.7;
+  margin-bottom: 4px;
+  font-family: var(--font-family);
+}
+
+.tooltip-reason {
+  display: block;
+  font-size: 11px;
+  color: #e2e8f0;
+  font-family: var(--font-family);
+}
+
+.tooltip-tag-prefix {
+  color: #60a5fa;
+  font-weight: 600;
+  margin-right: 3px;
+}
+
+.tooltip-interactive-section {
+  margin-top: 6px;
+}
+
+.tooltip-section-header {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-bottom: 4px;
+  font-family: var(--font-family);
+}
+
+.tooltip-pills-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tooltip-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background-color: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  padding: 2px 5px;
+  font-size: 10.5px;
+  font-family: var(--font-family);
+  color: #f1f5f9;
+  line-height: 1.2;
+}
+
+.tooltip-pill-tag {
+  border-color: rgba(96, 165, 250, 0.3);
+  background-color: rgba(59, 130, 246, 0.12);
+  color: #93c5fd;
+}
+
+.tooltip-pill-heading {
+  border-color: rgba(148, 163, 184, 0.25);
+  background-color: rgba(255, 255, 255, 0.06);
+  color: #cbd5e1;
+}
+
+.tooltip-pill-text {
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tooltip-pill-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: currentColor;
+  opacity: 0.65;
+  cursor: pointer;
+  padding: 0 1px;
+  font-size: 13px;
+  line-height: 1;
+  border-radius: 2px;
+  transition: opacity 0.12s ease, color 0.12s ease, transform 0.12s ease;
+}
+
+.tooltip-pill-x:hover {
+  opacity: 1;
+  color: #ef4444;
+  transform: scale(1.2);
+}
+
+/* ====== MARK PROJECT MODAL ====== */
+.mark-project-modal-content {
+  max-width: 440px;
+  background-color: var(--explorer-bg);
+  border: 1px solid var(--explorer-border);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.mark-project-header-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #3b82f6;
+}
+
+.mark-project-header-left h2 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg);
+  margin: 0;
+}
+
+.mark-project-modal-body {
+  padding: 16px 20px;
+}
+
+.mark-project-modal-desc {
+  font-size: 13px;
+  color: var(--fg);
+  margin: 0 0 8px 0;
+}
+
+.mark-project-modal-subdesc {
+  font-size: 12px;
+  color: var(--fg);
+  opacity: 0.75;
+  line-height: 1.5;
+  margin: 0 0 14px 0;
+}
+
+.mark-code-badge {
+  font-family: var(--code-font-family);
+  background-color: var(--code-bg);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.mark-project-folder-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background-color: var(--code-bg);
+  border: 1px solid var(--explorer-border);
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin-bottom: 18px;
+}
+
+.mark-project-folder-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 600;
+  opacity: 0.6;
+  color: var(--fg);
+}
+
+.mark-project-folder-path {
+  font-family: var(--code-font-family);
+  font-size: 11px;
+  color: var(--fg);
+  word-break: break-all;
+}
+
+.mark-project-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.tab-icon-graph {
+  color: #3b82f6 !important;
+  opacity: 1 !important;
+}
+
 

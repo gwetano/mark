@@ -250,16 +250,6 @@ function createWindow() {
       }));
     }
 
-    // 3. AI Tool se c'è testo selezionato
-    if (params.selectionText && params.selectionText.trim().length > 0) {
-      menu.append(new MenuItem({ type: 'separator' }));
-      menu.append(new MenuItem({
-        label: 'AI Tool',
-        accelerator: 'CmdOrCtrl+Shift+A',
-        click: () => win.webContents.send('trigger-ai-tool', params.selectionText.trim())
-      }));
-    }
-
     menu.append(new MenuItem({ type: 'separator' }));
     menu.append(new MenuItem({
       label: i18n.t('context_select_all'),

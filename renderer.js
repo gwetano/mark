@@ -31,6 +31,7 @@ const {
   getCollabState
 } = require("./collaboration.js");
 const { buildExportHtml } = require("./html-export.js");
+const conceptMapModule = require("./concept-map.js");
 
 let pdfjsLib = null;
 try {
@@ -633,6 +634,36 @@ function processMath(markdown) {
   return protectedMd;
 }
 
+// ====== CONCEPT MAP WIKILINKS / TAGS PREPROCESSOR ======
+function processConceptWikilinks(markdown) {
+  if (!markdown || typeof markdown !== 'string' || !markdown.includes('[[')) return markdown;
+
+  // 1. Protect code blocks (fenced ``` and ~~~ and inline `...`)
+  const codeBlocks = [];
+  let protectedMd = markdown.replace(/(```[\s\S]*?```|~~~[\s\S]*?~~~|`[^`\n\r]+`)/g, (match) => {
+    const placeholder = `%%TAG_CODE_BLOCK_${codeBlocks.length}%%`;
+    codeBlocks.push(match);
+    return placeholder;
+  });
+
+  // 2. Replace [[target|alias]] or [[target]]
+  protectedMd = protectedMd.replace(/\[\[\s*([^\]\|\n\r]+?)(?:\|([^\]\n\r]+?))?\s*\]\]/g, (match, target, alias) => {
+    const cleanTarget = target.trim();
+    if (!cleanTarget) return match;
+    const cleanDisplay = (alias ? alias.trim() : cleanTarget);
+    const safeTag = escapeHtml(cleanTarget);
+    const safeDisplay = escapeHtml(cleanDisplay);
+    return `<a class="concept-tag-link" data-tag="${safeTag}" href="#concept-map:${encodeURIComponent(cleanTarget)}" title="${safeTag}">${safeDisplay}</a>`;
+  });
+
+  // 3. Restore code blocks
+  protectedMd = protectedMd.replace(/%%TAG_CODE_BLOCK_(\d+)%%/g, (_, index) => {
+    return codeBlocks[parseInt(index, 10)];
+  });
+
+  return protectedMd;
+}
+
 // ====== SEARCH UI, LINKS, ecc. (come prima) =================================
 function toggleSearchPanel(show = true) {
   const container = document.getElementById("search-container");
@@ -848,7 +879,22 @@ function setupExternalLinks() {
   preview.addEventListener("click", (event) => {
     let target = event.target;
     while (target && target !== preview) {
-      if (target.tagName === "A" && target.href) { event.preventDefault(); shell.openExternal(target.href); return; }
+      if (target.tagName === "A") {
+        if (target.classList.contains("concept-tag-link") || target.dataset.tag) {
+          event.preventDefault();
+          event.stopPropagation();
+          const tag = target.dataset.tag || target.textContent.trim();
+          if (typeof openConceptMap === 'function') {
+            openConceptMap(tag);
+          }
+          return;
+        }
+        if (target.href) {
+          event.preventDefault();
+          shell.openExternal(target.href);
+          return;
+        }
+      }
       target = target.parentNode;
     }
   });
@@ -884,19 +930,29 @@ function setupLinkPreviewTooltip() {
   function getLinkUrlFromTarget(target, containerType) {
     if (!target) return null;
     if (containerType === 'preview') {
-      const a = target.closest("a[href]");
+      const a = target.closest("a");
       if (a) {
+        if (a.classList.contains("concept-tag-link") || a.dataset.tag) {
+          return `[[${a.dataset.tag || a.textContent.trim()}]]`;
+        }
         return a.getAttribute("href") || a.href || null;
       }
     } else if (containerType === 'visual') {
+      const tagEl = target.closest(".concept-tag-link");
+      if (tagEl) {
+        return `[[${tagEl.dataset.tag || tagEl.textContent.trim()}]]`;
+      }
       const token = target.closest(".ve-token-link");
       if (token) {
         const urlEl = token.querySelector(".ve-link-url");
         const url = urlEl ? urlEl.textContent.trim() : "";
         if (url) return url;
       }
-      const a = target.closest("a[href]");
+      const a = target.closest("a");
       if (a) {
+        if (a.classList.contains("concept-tag-link") || a.dataset.tag) {
+          return `[[${a.dataset.tag || a.textContent.trim()}]]`;
+        }
         return a.getAttribute("href") || a.href || null;
       }
     }
@@ -1043,6 +1099,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const FOLDER_SVG = `<svg class="tree-item-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>`;
   const FILE_SVG = `<svg class="tree-item-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 14H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>`;
   const PDF_FILE_SVG = `<svg class="tree-item-icon pdf-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14H8v-2h4v2zm4-4H8v-2h8v2zm0-4H8V7h8v2z"/></svg>`;
+  const GRAPH_FILE_SVG = `<svg class="tree-item-icon graph-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="6" r="3"/><circle cx="19" cy="6" r="3"/><circle cx="12" cy="19" r="3"/><path d="M7.5 7.5l7 0M6.5 8.5l4 8M17.5 8.5l-4 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
   const NEW_FOLDER_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-1 8h-3v3h-2v-3h-3v-2h3v-3h2v3h3v2z"/></svg>`;
   const OPEN_FOLDER_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>`;
 
@@ -1595,7 +1652,19 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // ===== WORD COUNT =====
   const updateWordCount = () => {
-    if (!wordCountEl || !editor) return;
+    if (!wordCountEl) return;
+    const activeTab = typeof getActiveTab === 'function' ? getActiveTab() : null;
+    if (activeTab && activeTab.isGraph) {
+      if (typeof updateConceptMapFooter === 'function') {
+        updateConceptMapFooter();
+      }
+      return;
+    }
+    if (activeTab && activeTab.isPdf) {
+      wordCountEl.textContent = i18n.t('pdf_document') || 'PDF Document';
+      return;
+    }
+    if (!editor) return;
     const text = editor.value;
     if (!text) {
       wordCountEl.textContent = i18n.t('word_count', { count: 0 });
@@ -1973,6 +2042,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const rawOriginal = editor.value;
     let raw = preprocessCodeIncludes(rawOriginal);
     raw = processMath(raw);
+    raw = processConceptWikilinks(raw);
 
     checkboxCount = 0;
 
@@ -3970,10 +4040,7 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // ===== IPC handlers for Context Menu (Spellcheck / AI) =====
-  ipcRenderer.on('trigger-ai-tool', (event, text) => {
-    if (typeof showAISearchDialog === 'function') showAISearchDialog(text);
-  });
+  // ===== IPC handlers for Context Menu (Spellcheck) =====
   ipcRenderer.on('word-added-to-dictionary', (event, word) => {
     if (typeof showNotification === 'function') {
       showNotification(i18n.t('notif_word_added_to_dict', { word }), 'success');
@@ -4475,9 +4542,23 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // ===== Shortcut globali =====
   document.addEventListener("keydown", (e) => {
-    const sc = document.getElementById("search-container");
     const isMod = isMac ? (e.metaKey || e.ctrlKey) : e.ctrlKey;
-    if (isMod && (e.key === "f" || e.key === "F")) { e.preventDefault(); toggleSearchPanel(true); }
+    if (isMod && (e.key === "f" || e.key === "F")) {
+      e.preventDefault();
+      const activeTab = typeof getActiveTab === 'function' ? getActiveTab() : null;
+      if (activeTab && activeTab.isGraph) {
+        const graphSearch = document.getElementById('concept-map-search-input');
+        if (graphSearch) {
+          graphSearch.focus();
+          graphSearch.select();
+          if (typeof renderConceptMapSearchSuggestions === 'function') {
+            renderConceptMapSearchSuggestions(graphSearch.value);
+          }
+        }
+        return;
+      }
+      toggleSearchPanel(true);
+    }
     if (isMod && !e.shiftKey && (e.key === "l" || e.key === "L")) { e.preventDefault(); insertMarkdownLink(); }
     if (isMod && e.shiftKey && (e.key === "l" || e.key === "L")) { e.preventDefault(); toggleViewMode("solo-editor"); }
     if (isMod && e.shiftKey && (e.key === "p" || e.key === "P")) { e.preventDefault(); toggleViewMode("solo-preview"); }
@@ -5302,6 +5383,19 @@ window.addEventListener("DOMContentLoaded", () => {
     updateExplorerFolderBtn();
 
     createFileTree(folderPath, fileTree);
+
+    // Se la cartella aperta è un progetto Mark (.mark/graph.json esiste), apri direttamente la mappa dei concetti
+    try {
+      const markDir = path.join(folderPath, '.mark');
+      const graphJsonPath = path.join(markDir, 'graph.json');
+      if (fs.existsSync(markDir) && fs.existsSync(graphJsonPath)) {
+        setTimeout(() => {
+          if (typeof openConceptMap === 'function') {
+            openConceptMap();
+          }
+        }, 80);
+      }
+    } catch (_) {}
   }
 
   async function closeFolder() {
@@ -5363,6 +5457,9 @@ window.addEventListener("DOMContentLoaded", () => {
 
     // Reset stato cartella aperta nell'explorer
     currentFolderPath = null;
+    if (typeof closeConceptMap === 'function') closeConceptMap();
+    conceptMapSim = null;
+    conceptMapData = null;
     if (folderPathEl) {
       folderPathEl.innerHTML = '';
       folderPathEl.title = '';
@@ -5446,7 +5543,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   function saveStateForActiveTab() {
     const activeTab = getActiveTab();
-    if (!activeTab) return;
+    if (!activeTab || activeTab.isGraph) return;
     if (typeof isVisualModeActive !== 'undefined' && isVisualModeActive) {
       if (typeof deactivateCurrentVisualBlock === 'function') deactivateCurrentVisualBlock();
       if (typeof syncVisualModeToEditor === 'function') syncVisualModeToEditor();
@@ -5494,37 +5591,48 @@ window.addEventListener("DOMContentLoaded", () => {
     const hasTabs = tabs.length > 0;
     const activeTab = getActiveTab();
     const isPdfActive = !!(activeTab && activeTab.isPdf);
+    const isGraphActive = !!(activeTab && activeTab.isGraph);
 
     const btnViewEditorEl = document.getElementById("btn-view-editor");
     const btnViewSplitEl = document.getElementById("btn-view-split");
     const btnViewPreviewEl = document.getElementById("btn-view-preview");
     const btnToggleVisualModeEl = document.getElementById("btn-toggle-visual-mode");
+    const isNonEditorActive = isPdfActive || isGraphActive;
     if (btnViewEditorEl) {
-      btnViewEditorEl.disabled = !hasTabs || isPdfActive;
-      btnViewEditorEl.classList.toggle('disabled', isPdfActive);
+      btnViewEditorEl.disabled = !hasTabs || isNonEditorActive;
+      btnViewEditorEl.classList.toggle('disabled', isNonEditorActive);
     }
     if (btnViewSplitEl) {
-      btnViewSplitEl.disabled = !hasTabs || isPdfActive;
-      btnViewSplitEl.classList.toggle('disabled', isPdfActive);
+      btnViewSplitEl.disabled = !hasTabs || isNonEditorActive;
+      btnViewSplitEl.classList.toggle('disabled', isNonEditorActive);
     }
     if (btnViewPreviewEl) {
-      btnViewPreviewEl.disabled = !hasTabs || isPdfActive;
-      btnViewPreviewEl.classList.toggle('disabled', isPdfActive);
+      btnViewPreviewEl.disabled = !hasTabs || isNonEditorActive;
+      btnViewPreviewEl.classList.toggle('disabled', isNonEditorActive);
     }
     if (btnToggleVisualModeEl) {
-      btnToggleVisualModeEl.disabled = !hasTabs || isPdfActive;
-      btnToggleVisualModeEl.classList.toggle('disabled', !hasTabs || isPdfActive);
+      btnToggleVisualModeEl.disabled = !hasTabs || isNonEditorActive;
+      btnToggleVisualModeEl.classList.toggle('disabled', !hasTabs || isNonEditorActive);
     }
 
+    const btnConceptMapEl = document.getElementById("btn-concept-map");
+    if (btnConceptMapEl) {
+      btnConceptMapEl.classList.toggle('active', isGraphActive);
+    }
+
+    const workspaceViewport = document.getElementById("workspace-viewport");
     const pdfViewerEl = document.getElementById("pdf-viewer-container");
+    const conceptMapEl = document.getElementById("concept-map-container");
 
     if (tabs.length === 0) {
       if (typeof setVisualMode === 'function' && typeof isVisualModeActive !== 'undefined' && isVisualModeActive) {
         setVisualMode(false);
       }
       if (tabsBar) tabsBar.classList.add('hidden');
+      if (workspaceViewport) workspaceViewport.classList.add('hidden');
       if (viewContainer) viewContainer.classList.add('hidden');
       if (pdfViewerEl) pdfViewerEl.classList.add('hidden');
+      if (conceptMapEl) conceptMapEl.classList.add('hidden');
       if (emptyState) emptyState.classList.remove('hidden');
       if (wordCountEl) wordCountEl.textContent = i18n.t('word_count', { count: 0 });
       document.querySelectorAll('.tree-item').forEach(item => item.classList.remove('active'));
@@ -5534,27 +5642,42 @@ window.addEventListener("DOMContentLoaded", () => {
 
     if (tabsBar && !isReadingMode) tabsBar.classList.remove('hidden');
     if (emptyState) emptyState.classList.add('hidden');
+    if (workspaceViewport) workspaceViewport.classList.remove('hidden');
 
     if (isPdfActive) {
       if (viewContainer) viewContainer.classList.add('hidden');
       if (pdfViewerEl) pdfViewerEl.classList.remove('hidden');
-    } else {
-      if (viewContainer) viewContainer.classList.remove('hidden');
+      if (conceptMapEl) conceptMapEl.classList.add('hidden');
+    } else if (isGraphActive) {
+      if (viewContainer) viewContainer.classList.add('hidden');
       if (pdfViewerEl) pdfViewerEl.classList.add('hidden');
+      if (conceptMapEl) conceptMapEl.classList.remove('hidden');
+      if (typeof updateConceptMapFooter === 'function') {
+        updateConceptMapFooter();
+      }
+    } else {
+      if (pdfViewerEl) pdfViewerEl.classList.add('hidden');
+      if (conceptMapEl) conceptMapEl.classList.add('hidden');
+      if (viewContainer) viewContainer.classList.remove('hidden');
     }
 
     tabs.forEach(tab => {
       const isCollab = (collabTabId && tab.id === collabTabId);
       const isPdfTab = !!tab.isPdf;
+      const isGraphTab = !!tab.isGraph;
       const tabEl = document.createElement('div');
       tabEl.className = 'editor-tab' +
         (tab.id === activeTabId ? ' active' : '') +
-        (isCollab ? ' collab-active-tab' : '');
+        (isCollab ? ' collab-active-tab' : '') +
+        (isGraphTab ? ' graph-active-tab' : '');
       tabEl.dataset.tabId = tab.id;
       tabEl.title = (isCollab ? `[${i18n.t('collab_session_active') || 'Active session'}] ` : '') + (tab.filePath || tab.title);
 
+      const iconHtml = isGraphTab ? GRAPH_FILE_SVG : (isPdfTab ? PDF_FILE_SVG : FILE_SVG);
+      const iconClass = isGraphTab ? 'tab-icon-graph' : (isPdfTab ? 'tab-icon-pdf' : '');
+
       tabEl.innerHTML = `
-        <span class="tab-icon ${isPdfTab ? 'tab-icon-pdf' : ''}">${isPdfTab ? PDF_FILE_SVG : FILE_SVG}</span>
+        <span class="tab-icon ${iconClass}">${iconHtml}</span>
         <span class="tab-title">${escapeHtml(tab.title)}</span>
         <span class="tab-dirty ${tab.isDirty ? 'visible' : ''}">*</span>
         <button class="tab-close-btn" data-tab-id="${tab.id}" title="${escapeHtml(i18n.t('tab_close_btn') || 'Close')}">
@@ -5823,8 +5946,28 @@ window.addEventListener("DOMContentLoaded", () => {
     isDirty = targetTab.isDirty;
 
     const pdfViewerEl = document.getElementById("pdf-viewer-container");
+    const conceptMapContainer = document.getElementById("concept-map-container");
 
-    if (targetTab.isPdf) {
+    if (targetTab.isGraph) {
+      isConceptMapActive = true;
+      if (pdfViewerEl) pdfViewerEl.classList.add('hidden');
+      if (container) container.classList.add('hidden');
+      if (conceptMapContainer) conceptMapContainer.classList.remove('hidden');
+
+      if (typeof updateConceptMapFooter === 'function') {
+        updateConceptMapFooter();
+      }
+      if (typeof stopTypewriterEffect === 'function') {
+        stopTypewriterEffect();
+      }
+      if (conceptMapSim) {
+        requestAnimationFrame(() => {
+          conceptMapSim.resize();
+          conceptMapSim.wake();
+        });
+      }
+    } else if (targetTab.isPdf) {
+      if (conceptMapContainer) conceptMapContainer.classList.add('hidden');
       if (container) container.classList.add('hidden');
       if (pdfViewerEl) pdfViewerEl.classList.remove('hidden');
       if (wordCountEl) {
@@ -5849,6 +5992,7 @@ window.addEventListener("DOMContentLoaded", () => {
     } else {
       if (container) container.classList.remove('hidden');
       if (pdfViewerEl) pdfViewerEl.classList.add('hidden');
+      if (conceptMapContainer) conceptMapContainer.classList.add('hidden');
 
       if (editor) {
         isProgrammaticEdit = true;
@@ -5966,26 +6110,27 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // Check if current single tab is an untouched, empty untitled tab
-    if (tabs.length === 1 && !tabs[0].filePath && !tabs[0].isDirty && (tabs[0].content === '' || (editor && editor.value === ''))) {
-      tabs[0].filePath = normalPath;
-      tabs[0].title = path.basename(normalPath);
-      tabs[0].isPdf = isPdf;
-      tabs[0].pdfBuffer = pdfBuffer;
-      tabs[0].pageLayout = 'single';
-      tabs[0].zoom = 1.0;
-      tabs[0].currentPage = 1;
-      tabs[0].content = isPdf ? '' : fileContent;
-      tabs[0].isDirty = false;
-      tabs[0].lastKnownEditorValue = isPdf ? '' : fileContent;
+    // Check if there is an untouched, empty untitled tab (never the concept map tab)
+    const emptyUntitledTab = tabs.find(t => !t.isGraph && !t.filePath && !t.isDirty && (t.content === '' || (editor && editor.value === '')));
+    if (emptyUntitledTab && (tabs.length === 1 || (tabs.length === 2 && tabs.some(t => t.isGraph)))) {
+      emptyUntitledTab.filePath = normalPath;
+      emptyUntitledTab.title = path.basename(normalPath);
+      emptyUntitledTab.isPdf = isPdf;
+      emptyUntitledTab.pdfBuffer = pdfBuffer;
+      emptyUntitledTab.pageLayout = 'single';
+      emptyUntitledTab.zoom = 1.0;
+      emptyUntitledTab.currentPage = 1;
+      emptyUntitledTab.content = isPdf ? '' : fileContent;
+      emptyUntitledTab.isDirty = false;
+      emptyUntitledTab.lastKnownEditorValue = isPdf ? '' : fileContent;
       activeTabId = null;
-      switchToTab(tabs[0].id);
+      switchToTab(emptyUntitledTab.id);
 
       const containingFolder = path.dirname(normalPath);
       if (currentFolderPath !== containingFolder && !currentFolderPath) {
         openFolder(containingFolder);
       }
-      return tabs[0];
+      return emptyUntitledTab;
     }
 
     saveStateForActiveTab();
@@ -6042,6 +6187,21 @@ window.addEventListener("DOMContentLoaded", () => {
           isDirty = false;
         }
         updateTabDirtyIndicator(tab.id, false);
+        if (typeof isConceptMapActive !== 'undefined' && isConceptMapActive && currentFolderPath) {
+          try {
+            const markDir = path.join(currentFolderPath, '.mark');
+            const graphJsonPath = path.join(markDir, 'graph.json');
+            if (fs.existsSync(graphJsonPath)) {
+              const cachedData = JSON.parse(fs.readFileSync(graphJsonPath, 'utf-8'));
+              conceptMapData = conceptMapModule.buildConceptGraph(currentFolderPath, cachedData);
+              fs.writeFileSync(graphJsonPath, JSON.stringify(conceptMapData, null, 2), 'utf-8');
+              if (conceptMapSim) {
+                conceptMapSim.setData(conceptMapData);
+              }
+              updateConceptMapUI();
+            }
+          } catch (_) {}
+        }
         return true;
       } catch (err) {
         dialog.showErrorBox('Error saving file', err.message);
@@ -6095,6 +6255,11 @@ window.addEventListener("DOMContentLoaded", () => {
     if (tabIndex === -1) return true;
     const tab = tabs[tabIndex];
 
+    if (tab.isGraph) {
+      closeConceptMap();
+      return true;
+    }
+
     if (tab.id === activeTabId && editor && !tab.isPdf) {
       tab.content = editor.value;
       if (isDirty) tab.isDirty = true;
@@ -6129,63 +6294,64 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     isClosingTab = true;
+    try {
+      // Rimuovi immediatamente il tab dal DOM (feedback visivo a 0ms)
+      const closedTabEl = document.querySelector(`.editor-tab[data-tab-id="${tabId}"]`);
+      if (closedTabEl) {
+        closedTabEl.remove();
+      }
 
-    // Rimuovi immediatamente il tab dal DOM (feedback visivo a 0ms)
-    const closedTabEl = document.querySelector(`.editor-tab[data-tab-id="${tabId}"]`);
-    if (closedTabEl) {
-      closedTabEl.remove();
-    }
+      if (getCollabState().isActive && collabTabId && tab.id === collabTabId) {
+        leaveCollaboration();
+        collabTabId = null;
+        const bCollab = document.getElementById("btn-collab");
+        bCollab?.classList.remove("active-collab");
+        const sContainer = document.getElementById("collab-status-container");
+        sContainer?.classList.add("hidden");
+        if (typeof updateCollabModalView === 'function') updateCollabModalView();
+        showNotification(i18n.t('notif_session_ended'), "info");
+      }
 
-    if (getCollabState().isActive && collabTabId && tab.id === collabTabId) {
-      leaveCollaboration();
-      collabTabId = null;
-      const bCollab = document.getElementById("btn-collab");
-      bCollab?.classList.remove("active-collab");
-      const sContainer = document.getElementById("collab-status-container");
-      sContainer?.classList.add("hidden");
-      if (typeof updateCollabModalView === 'function') updateCollabModalView();
-      showNotification(i18n.t('notif_session_ended'), "info");
-    }
+      tabs.splice(tabIndex, 1);
 
-    tabs.splice(tabIndex, 1);
+      const pagesContainer = document.getElementById("pdf-pages-canvas-container");
+      if (pagesContainer && pagesContainer.dataset.renderedTabId === tabId) {
+        pagesContainer.innerHTML = '';
+        pagesContainer.dataset.renderedTabId = '';
+      }
 
-    const pagesContainer = document.getElementById("pdf-pages-canvas-container");
-    if (pagesContainer && pagesContainer.dataset.renderedTabId === tabId) {
-      pagesContainer.innerHTML = '';
-      pagesContainer.dataset.renderedTabId = '';
-    }
-
-    if (tab.id === activeTabId) {
-      if (tabs.length > 0) {
-        const nextIdx = Math.min(tabIndex, tabs.length - 1);
-        activeTabId = null;
-        const nextTab = tabs[nextIdx];
-        const nextTabEl = document.querySelector(`.editor-tab[data-tab-id="${nextTab.id}"]`);
-        if (nextTabEl) nextTabEl.classList.add('active');
-        switchToTab(nextTab.id);
-      } else {
-        activeTabId = null;
-        currentFilePath = null;
-        isDirty = false;
-        if (editor) editor.value = '';
-        if (preview) preview.innerHTML = '';
-        const pdfViewerEl = document.getElementById("pdf-viewer-container");
-        if (pdfViewerEl) pdfViewerEl.classList.add('hidden');
-        if (pagesContainer) {
-          pagesContainer.innerHTML = '';
-          pagesContainer.dataset.renderedTabId = '';
+      if (tab.id === activeTabId) {
+        if (tabs.length > 0) {
+          const nextIdx = Math.min(tabIndex, tabs.length - 1);
+          activeTabId = null;
+          const nextTab = tabs[nextIdx];
+          const nextTabEl = document.querySelector(`.editor-tab[data-tab-id="${nextTab.id}"]`);
+          if (nextTabEl) nextTabEl.classList.add('active');
+          switchToTab(nextTab.id);
+        } else {
+          activeTabId = null;
+          currentFilePath = null;
+          isDirty = false;
+          if (editor) editor.value = '';
+          if (preview) preview.innerHTML = '';
+          const pdfViewerEl = document.getElementById("pdf-viewer-container");
+          if (pdfViewerEl) pdfViewerEl.classList.add('hidden');
+          if (pagesContainer) {
+            pagesContainer.innerHTML = '';
+            pagesContainer.dataset.renderedTabId = '';
+          }
+          if (container) container.classList.remove('hidden');
+          if (typeof stopTypewriterEffect === 'function') stopTypewriterEffect();
+          renderTabs();
         }
-        if (container) container.classList.remove('hidden');
-        if (typeof stopTypewriterEffect === 'function') stopTypewriterEffect();
+      } else {
         renderTabs();
       }
-    } else {
-      renderTabs();
+    } finally {
+      setTimeout(() => {
+        isClosingTab = false;
+      }, 60);
     }
-
-    setTimeout(() => {
-      isClosingTab = false;
-    }, 60);
 
     return true;
   }
@@ -6731,7 +6897,7 @@ window.addEventListener("DOMContentLoaded", () => {
       const items = fs.readdirSync(folderPath);
       // Folders
       items
-        .filter(item => fs.statSync(path.join(folderPath, item)).isDirectory())
+        .filter(item => !item.startsWith('.') && fs.statSync(path.join(folderPath, item)).isDirectory())
         .sort((a, b) => a.localeCompare(b))
         .forEach(item => {
           const itemPath = path.join(folderPath, item);
@@ -6789,6 +6955,7 @@ window.addEventListener("DOMContentLoaded", () => {
       // Files (.md and .pdf)
       items
         .filter(item => {
+          if (item.startsWith('.')) return false;
           const itemPath = path.join(folderPath, item);
           return fs.statSync(itemPath).isFile() && isSupportedExplorerFile(itemPath);
         })
@@ -8471,6 +8638,1219 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // ====== CONCEPT MAP & MARK PROJECT ======
+  let isConceptMapActive = false;
+  let conceptMapSim = null;
+  let conceptMapData = null;
+  let physicsSaveTimer = null;
+
+  async function onConceptMapBtnClick() {
+    if (!currentFolderPath) {
+      try {
+        const result = await dialog.showOpenDialog({
+          title: i18n.t('concept_map_title') || 'Mappa Concetti',
+          properties: ["openDirectory"]
+        });
+        if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+          return;
+        }
+        openFolder(result.filePaths[0]);
+      } catch (err) {
+        console.error("Errore selezione cartella per mappa concetti:", err);
+        return;
+      }
+    }
+
+    if (!currentFolderPath) return;
+
+    const markDir = path.join(currentFolderPath, '.mark');
+    const graphJsonPath = path.join(markDir, 'graph.json');
+
+    if (!fs.existsSync(markDir) || !fs.existsSync(graphJsonPath)) {
+      openMarkProjectModal();
+    } else {
+      toggleConceptMap();
+    }
+  }
+
+  function openMarkProjectModal() {
+    const modal = document.getElementById('mark-project-modal');
+    const pathEl = document.getElementById('mark-project-folder-path');
+    if (pathEl) pathEl.textContent = currentFolderPath || '';
+    if (modal) modal.classList.remove('hidden');
+  }
+
+  function closeMarkProjectModal() {
+    const modal = document.getElementById('mark-project-modal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function createMarkProject() {
+    if (!currentFolderPath) return;
+    const markDir = path.join(currentFolderPath, '.mark');
+    const graphJsonPath = path.join(markDir, 'graph.json');
+
+    try {
+      if (!fs.existsSync(markDir)) {
+        fs.mkdirSync(markDir, { recursive: true });
+      }
+      const graphData = conceptMapModule.buildConceptGraph(currentFolderPath);
+      fs.writeFileSync(graphJsonPath, JSON.stringify(graphData, null, 2), 'utf-8');
+
+      closeMarkProjectModal();
+      showNotification(i18n.t('concept_map_created') || "Progetto Mark creato con successo!", "success");
+      openConceptMap();
+    } catch (err) {
+      console.error("Errore creazione progetto Mark:", err);
+      showNotification("Errore durante la creazione del progetto Mark.", "error");
+    }
+  }
+
+  function openConceptMap(focusQuery) {
+    if (!currentFolderPath) {
+      showNotification("Apri prima una cartella per visualizzare la mappa dei concetti", "info");
+      return;
+    }
+    const markDir = path.join(currentFolderPath, '.mark');
+    const graphJsonPath = path.join(markDir, 'graph.json');
+
+    if (!fs.existsSync(markDir) || !fs.existsSync(graphJsonPath)) {
+      openMarkProjectModal();
+      return;
+    }
+
+    let cachedData = null;
+    if (fs.existsSync(graphJsonPath)) {
+      try {
+        cachedData = JSON.parse(fs.readFileSync(graphJsonPath, 'utf-8'));
+      } catch (_) {}
+    }
+
+    // Scan & update graph with latest changes
+    conceptMapData = conceptMapModule.buildConceptGraph(currentFolderPath, cachedData);
+
+    // Save back asynchronously
+    try {
+      fs.writeFileSync(graphJsonPath, JSON.stringify(conceptMapData, null, 2), 'utf-8');
+    } catch (_) {}
+
+    isConceptMapActive = true;
+    const btn = document.getElementById('btn-concept-map');
+    if (btn) btn.classList.add('active');
+
+    // Add or update graph tab with folder name directly
+    const folderName = (currentFolderPath ? path.basename(currentFolderPath) : '') || i18n.t('concept_map_title') || 'Mappa';
+    let gTab = tabs.find(t => t.isGraph);
+    if (!gTab) {
+      gTab = {
+        id: 'concept-map-tab',
+        title: folderName,
+        isGraph: true,
+        filePath: null,
+        isDirty: false
+      };
+      if (tabs.length === 1 && !tabs[0].isGraph && !tabs[0].filePath && !tabs[0].isDirty && (tabs[0].content === '' || (editor && editor.value === ''))) {
+        tabs[0] = gTab;
+      } else {
+        tabs.push(gTab);
+      }
+    } else {
+      gTab.title = folderName;
+    }
+    activeTabId = gTab.id;
+
+    const workspaceViewport = document.getElementById('workspace-viewport');
+    if (workspaceViewport) workspaceViewport.classList.remove('hidden');
+    const emptyState = document.getElementById('empty-state');
+    if (emptyState) emptyState.classList.add('hidden');
+
+    if (container) container.classList.add('hidden');
+    const conceptMapContainer = document.getElementById('concept-map-container');
+    if (conceptMapContainer) conceptMapContainer.classList.remove('hidden');
+
+    updateConceptMapUI();
+    renderTabs();
+
+    // Initialize or update simulation
+    initOrUpdateConceptMapSimulation();
+
+    if (focusQuery) {
+      setTimeout(() => {
+        const searchInput = document.getElementById('concept-map-search-input');
+        if (searchInput) {
+          searchInput.value = focusQuery;
+        }
+        if (conceptMapSim) {
+          conceptMapSim.setSearchQuery(focusQuery);
+          const lower = focusQuery.toLowerCase();
+          const matched = conceptMapSim.nodes.find(n => n.name.toLowerCase() === lower || (n.tags && n.tags.some(t => t.toLowerCase() === lower)));
+          if (matched && conceptMapSim.canvas) {
+            conceptMapSim.transformX = conceptMapSim.canvas.clientWidth / 2 - matched.x * conceptMapSim.scale;
+            conceptMapSim.transformY = conceptMapSim.canvas.clientHeight / 2 - matched.y * conceptMapSim.scale;
+          }
+          conceptMapSim.wake(0.6);
+        }
+        if (typeof renderConceptMapSearchSuggestions === 'function') {
+          renderConceptMapSearchSuggestions(focusQuery);
+        }
+      }, 70);
+    }
+  }
+
+  function closeConceptMap() {
+    isConceptMapActive = false;
+    const btn = document.getElementById('btn-concept-map');
+    if (btn) btn.classList.remove('active');
+
+    const conceptMapContainer = document.getElementById('concept-map-container');
+    if (conceptMapContainer) conceptMapContainer.classList.add('hidden');
+
+    const containerEl = document.getElementById('container');
+    if (containerEl) containerEl.classList.remove('hidden');
+
+    // Remove graph tab from tabs list
+    const gIdx = tabs.findIndex(t => t.isGraph);
+    if (gIdx !== -1) {
+      tabs.splice(gIdx, 1);
+    }
+
+    if (activeTabId === 'concept-map-tab') {
+      if (tabs.length > 0) {
+        switchToTab(tabs[tabs.length - 1].id);
+      } else {
+        renderTabs();
+      }
+    } else {
+      renderTabs();
+    }
+
+    if (conceptMapSim) {
+      conceptMapSim.hoveredNode = null;
+      conceptMapSim.hoveredEdge = null;
+    }
+    updateConceptMapTooltip(null, null);
+  }
+
+  function toggleConceptMap() {
+    if (isConceptMapActive) {
+      if (activeTabId === 'concept-map-tab') {
+        closeConceptMap();
+      } else {
+        switchToTab('concept-map-tab');
+      }
+    } else {
+      openConceptMap();
+    }
+  }
+
+  function updateConceptMapFooter() {
+    if (!wordCountEl) return;
+    if (!conceptMapData || !Array.isArray(conceptMapData.nodes)) {
+      wordCountEl.textContent = '';
+      return;
+    }
+    let nodesCount = conceptMapData.nodes.length;
+    let linksCount = conceptMapData.links ? conceptMapData.links.length : 0;
+    if (conceptMapSim) {
+      const visibleNodes = conceptMapSim.nodes.filter(n => conceptMapSim.isNodeVisible(n));
+      const visibleLinks = conceptMapSim.links.filter(l => conceptMapSim.isNodeVisible(l.sourceNode) && conceptMapSim.isNodeVisible(l.targetNode));
+      nodesCount = visibleNodes.length;
+      linksCount = visibleLinks.length;
+    }
+    wordCountEl.textContent = i18n.t('concept_map_nodes_count', {
+      nodes: nodesCount,
+      links: linksCount
+    }) || `${nodesCount} nodes · ${linksCount} connections`;
+  }
+
+  function updateConceptMapUI() {
+    if (!conceptMapData) return;
+    const statsEl = document.getElementById('concept-map-stats');
+
+    if (statsEl) {
+      statsEl.textContent = i18n.t('concept_map_nodes_count', {
+        nodes: conceptMapData.nodes.length,
+        links: conceptMapData.links.length
+      }) || `${conceptMapData.nodes.length} nodi · ${conceptMapData.links.length} collegamenti`;
+    }
+
+    updateConceptMapFooter();
+    renderConceptMapLegend(conceptMapData.folders);
+  }
+
+  function renderConceptMapLegend(folders) {
+    const legend = document.getElementById('concept-map-legend');
+    if (!legend) return;
+    legend.innerHTML = '';
+    legend.style.display = 'none';
+  }
+
+  function initOrUpdateConceptMapSimulation() {
+    const canvas = document.getElementById('concept-map-canvas');
+    if (!canvas || !conceptMapData) return;
+
+    if (!conceptMapSim) {
+      conceptMapSim = new conceptMapModule.ConceptGraphSimulation(canvas, {
+        onNodeClick: (node) => {
+          openFileInTab(node.path);
+          conceptMapSim.hoveredNode = node;
+          conceptMapSim.wake();
+        },
+        onNodeDoubleClick: (node) => {
+          openFileInTab(node.path);
+        },
+        onNodeHover: (node, clientX, clientY) => {
+          updateConceptMapTooltip(node, null, clientX, clientY);
+        },
+        onEdgeHover: (edge, clientX, clientY) => {
+          updateConceptMapTooltip(null, edge, clientX, clientY);
+        },
+        onContextMenu: (node, edge, e) => {
+          showConceptMapContextMenu(node, edge, e);
+        },
+        onFilterChange: (depthFilter, hiddenNodeIds) => {
+          updateConceptMapFilterBanner(depthFilter, hiddenNodeIds);
+          updateConceptMapFooter();
+        },
+        onSelectionChange: (selectedIds) => {
+          updateConceptMapSelectionBanner(selectedIds);
+        },
+        onGraphDataChange: () => {
+          saveConceptMapGraphData();
+          updateConceptMapFooter();
+        }
+      });
+
+      window.addEventListener('resize', () => {
+        if (isConceptMapActive && conceptMapSim) {
+          conceptMapSim.resize();
+        }
+      });
+    }
+
+    conceptMapSim.setData(conceptMapData);
+    syncPhysicsPanelUI();
+
+    requestAnimationFrame(() => {
+      conceptMapSim.resize();
+      conceptMapSim.fitToView();
+    });
+  }
+
+  let activeTooltipNode = null;
+  let tooltipHideTimer = null;
+  let isTooltipInteractive = false;
+  let tooltipListenersAttached = false;
+
+  function hideConceptMapTooltip() {
+    const tooltip = document.getElementById('concept-map-tooltip');
+    if (!tooltip) return;
+    tooltip.classList.add('hidden');
+    tooltip.classList.remove('interactive');
+    isTooltipInteractive = false;
+    activeTooltipNode = null;
+    if (conceptMapSim && conceptMapSim.hoveredNode) {
+      conceptMapSim.hoveredNode = null;
+      conceptMapSim.wake();
+    }
+  }
+
+  function renderInteractiveTooltipNode(node) {
+    const tooltip = document.getElementById('concept-map-tooltip');
+    if (!tooltip || !node) return;
+
+    const tagLabel = i18n.t('concept_map_tags_label') || 'Tags:';
+    const headingLabel = i18n.t('concept_map_headings_label') || 'Headings:';
+    const connLabel = i18n.t('concept_map_connections') || 'connections';
+    const delTagTitle = i18n.t('concept_map_delete_tag') || 'Elimina tag';
+    const delHeadingTitle = i18n.t('concept_map_delete_heading') || 'Elimina titolo';
+
+    const tagsHtml = (node.tags && node.tags.length > 0)
+      ? `<div class="tooltip-interactive-section">
+           <span class="tooltip-section-header">${tagLabel}</span>
+           <div class="tooltip-pills-wrap">
+             ${node.tags.map(t => `
+               <span class="tooltip-pill tooltip-pill-tag">
+                 <span class="tooltip-pill-text">[[${escapeHtml(t)}]]</span>
+                 <button type="button" class="tooltip-pill-x" data-action="delete-tag" data-val="${escapeHtml(t)}" title="${delTagTitle}">&times;</button>
+               </span>
+             `).join('')}
+           </div>
+         </div>`
+      : '';
+
+    const headingsHtml = (node.headingKeywords && node.headingKeywords.length > 0)
+      ? `<div class="tooltip-interactive-section">
+           <span class="tooltip-section-header">${headingLabel}</span>
+           <div class="tooltip-pills-wrap">
+             ${node.headingKeywords.map(k => `
+               <span class="tooltip-pill tooltip-pill-heading">
+                 <span class="tooltip-pill-text">#${escapeHtml(k)}</span>
+                 <button type="button" class="tooltip-pill-x" data-action="delete-heading" data-val="${escapeHtml(k)}" title="${delHeadingTitle}">&times;</button>
+               </span>
+             `).join('')}
+           </div>
+         </div>`
+      : '';
+
+    tooltip.innerHTML = `
+      <div class="tooltip-title">${escapeHtml(node.name)}</div>
+      <div class="tooltip-sub">${escapeHtml(node.folderName)} · ${node.degree} ${connLabel}</div>
+      ${tagsHtml}
+      ${headingsHtml}
+    `;
+    tooltip.classList.add('interactive');
+  }
+
+  function setupTooltipEvents() {
+    if (tooltipListenersAttached) return;
+    const tooltip = document.getElementById('concept-map-tooltip');
+    if (!tooltip) return;
+    tooltipListenersAttached = true;
+
+    tooltip.addEventListener('mouseenter', () => {
+      if (activeTooltipNode) {
+        if (tooltipHideTimer) {
+          clearTimeout(tooltipHideTimer);
+          tooltipHideTimer = null;
+        }
+        isTooltipInteractive = true;
+        renderInteractiveTooltipNode(activeTooltipNode);
+        if (conceptMapSim) {
+          conceptMapSim.hoveredNode = activeTooltipNode;
+          conceptMapSim.wake();
+        }
+      }
+    });
+
+    tooltip.addEventListener('mouseleave', () => {
+      isTooltipInteractive = false;
+      if (tooltipHideTimer) clearTimeout(tooltipHideTimer);
+      tooltipHideTimer = setTimeout(() => {
+        hideConceptMapTooltip();
+      }, 200);
+    });
+
+    tooltip.addEventListener('click', (e) => {
+      const btn = e.target.closest('.tooltip-pill-x');
+      if (!btn || !activeTooltipNode || !conceptMapSim) return;
+      e.stopPropagation();
+
+      const action = btn.dataset.action;
+      const val = btn.dataset.val;
+
+      if (action === 'delete-tag') {
+        conceptMapSim.removeNodeTag(activeTooltipNode.id, val);
+        renderInteractiveTooltipNode(activeTooltipNode);
+      } else if (action === 'delete-heading') {
+        conceptMapSim.removeNodeHeading(activeTooltipNode.id, val);
+        renderInteractiveTooltipNode(activeTooltipNode);
+      }
+    });
+  }
+
+  function updateConceptMapTooltip(node, edge, clientX, clientY) {
+    const tooltip = document.getElementById('concept-map-tooltip');
+    if (!tooltip) return;
+    setupTooltipEvents();
+
+    if (node) {
+      if (tooltipHideTimer) {
+        clearTimeout(tooltipHideTimer);
+        tooltipHideTimer = null;
+      }
+      activeTooltipNode = node;
+
+      if (isTooltipInteractive) {
+        renderInteractiveTooltipNode(node);
+      } else {
+        const reasonsSummary = [];
+        const tagLabel = i18n.t('concept_map_tags_label') || 'Tags:';
+        const headingLabel = i18n.t('concept_map_headings_label') || 'Headings:';
+        const connLabel = i18n.t('concept_map_connections') || 'connections';
+
+        if (node.tags && node.tags.length > 0) {
+          reasonsSummary.push(`<span class="tooltip-reason"><strong>${tagLabel}</strong> ${node.tags.slice(0, 5).map(t => '[[' + escapeHtml(t) + ']]').join(' ')}${node.tags.length > 5 ? '...' : ''}</span>`);
+        }
+        if (node.headingKeywords && node.headingKeywords.length > 0) {
+          reasonsSummary.push(`<span class="tooltip-reason"><strong>${headingLabel}</strong> ${node.headingKeywords.slice(0, 6).map(k => '#' + escapeHtml(k)).join(' ')}${node.headingKeywords.length > 6 ? '...' : ''}</span>`);
+        }
+
+        tooltip.innerHTML = `
+          <div class="tooltip-title">${escapeHtml(node.name)}</div>
+          <div class="tooltip-sub">${escapeHtml(node.folderName)} · ${node.degree} ${connLabel}</div>
+          ${reasonsSummary.join('')}
+        `;
+        tooltip.classList.remove('interactive');
+      }
+
+      const viewportRect = document.getElementById('concept-map-viewport')?.getBoundingClientRect();
+      if (viewportRect && clientX !== undefined && clientY !== undefined) {
+        let x = clientX - viewportRect.left + 14;
+        let y = clientY - viewportRect.top + 14;
+        if (x + 300 > viewportRect.width) x -= 310;
+        if (y + 140 > viewportRect.height) y -= 150;
+        tooltip.style.left = `${Math.max(8, x)}px`;
+        tooltip.style.top = `${Math.max(8, y)}px`;
+      }
+      tooltip.classList.remove('hidden');
+    } else if (edge) {
+      if (tooltipHideTimer) {
+        clearTimeout(tooltipHideTimer);
+        tooltipHideTimer = null;
+      }
+      activeTooltipNode = null;
+      isTooltipInteractive = false;
+      tooltip.classList.remove('interactive');
+
+      if (edge.isManual || (edge.reasons && edge.reasons.length > 0 && edge.reasons.every(r => r.type === 'manual'))) {
+        tooltip.classList.add('hidden');
+        return;
+      }
+      const activeReasons = edge.activeReasons || edge.reasons || [];
+      const reasonsList = activeReasons.filter(r => r.type !== 'manual').map(r => {
+        let prefix = '';
+        if (r.type === 'direct_link') prefix = 'link:';
+        else if (r.type === 'tag') prefix = 'tag:';
+        else if (r.type === 'heading') prefix = 'heading:';
+        return `<span class="tooltip-reason"><span class="tooltip-tag-prefix">${prefix}</span> ${escapeHtml(r.label)}</span>`;
+      }).join('');
+
+      if (!reasonsList) {
+        tooltip.classList.add('hidden');
+        return;
+      }
+
+      tooltip.innerHTML = reasonsList;
+
+      const viewportRect = document.getElementById('concept-map-viewport')?.getBoundingClientRect();
+      if (viewportRect && clientX !== undefined && clientY !== undefined) {
+        let x = clientX - viewportRect.left + 14;
+        let y = clientY - viewportRect.top + 14;
+        if (x + 260 > viewportRect.width) x -= 270;
+        if (y + 100 > viewportRect.height) y -= 110;
+        tooltip.style.left = `${Math.max(8, x)}px`;
+        tooltip.style.top = `${Math.max(8, y)}px`;
+      }
+      tooltip.classList.remove('hidden');
+    } else {
+      if (isTooltipInteractive) {
+        return;
+      }
+      if (tooltipHideTimer) clearTimeout(tooltipHideTimer);
+      tooltipHideTimer = setTimeout(() => {
+        if (!isTooltipInteractive) {
+          hideConceptMapTooltip();
+        }
+      }, 220);
+    }
+  }
+
+  function showConceptMapContextMenu(node, edge, e) {
+    const { Menu, MenuItem, getCurrentWindow } = require('@electron/remote');
+    const menu = new Menu();
+
+    if (edge) {
+      menu.append(new MenuItem({
+        label: i18n.t('concept_map_ctx_delete_edge') || 'Elimina connessione',
+        click: () => {
+          if (conceptMapSim) {
+            conceptMapSim.deleteLink(edge);
+          }
+        }
+      }));
+      menu.append(new MenuItem({ type: 'separator' }));
+    }
+
+    if (conceptMapSim && conceptMapSim.selectedNodeIds && conceptMapSim.selectedNodeIds.size >= 2) {
+      const count = conceptMapSim.selectedNodeIds.size;
+      menu.append(new MenuItem({
+        label: (i18n.t('concept_map_connect_selected') || 'Collega nodi selezionati ({count})').replace('{count}', count),
+        click: () => {
+          conceptMapSim.connectSelectedNodes();
+        }
+      }));
+      menu.append(new MenuItem({
+        label: i18n.t('concept_map_selection_cancel') || 'Annulla selezione',
+        click: () => {
+          conceptMapSim.selectedNodeIds.clear();
+          conceptMapSim.wake(0.2);
+          updateConceptMapSelectionBanner([]);
+        }
+      }));
+      menu.append(new MenuItem({ type: 'separator' }));
+    }
+
+    if (node) {
+      menu.append(new MenuItem({
+        label: `${i18n.t('concept_map_ctx_open_note') || 'Apri nota'}: ${node.name}`,
+        click: () => {
+          openFileInTab(node.path);
+        }
+      }));
+
+      menu.append(new MenuItem({ type: 'separator' }));
+
+      menu.append(new MenuItem({
+        label: i18n.t('concept_map_ctx_hide_node') || 'Nascondi nodo',
+        click: () => {
+          if (conceptMapSim) {
+            conceptMapSim.hideNode(node.id);
+          }
+        }
+      }));
+
+      const depthSubmenu = new Menu();
+      [1, 2, 3, 4].forEach(depth => {
+        let label = '';
+        if (depth === 1) label = i18n.t('concept_map_ctx_depth_1') || 'Profondità 1 (solo vicini)';
+        else if (depth === 2) label = i18n.t('concept_map_ctx_depth_2') || 'Profondità 2 (vicini dei vicini)';
+        else if (depth === 3) label = i18n.t('concept_map_ctx_depth_3') || 'Profondità 3 (3° grado)';
+        else label = i18n.t('concept_map_ctx_depth_4') || 'Profondità 4 (4° grado)';
+
+        const isCurrent = conceptMapSim && conceptMapSim.depthFilter &&
+                          conceptMapSim.depthFilter.focusNodeId === node.id &&
+                          conceptMapSim.depthFilter.depth === depth;
+
+        depthSubmenu.append(new MenuItem({
+          label: label,
+          type: 'checkbox',
+          checked: !!isCurrent,
+          click: () => {
+            if (conceptMapSim) {
+              conceptMapSim.filterByDepth(node.id, depth);
+            }
+          }
+        }));
+      });
+
+      menu.append(new MenuItem({
+        label: i18n.t('concept_map_ctx_depth_filter') || 'Filtra per profondità',
+        submenu: depthSubmenu
+      }));
+    }
+
+    const hasHidden = conceptMapSim && (conceptMapSim.hiddenNodeIds.size > 0 || conceptMapSim.depthFilter);
+    if (hasHidden) {
+      menu.append(new MenuItem({ type: 'separator' }));
+      menu.append(new MenuItem({
+        label: i18n.t('concept_map_ctx_show_all') || 'Mostra tutti i nodi / Reimposta filtri',
+        click: () => {
+          if (conceptMapSim) {
+            conceptMapSim.resetNodeVisibility();
+          }
+        }
+      }));
+    }
+
+    if (!node && !edge) {
+      menu.append(new MenuItem({
+        label: i18n.t('concept_map_fit') || 'Centra visuale',
+        click: () => {
+          if (conceptMapSim) conceptMapSim.fitToView();
+        }
+      }));
+      menu.append(new MenuItem({
+        label: i18n.t('concept_map_refresh') || 'Rianalizza note',
+        click: () => {
+          if (typeof onConceptMapRefreshClick === 'function') onConceptMapRefreshClick();
+        }
+      }));
+    }
+
+    menu.popup({ window: getCurrentWindow() });
+  }
+
+  function updateConceptMapFilterBanner(depthFilter, hiddenNodeIds) {
+    const banner = document.getElementById('concept-map-filter-banner');
+    if (!banner) return;
+
+    if (depthFilter) {
+      banner.classList.remove('hidden');
+      banner.innerHTML = `
+        <span class="filter-banner-title" title="${escapeHtml(depthFilter.focusNodeName)}">${escapeHtml(depthFilter.focusNodeName)}</span>
+        <div class="filter-banner-depth-group">
+          ${[1, 2, 3].map(d => `
+            <button type="button" class="filter-banner-depth-btn ${d === depthFilter.depth ? 'active' : ''}" data-depth="${d}">${d}</button>
+          `).join('')}
+        </div>
+        <button type="button" class="filter-banner-close-btn" title="${escapeHtml(i18n.t('concept_map_ctx_show_all') || 'Reimposta')}">&times;</button>
+      `;
+
+      banner.querySelectorAll('.filter-banner-depth-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const depth = Number(btn.dataset.depth);
+          if (conceptMapSim) {
+            conceptMapSim.filterByDepth(depthFilter.focusNodeId, depth);
+          }
+        });
+      });
+
+      const closeBtn = banner.querySelector('.filter-banner-close-btn');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+          if (conceptMapSim) conceptMapSim.resetNodeVisibility();
+        });
+      }
+    } else if (hiddenNodeIds && hiddenNodeIds.size > 0) {
+      banner.classList.remove('hidden');
+      const count = hiddenNodeIds.size;
+      banner.innerHTML = `
+        <span class="filter-banner-title">${count} ${count === 1 ? 'nodo nascosto' : 'nodi nascosti'}</span>
+        <button type="button" class="filter-banner-depth-btn" id="btn-banner-unhide-all">Mostra tutti</button>
+        <button type="button" class="filter-banner-close-btn">&times;</button>
+      `;
+
+      const unhideBtn = banner.querySelector('#btn-banner-unhide-all');
+      if (unhideBtn) {
+        unhideBtn.addEventListener('click', () => {
+          if (conceptMapSim) conceptMapSim.resetNodeVisibility();
+        });
+      }
+      const closeBtn = banner.querySelector('.filter-banner-close-btn');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+          if (conceptMapSim) conceptMapSim.resetNodeVisibility();
+        });
+      }
+    } else {
+      banner.classList.add('hidden');
+      banner.innerHTML = '';
+    }
+  }
+
+  function updateConceptMapSelectionBanner(selectedIds) {
+    const banner = document.getElementById('concept-map-selection-banner');
+    if (!banner) return;
+    if (Array.isArray(selectedIds) && selectedIds.length >= 2) {
+      banner.classList.remove('hidden');
+      const count = selectedIds.length;
+      const label = (i18n.t('concept_map_connect_selected') || 'Collega nodi ({count})').replace('{count}', count);
+      banner.innerHTML = `
+        <span>${count} nodi selezionati</span>
+        <button type="button" class="selection-banner-action-btn" id="btn-banner-connect">${escapeHtml(label)}</button>
+        <button type="button" class="filter-banner-close-btn" id="btn-banner-clear-sel" title="${escapeHtml(i18n.t('concept_map_selection_cancel') || 'Annulla')}">&times;</button>
+      `;
+      const btnConnect = banner.querySelector('#btn-banner-connect');
+      if (btnConnect) {
+        btnConnect.addEventListener('click', () => {
+          if (conceptMapSim) conceptMapSim.connectSelectedNodes();
+        });
+      }
+      const btnClear = banner.querySelector('#btn-banner-clear-sel');
+      if (btnClear) {
+        btnClear.addEventListener('click', () => {
+          if (conceptMapSim) {
+            conceptMapSim.selectedNodeIds.clear();
+            conceptMapSim.wake(0.2);
+            updateConceptMapSelectionBanner([]);
+          }
+        });
+      }
+    } else {
+      banner.classList.add('hidden');
+      banner.innerHTML = '';
+    }
+  }
+
+  function getConceptMapSuggestions(query = '') {
+    if (!conceptMapData || !Array.isArray(conceptMapData.nodes)) return [];
+    const counts = new Map();
+    for (const n of conceptMapData.nodes) {
+      if (Array.isArray(n.tags)) {
+        for (const t of n.tags) {
+          const clean = t.trim();
+          if (clean && clean.length <= 20) {
+            counts.set(clean, (counts.get(clean) || 0) + 1);
+          }
+        }
+      }
+    }
+    if (counts.size < 6) {
+      for (const n of conceptMapData.nodes) {
+        if (Array.isArray(n.headingKeywords)) {
+          for (const k of n.headingKeywords) {
+            const clean = k.trim();
+            if (clean && clean.length <= 16 && !conceptMapModule.STOP_WORDS?.has(clean.toLowerCase())) {
+              counts.set(clean, (counts.get(clean) || 0) + 1);
+            }
+          }
+        }
+      }
+    }
+
+    const q = (query || '').trim().toLowerCase();
+    let list = Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(entry => entry[0]);
+
+    if (q) {
+      list = list.filter(item => item.toLowerCase().includes(q) && item.toLowerCase() !== q);
+    }
+    return list.slice(0, 10);
+  }
+
+  function renderConceptMapSearchSuggestions(query = '') {
+    const container = document.getElementById('concept-map-search-suggestions');
+    if (!container) return;
+    const suggestions = getConceptMapSuggestions(query);
+    if (suggestions.length === 0) {
+      container.classList.add('hidden');
+      container.innerHTML = '';
+      return;
+    }
+
+    const currentVal = (document.getElementById('concept-map-search-input')?.value || '').trim().toLowerCase();
+    container.innerHTML = suggestions.map(tag => {
+      const isActive = (currentVal === tag.toLowerCase());
+      const label = tag.startsWith('#') ? tag : '#' + tag;
+      return `<button type="button" class="search-suggestion-pill${isActive ? ' active' : ''}" data-tag="${escapeHtml(tag)}" title="${escapeHtml(label)}">${escapeHtml(label)}</button>`;
+    }).join('');
+
+    container.classList.remove('hidden');
+
+    container.querySelectorAll('.search-suggestion-pill').forEach(btn => {
+      btn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        const tag = btn.dataset.tag;
+        const input = document.getElementById('concept-map-search-input');
+        if (!input) return;
+        if (input.value.trim().toLowerCase() === tag.toLowerCase()) {
+          input.value = '';
+          if (conceptMapSim) conceptMapSim.setSearchQuery('');
+        } else {
+          input.value = tag;
+          if (conceptMapSim) conceptMapSim.setSearchQuery(tag);
+        }
+        renderConceptMapSearchSuggestions(input.value);
+      });
+    });
+  }
+
+  function syncPhysicsPanelUI() {
+    if (!conceptMapSim) return;
+    const p = conceptMapSim.physics;
+
+    const sRep = document.getElementById('physics-slider-repulsion');
+    const sDist = document.getElementById('physics-slider-distance');
+    const sGrav = document.getElementById('physics-slider-gravity');
+    const sFric = document.getElementById('physics-slider-friction');
+    const cLabels = document.getElementById('physics-check-labels');
+    const cDynamic = document.getElementById('physics-check-dynamic');
+    const cHideOrphans = document.getElementById('physics-check-hide-orphans');
+    const cLinkTags = document.getElementById('physics-check-link-tags');
+    const cLinkHeadings = document.getElementById('physics-check-link-headings');
+    const btnAnimate = document.getElementById('btn-graph-animate');
+
+    const vRep = document.getElementById('physics-val-repulsion');
+    const vDist = document.getElementById('physics-val-distance');
+    const vGrav = document.getElementById('physics-val-gravity');
+    const vFric = document.getElementById('physics-val-friction');
+
+    if (sRep) sRep.value = p.repulsion;
+    if (vRep) vRep.textContent = p.repulsion;
+
+    if (sDist) sDist.value = p.linkDistance;
+    if (vDist) vDist.textContent = p.linkDistance;
+
+    if (sGrav) sGrav.value = p.gravity;
+    if (vGrav) vGrav.textContent = p.gravity;
+
+    if (sFric) sFric.value = p.friction;
+    if (vFric) vFric.textContent = p.friction;
+
+    if (cLabels) cLabels.checked = !!p.showAllLabels;
+    if (cDynamic) cDynamic.checked = !!p.dynamicIdle;
+    if (cHideOrphans) cHideOrphans.checked = !!p.hideOrphans;
+    if (cLinkTags) cLinkTags.checked = p.linkByTags !== false;
+    if (cLinkHeadings) cLinkHeadings.checked = !!p.linkByHeadings;
+    if (btnAnimate) btnAnimate.classList.toggle('active', !!p.dynamicIdle);
+
+    syncPhysicsResetButtons();
+  }
+
+  function syncPhysicsResetButtons() {
+    if (!conceptMapSim) return;
+    const p = conceptMapSim.physics;
+    const def = conceptMapModule.DEFAULT_PHYSICS || {
+      repulsion: 220,
+      linkDistance: 130,
+      gravity: 0.008,
+      friction: 0.85,
+      dynamicIdle: false,
+      showAllLabels: true,
+      hideOrphans: false,
+      linkByTags: true,
+      linkByHeadings: false
+    };
+
+    const resetBtns = document.querySelectorAll('.physics-item-reset-btn');
+    resetBtns.forEach(btn => {
+      const param = btn.dataset.param;
+      if (!param) return;
+      let isDifferent = false;
+      if (typeof def[param] === 'boolean') {
+        isDifferent = (!!p[param] !== !!def[param]);
+      } else if (typeof def[param] === 'number') {
+        isDifferent = (Math.abs(Number(p[param]) - Number(def[param])) > 0.0001);
+      }
+      btn.classList.toggle('hidden', !isDifferent);
+    });
+  }
+
+  let graphDataSaveTimer = null;
+  function saveConceptMapGraphData() {
+    if (!currentFolderPath || !conceptMapSim) return;
+    const graphJsonPath = path.join(currentFolderPath, '.mark', 'graph.json');
+    if (!fs.existsSync(graphJsonPath)) return;
+
+    if (graphDataSaveTimer) clearTimeout(graphDataSaveTimer);
+    graphDataSaveTimer = setTimeout(() => {
+      try {
+        if (fs.existsSync(graphJsonPath)) {
+          const raw = fs.readFileSync(graphJsonPath, 'utf-8');
+          const data = JSON.parse(raw);
+          data.physics = { ...conceptMapSim.physics };
+          data.deletedLinks = Array.from(conceptMapSim.deletedLinkKeys || []);
+          data.customLinks = conceptMapSim.customLinks || [];
+          data.nodeOverrides = conceptMapSim.nodeOverrides || {};
+          fs.writeFileSync(graphJsonPath, JSON.stringify(data, null, 2), 'utf-8');
+        }
+      } catch (_) {}
+    }, 300);
+  }
+
+  function savePhysicsConfig() {
+    if (!currentFolderPath || !conceptMapSim) return;
+    const graphJsonPath = path.join(currentFolderPath, '.mark', 'graph.json');
+    if (!fs.existsSync(graphJsonPath)) return;
+
+    if (physicsSaveTimer) clearTimeout(physicsSaveTimer);
+    physicsSaveTimer = setTimeout(() => {
+      try {
+        if (fs.existsSync(graphJsonPath)) {
+          const raw = fs.readFileSync(graphJsonPath, 'utf-8');
+          const data = JSON.parse(raw);
+          data.physics = { ...conceptMapSim.physics };
+          data.deletedLinks = Array.from(conceptMapSim.deletedLinkKeys || []);
+          data.customLinks = conceptMapSim.customLinks || [];
+          data.nodeOverrides = conceptMapSim.nodeOverrides || {};
+          fs.writeFileSync(graphJsonPath, JSON.stringify(data, null, 2), 'utf-8');
+        }
+      } catch (_) {}
+    }, 600);
+  }
+
+  function setupConceptMap() {
+    const btnConceptMap = document.getElementById('btn-concept-map');
+    if (btnConceptMap) {
+      btnConceptMap.addEventListener('click', onConceptMapBtnClick);
+    }
+
+    // Project Modal
+    const btnConfirmCreate = document.getElementById('btn-confirm-create-mark-project');
+    const btnCancelCreate = document.getElementById('btn-cancel-mark-project');
+    const btnCloseModal = document.getElementById('btn-close-mark-project-modal');
+    const modalOverlay = document.getElementById('mark-project-modal-overlay');
+
+    if (btnConfirmCreate) btnConfirmCreate.addEventListener('click', createMarkProject);
+    if (btnCancelCreate) btnCancelCreate.addEventListener('click', closeMarkProjectModal);
+    if (btnCloseModal) btnCloseModal.addEventListener('click', closeMarkProjectModal);
+    if (modalOverlay) modalOverlay.addEventListener('click', closeMarkProjectModal);
+
+    // Concept Map Toolbar buttons
+    const btnAnimate = document.getElementById('btn-graph-animate');
+    const btnPhysicsToggle = document.getElementById('btn-graph-physics-toggle');
+    const btnFit = document.getElementById('btn-graph-fit');
+    const btnRefresh = document.getElementById('btn-graph-refresh');
+    const searchInput = document.getElementById('concept-map-search-input');
+
+    if (btnAnimate) {
+      btnAnimate.addEventListener('click', () => {
+        if (conceptMapSim) {
+          const isDynamic = conceptMapSim.toggleDynamicIdle();
+          btnAnimate.classList.toggle('active', isDynamic);
+          const cDynamic = document.getElementById('physics-check-dynamic');
+          if (cDynamic) cDynamic.checked = isDynamic;
+          savePhysicsConfig();
+        }
+      });
+    }
+
+    if (btnPhysicsToggle) {
+      btnPhysicsToggle.addEventListener('click', () => {
+        const panel = document.getElementById('concept-map-physics-panel');
+        if (panel) {
+          panel.classList.toggle('hidden');
+          btnPhysicsToggle.classList.toggle('active', !panel.classList.contains('hidden'));
+        }
+      });
+    }
+
+    const btnClosePhysics = document.getElementById('btn-close-physics-panel');
+    if (btnClosePhysics) {
+      btnClosePhysics.addEventListener('click', () => {
+        const panel = document.getElementById('concept-map-physics-panel');
+        if (panel) panel.classList.add('hidden');
+        if (btnPhysicsToggle) btnPhysicsToggle.classList.remove('active');
+      });
+    }
+
+    if (btnFit) {
+      btnFit.addEventListener('click', () => {
+        if (conceptMapSim) conceptMapSim.fitToView();
+      });
+    }
+
+    if (btnRefresh) {
+      btnRefresh.addEventListener('click', () => {
+        if (currentFolderPath) {
+          openConceptMap();
+          showNotification(i18n.t('concept_map_refresh') || "Grafo aggiornato", "info");
+        }
+      });
+    }
+
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        if (conceptMapSim) {
+          conceptMapSim.setSearchQuery(e.target.value);
+        }
+        renderConceptMapSearchSuggestions(e.target.value);
+      });
+      searchInput.addEventListener('focus', () => {
+        renderConceptMapSearchSuggestions(searchInput.value);
+      });
+      searchInput.addEventListener('blur', () => {
+        setTimeout(() => {
+          const container = document.getElementById('concept-map-search-suggestions');
+          if (container) container.classList.add('hidden');
+        }, 180);
+      });
+      searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          searchInput.value = '';
+          if (conceptMapSim) conceptMapSim.setSearchQuery('');
+          const container = document.getElementById('concept-map-search-suggestions');
+          if (container) container.classList.add('hidden');
+          searchInput.blur();
+        }
+      });
+    }
+
+    // Physics sliders
+    const sRep = document.getElementById('physics-slider-repulsion');
+    const sDist = document.getElementById('physics-slider-distance');
+    const sGrav = document.getElementById('physics-slider-gravity');
+    const sFric = document.getElementById('physics-slider-friction');
+    const cLabels = document.getElementById('physics-check-labels');
+    const cDynamic = document.getElementById('physics-check-dynamic');
+    const cHideOrphans = document.getElementById('physics-check-hide-orphans');
+
+    if (cDynamic) {
+      cDynamic.addEventListener('change', (e) => {
+        if (conceptMapSim) {
+          conceptMapSim.physics.dynamicIdle = e.target.checked;
+          if (conceptMapSim.physics.dynamicIdle) conceptMapSim.wake();
+          if (btnAnimate) btnAnimate.classList.toggle('active', e.target.checked);
+          savePhysicsConfig();
+          syncPhysicsResetButtons();
+        }
+      });
+    }
+
+    if (sRep) {
+      sRep.addEventListener('input', (e) => {
+        const val = Number(e.target.value);
+        const valEl = document.getElementById('physics-val-repulsion');
+        if (valEl) valEl.textContent = val;
+        if (conceptMapSim) {
+          conceptMapSim.physics.repulsion = val;
+          conceptMapSim.wake();
+          savePhysicsConfig();
+          syncPhysicsResetButtons();
+        }
+      });
+    }
+
+    if (sDist) {
+      sDist.addEventListener('input', (e) => {
+        const val = Number(e.target.value);
+        const valEl = document.getElementById('physics-val-distance');
+        if (valEl) valEl.textContent = val;
+        if (conceptMapSim) {
+          conceptMapSim.physics.linkDistance = val;
+          conceptMapSim.wake();
+          savePhysicsConfig();
+          syncPhysicsResetButtons();
+        }
+      });
+    }
+
+    if (sGrav) {
+      sGrav.addEventListener('input', (e) => {
+        const val = Number(e.target.value);
+        const valEl = document.getElementById('physics-val-gravity');
+        if (valEl) valEl.textContent = val;
+        if (conceptMapSim) {
+          conceptMapSim.physics.gravity = val;
+          conceptMapSim.wake();
+          savePhysicsConfig();
+          syncPhysicsResetButtons();
+        }
+      });
+    }
+
+    if (sFric) {
+      sFric.addEventListener('input', (e) => {
+        const val = Number(e.target.value);
+        const valEl = document.getElementById('physics-val-friction');
+        if (valEl) valEl.textContent = val;
+        if (conceptMapSim) {
+          conceptMapSim.physics.friction = val;
+          conceptMapSim.wake();
+          savePhysicsConfig();
+          syncPhysicsResetButtons();
+        }
+      });
+    }
+
+    if (cLabels) {
+      cLabels.addEventListener('change', (e) => {
+        if (conceptMapSim) {
+          conceptMapSim.physics.showAllLabels = e.target.checked;
+          conceptMapSim.wake();
+          savePhysicsConfig();
+          syncPhysicsResetButtons();
+        }
+      });
+    }
+
+    if (cHideOrphans) {
+      cHideOrphans.addEventListener('change', (e) => {
+        if (conceptMapSim) {
+          conceptMapSim.physics.hideOrphans = e.target.checked;
+          conceptMapSim.wake();
+          savePhysicsConfig();
+          updateConceptMapFooter();
+          syncPhysicsResetButtons();
+        }
+      });
+    }
+
+    const cLinkTags = document.getElementById('physics-check-link-tags');
+    const cLinkHeadings = document.getElementById('physics-check-link-headings');
+
+    if (cLinkTags) {
+      cLinkTags.addEventListener('change', (e) => {
+        if (conceptMapSim) {
+          conceptMapSim.physics.linkByTags = e.target.checked;
+          conceptMapSim.updateActiveLinks();
+          conceptMapSim.wake(0.6);
+          savePhysicsConfig();
+          updateConceptMapFooter();
+          syncPhysicsResetButtons();
+        }
+      });
+    }
+
+    if (cLinkHeadings) {
+      cLinkHeadings.addEventListener('change', (e) => {
+        if (conceptMapSim) {
+          conceptMapSim.physics.linkByHeadings = e.target.checked;
+          conceptMapSim.updateActiveLinks();
+          conceptMapSim.wake(0.6);
+          savePhysicsConfig();
+          updateConceptMapFooter();
+          syncPhysicsResetButtons();
+        }
+      });
+    }
+
+    // Per-item physics reload buttons
+    document.querySelectorAll('.physics-item-reset-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const param = btn.dataset.param;
+        if (!param || !conceptMapSim) return;
+
+        const def = conceptMapModule.DEFAULT_PHYSICS || {};
+        const defVal = def[param];
+        if (defVal === undefined) return;
+        conceptMapSim.physics[param] = defVal;
+
+        if (param === 'repulsion') {
+          const s = document.getElementById('physics-slider-repulsion');
+          const v = document.getElementById('physics-val-repulsion');
+          if (s) s.value = defVal;
+          if (v) v.textContent = defVal;
+        } else if (param === 'linkDistance') {
+          const s = document.getElementById('physics-slider-distance');
+          const v = document.getElementById('physics-val-distance');
+          if (s) s.value = defVal;
+          if (v) v.textContent = defVal;
+        } else if (param === 'gravity') {
+          const s = document.getElementById('physics-slider-gravity');
+          const v = document.getElementById('physics-val-gravity');
+          if (s) s.value = defVal;
+          if (v) v.textContent = defVal;
+        } else if (param === 'friction') {
+          const s = document.getElementById('physics-slider-friction');
+          const v = document.getElementById('physics-val-friction');
+          if (s) s.value = defVal;
+          if (v) v.textContent = defVal;
+        } else if (param === 'dynamicIdle') {
+          const c = document.getElementById('physics-check-dynamic');
+          if (c) c.checked = defVal;
+          if (btnAnimate) btnAnimate.classList.toggle('active', !!defVal);
+        } else if (param === 'showAllLabels') {
+          const c = document.getElementById('physics-check-labels');
+          if (c) c.checked = defVal;
+        } else if (param === 'hideOrphans') {
+          const c = document.getElementById('physics-check-hide-orphans');
+          if (c) c.checked = defVal;
+        } else if (param === 'linkByTags') {
+          const c = document.getElementById('physics-check-link-tags');
+          if (c) c.checked = defVal;
+          conceptMapSim.updateActiveLinks();
+        } else if (param === 'linkByHeadings') {
+          const c = document.getElementById('physics-check-link-headings');
+          if (c) c.checked = defVal;
+          conceptMapSim.updateActiveLinks();
+        }
+
+        conceptMapSim.wake(0.6);
+        savePhysicsConfig();
+        updateConceptMapFooter();
+        syncPhysicsResetButtons();
+      });
+    });
+
+    // Reset all manual graph modifications (deleted tags, headings, deleted links, custom links)
+    const btnResetModifications = document.getElementById('btn-reset-graph-modifications');
+    if (btnResetModifications) {
+      btnResetModifications.addEventListener('click', () => {
+        if (!currentFolderPath || !conceptMapSim) return;
+        const cleanData = conceptMapModule.buildConceptGraph(currentFolderPath, {
+          physics: conceptMapSim.physics
+        });
+        cleanData.deletedLinks = [];
+        cleanData.customLinks = [];
+        cleanData.nodeOverrides = {};
+
+        conceptMapSim.setData(cleanData);
+        conceptMapSim.deletedLinkKeys.clear();
+        conceptMapSim.customLinks = [];
+        conceptMapSim.nodeOverrides = {};
+
+        saveConceptMapGraphData();
+        updateConceptMapFooter();
+        conceptMapSim.wake(0.8);
+        hideConceptMapTooltip();
+      });
+    }
+  }
+
   // Initial startup: if no file or folder has been opened after brief delay, create initial tab
   setTimeout(() => {
     if (tabs.length === 0 && !currentFolderPath) {
@@ -8483,6 +9863,7 @@ window.addEventListener("DOMContentLoaded", () => {
   // ===== PRIMO RENDER + link esterni =====
   setupExternalLinks();
   setupLinkPreviewTooltip();
+  setupConceptMap();
   updatePreview();
 
   // ===== MOSTRA DOCUMENTO =====
@@ -9692,7 +11073,7 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   function parseVeInline(text, lineOffset = 0, isLineActive = false, caretOffset = -1) {
-    const tokenRegex = /(\*\*([^\*\n]+)\*\*)|(__([^_\n]+)__)|(~~([^~\n]+)~~)|(==([^=\n]+)==)|(`([^`\n]+)`)|(<u>([\s\S]*?)<\/u>)|(\[([^\]\n]+)\]\(([^)\n]+)\))|((?<!\*)\*([^\*\n]+)\*(?!\*))|((?<!_)_([^_\n]+)_(?!_))|(\$\$([^\$\n]+)\$\$)|((?<!\\|\$)\$([^\$\n]+)\$(?!\$))/gi;
+    const tokenRegex = /(\*\*([^\*\n]+)\*\*)|(__([^_\n]+)__)|(~~([^~\n]+)~~)|(==([^=\n]+)==)|(`([^`\n]+)`)|(<u>([\s\S]*?)<\/u>)|(\[([^\]\n]+)\]\(([^)\n]+)\))|((?<!\*)\*([^\*\n]+)\*(?!\*))|((?<!_)_([^_\n]+)_(?!_))|(\$\$([^\$\n]+)\$\$)|((?<!\\|\$)\$([^\$\n]+)\$(?!\$))|(\[\[([^\]\|\n\r]+?)(?:\|([^\]\n\r]+?))?\]\])/gi;
 
     let result = '';
     let lastIndex = 0;
@@ -9747,6 +11128,11 @@ window.addEventListener("DOMContentLoaded", () => {
         const rawClass = isCaretInside ? 've-math-raw' : 've-math-raw ve-hidden';
         const previewClass = isCaretInside ? 'katex-inline-container ve-hidden' : 'katex-inline-container';
         result += `<span class="ve-token ve-token-math" data-ve-start="${tokenStartInLine}" data-ve-end="${tokenEndInLine}"><span class="${delimClass}">${delim}</span><span class="${previewClass}" data-ve-ui="true">${rendered}</span><span class="${rawClass}">${escapeVeHtml(mathContent)}</span><span class="${delimClass}">${delim}</span></span>`;
+      } else if (match[24]) {
+        const tagTarget = match[25].trim();
+        const tagAlias = match[26] ? match[26].trim() : tagTarget;
+        const display = tagAlias || tagTarget;
+        result += `<span class="ve-token ve-token-wikilink" data-ve-start="${tokenStartInLine}" data-ve-end="${tokenEndInLine}"><span class="${delimClass}">[[</span><span class="ve-link-text concept-tag-link" data-tag="${escapeVeHtml(tagTarget)}">${escapeVeHtml(display)}</span><span class="${delimClass}">]]</span></span>`;
       }
 
       lastIndex = matchEnd;
@@ -12770,7 +14156,19 @@ window.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      // 7. Links
+      // 7. Links & Concept Map Tags
+      const tagLinkEl = e.target.closest('.concept-tag-link');
+      if (tagLinkEl) {
+        if (e.metaKey || e.ctrlKey || !isLineActive) {
+          e.preventDefault();
+          const tag = tagLinkEl.dataset.tag || tagLinkEl.textContent.trim();
+          if (typeof openConceptMap === 'function') {
+            openConceptMap(tag);
+          }
+          return;
+        }
+      }
+
       const linkTextEl = e.target.closest('.ve-link-text');
       if (linkTextEl) {
         const tokenEl = linkTextEl.closest('.ve-token-link');
