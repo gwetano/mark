@@ -1006,28 +1006,38 @@ body.dark .ve-link-text:hover {
   color: #79c0ff !important;
 }
 
-/* Concept Map Tag Links (Obsidian [[tag]] style) */
+/* Concept Map Tag Links (Obsidian [[tag]] style) - Same size and color as surrounding text, underlined only */
 #preview a.concept-tag-link,
 .markdown-body a.concept-tag-link,
-.ve-token-wikilink .ve-link-text {
-  color: var(--link-color, #0969da);
-  text-decoration: underline;
+.ve-token-wikilink .ve-link-text,
+.ve-token-wikilink .concept-tag-link {
+  color: inherit !important;
+  text-decoration: underline !important;
   text-underline-offset: 2.5px;
-  text-decoration-thickness: 1.5px;
+  text-decoration-thickness: 1.2px;
   cursor: pointer;
-  font-weight: 500;
+  font-size: inherit !important;
+  font-weight: inherit !important;
 }
 
 body.dark #preview a.concept-tag-link,
 body.dark .markdown-body a.concept-tag-link,
-body.dark .ve-token-wikilink .ve-link-text {
-  color: #58a6ff !important;
+body.dark .ve-token-wikilink .ve-link-text,
+body.dark .ve-token-wikilink .concept-tag-link {
+  color: inherit !important;
+  text-decoration: underline !important;
 }
 
+#preview a.concept-tag-link:hover,
+.markdown-body a.concept-tag-link:hover,
+.ve-token-wikilink .ve-link-text:hover,
+.ve-token-wikilink .concept-tag-link:hover,
 body.dark #preview a.concept-tag-link:hover,
 body.dark .markdown-body a.concept-tag-link:hover,
-body.dark .ve-token-wikilink .ve-link-text:hover {
-  color: #79c0ff !important;
+body.dark .ve-token-wikilink .ve-link-text:hover,
+body.dark .ve-token-wikilink .concept-tag-link:hover {
+  color: inherit !important;
+  text-decoration: underline !important;
 }
 
 /* ====== EXPLORER PANEL STYLES ====== */
@@ -4465,6 +4475,13 @@ body.dark .ve-math-empty-dollars {
   background-color: var(--explorer-hover);
 }
 
+#btn-toggle-visual-mode:disabled,
+#btn-toggle-visual-mode.disabled {
+  opacity: 0.28 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+
 /* Navbar invisibile ma draggabile in Reading Mode */
 #navbar.reading-mode-active {
   opacity: 0 !important;
@@ -6417,17 +6434,17 @@ body.reading-mode-active .pdf-top-toolbar {
 #btn-concept-map:hover {
   background: transparent !important;
   background-color: transparent !important;
-  color: #3b82f6 !important;
+  color: var(--fg) !important;
 }
 #btn-concept-map.active {
   background: transparent !important;
   background-color: transparent !important;
-  color: #3b82f6 !important;
+  color: var(--fg) !important;
 }
 #btn-concept-map.active:hover {
   background: transparent !important;
   background-color: transparent !important;
-  color: #3b82f6 !important;
+  color: var(--fg) !important;
 }
 #btn-concept-map:focus,
 #btn-concept-map:focus-visible,
@@ -6505,66 +6522,86 @@ body.reading-mode-active .workspace-viewport {
   display: none !important;
 }
 
-/* Concept Map Top Toolbar (Brutalist Minimal) */
+/* Concept Map Top Toolbar removed in favor of floating centered search & vertical actions */
 .concept-map-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 38px;
-  padding: 0 12px;
-  background-color: var(--explorer-bg);
-  border-bottom: 1px solid var(--explorer-border);
-  gap: 12px;
-  user-select: none;
-  z-index: 10;
-  flex-shrink: 0;
-}
-
-.concept-map-toolbar-left,
-.concept-map-toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.concept-map-stats {
-  font-size: 11px;
-  color: var(--fg);
-  opacity: 0.65;
-  white-space: nowrap;
-  font-family: var(--font-family);
-  letter-spacing: -0.2px;
+  display: none !important;
 }
 
 .concept-map-search-box {
-  position: relative;
+  position: absolute;
+  top: 16px;
+  left: 20px;
   display: inline-flex;
   align-items: center;
+  z-index: 30;
 }
 
 .concept-map-search-box input {
   background-color: var(--editor-bg);
   color: var(--fg);
   border: 1px solid var(--explorer-border);
-  border-radius: 6px;
-  padding: 5px 12px;
+  border-radius: 8px;
+  padding: 6px 58px 6px 14px;
   font-size: 12px;
-  width: 230px;
+  width: 250px;
   outline: none;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
   transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .concept-map-search-box input:focus {
-  width: 310px;
+  width: 320px;
   border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25), 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+
+.concept-map-search-shortcut {
+  position: absolute;
+  right: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  user-select: none;
+}
+
+.concept-map-search-box input:focus ~ .concept-map-search-shortcut,
+.concept-map-search-box.has-query .concept-map-search-shortcut {
+  opacity: 0;
+}
+
+.concept-map-search-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 5px;
+  min-width: 17px;
+  height: 18px;
+  font-size: 10px;
+  font-family: var(--font-family) !important;
+  color: var(--fg);
+  opacity: 0.65;
+  background-color: var(--code-bg);
+  border: 1px solid var(--explorer-border);
+  border-radius: 4px;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.06);
+  line-height: 1;
+}
+
+body.dark .concept-map-search-key {
+  background-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .concept-map-search-suggestions {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 8px);
   left: 0;
-  width: 310px;
+  width: 320px;
   max-height: 200px;
   overflow-y: auto;
   background: transparent !important;
@@ -6689,22 +6726,55 @@ body.dark .search-suggestion-pill.active {
   color: var(--fg);
 }
 
-.concept-map-tool-btn.active {
+/* Floating Right Actions (Vertical, NO Background) */
+.concept-map-floating-actions {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 30;
   background: transparent !important;
   background-color: transparent !important;
-  border: none !important;
-  color: #3b82f6 !important;
-  opacity: 1;
+  pointer-events: auto;
 }
 
-.concept-map-tool-btn:focus,
-.concept-map-tool-btn:focus-visible,
-.concept-map-tool-btn:active {
+.concept-map-floating-actions .concept-map-tool-btn {
   background: transparent !important;
   background-color: transparent !important;
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
+  color: var(--fg);
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0.65;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s ease, transform 0.15s ease, color 0.15s ease;
+}
+
+.concept-map-floating-actions .concept-map-tool-btn:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+#btn-graph-animate,
+#btn-graph-animate.active {
+  color: var(--fg) !important;
+}
+
+#btn-graph-animate.active {
+  opacity: 1;
+}
+
+#btn-graph-physics-toggle.active {
+  color: var(--fg) !important;
+  opacity: 0.9;
 }
 
 /* Viewport and Canvas */
@@ -6713,7 +6783,7 @@ body.dark .search-suggestion-pill.active {
   flex: 1;
   min-height: 0;
   width: 100%;
-  height: calc(100% - 35px);
+  height: 100%;
   overflow: hidden;
   background-color: var(--editor-bg);
 }
@@ -6724,23 +6794,33 @@ body.dark .search-suggestion-pill.active {
   left: 0;
   width: 100%;
   height: 100%;
-  cursor: grab;
+  cursor: default;
 }
 
-/* Floating Physics Panel (Brutalist Minimal) */
+/* Floating Physics Panel (Compact, Hierarchical, No Scrollbar) */
 .concept-map-physics-panel {
   position: absolute;
-  top: 40px;
-  right: 10px;
-  width: 230px;
+  top: 52px;
+  right: 14px;
+  width: 280px;
+  max-height: calc(100% - 66px);
   background-color: var(--explorer-bg);
   border: 1px solid var(--explorer-border);
-  border-radius: 4px;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
-  z-index: 20;
-  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.28);
+  z-index: 35;
+  overflow-y: auto;
+  overflow-x: hidden;
   font-size: 11px;
   user-select: none;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.concept-map-physics-panel::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .concept-map-physics-panel:not(.hidden) {
@@ -6766,11 +6846,42 @@ body.dark .search-suggestion-pill.active {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 7px 10px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--explorer-border);
-  font-weight: 600;
-  font-size: 11px;
   color: var(--fg);
+}
+
+.physics-header-title {
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: -0.2px;
+}
+
+.physics-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.physics-header-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  color: var(--fg);
+  opacity: 0.6;
+  font-size: 10.5px;
+  font-family: var(--font-family);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.physics-header-reset-btn:hover {
+  opacity: 1;
+  color: #007aff;
 }
 
 .physics-close-btn {
@@ -6781,213 +6892,248 @@ body.dark .search-suggestion-pill.active {
   line-height: 1;
   cursor: pointer;
   opacity: 0.6;
+  padding: 0 2px;
 }
 
 .physics-close-btn:hover {
   opacity: 1;
+  color: #007aff;
 }
 
 .physics-panel-body {
-  padding: 10px 12px;
+  padding: 8px 10px 10px 10px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-.physics-slider-row {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.physics-slider-label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: var(--fg);
-  font-size: 11px;
-}
-
-.physics-val-box {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.physics-val-box span {
-  font-family: var(--font-family);
-  font-size: 11px;
-  opacity: 0.75;
-  color: var(--fg);
-}
-
-.physics-slider-row input[type="range"] {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 4px;
-  background: var(--explorer-border);
-  border-radius: 2px;
-  outline: none;
-  cursor: pointer;
-  margin: 6px 0 2px 0;
-  padding: 0;
-  border: none;
-}
-
-.physics-slider-row input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #3b82f6;
-  cursor: pointer;
-  border: 1.5px solid #ffffff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
-  transition: transform 0.12s ease, background-color 0.12s ease;
-}
-
-.physics-slider-row input[type="range"]::-webkit-slider-thumb:hover {
-  transform: scale(1.25);
-  background: #2563eb;
-}
-
-.physics-slider-row input[type="range"]::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #3b82f6;
-  cursor: pointer;
-  border: 1.5px solid #ffffff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
-  transition: transform 0.12s ease, background-color 0.12s ease;
-}
-
-.physics-slider-row input[type="range"]::-moz-range-track {
-  background: var(--explorer-border);
-  height: 4px;
-  border-radius: 2px;
-  border: none;
-}
-
-/* Modern Toggle Switch */
-.physics-switch-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 3px 0;
-  user-select: none;
-}
-
-.physics-switch-row > span {
-  font-size: 11px;
-  color: var(--fg);
-  opacity: 0.9;
-}
-
-.switch-toggle {
-  position: relative;
-  display: inline-block;
-  width: 32px;
-  height: 18px;
-  flex-shrink: 0;
-  cursor: pointer;
-}
-
-.switch-toggle input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-  position: absolute;
-}
-
-.switch-slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--explorer-border);
-  border: 1px solid var(--explorer-border);
-  border-radius: 18px;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
-}
-
-.switch-slider::before {
-  position: absolute;
-  content: "";
-  height: 12px;
-  width: 12px;
-  left: 2px;
-  bottom: 2px;
-  background-color: #ffffff;
-  border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.switch-toggle input:checked + .switch-slider {
-  background-color: #3b82f6;
-  border-color: #3b82f6;
-}
-
-.switch-toggle input:checked + .switch-slider::before {
-  transform: translateX(14px);
-}
-
-.physics-switch-wrapper {
-  display: inline-flex;
-  align-items: center;
   gap: 6px;
 }
 
-.physics-item-reset-btn {
+.physics-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--fg);
+  opacity: 0.5;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-top: 6px;
+  margin-bottom: 3px;
+}
+
+/* 2-Column Action Matrix (Equal, Clean Toggle Blocks) */
+.physics-tile-matrix {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.physics-tile-block {
+  position: relative;
+  background-color: var(--editor-bg);
+  border: 1px solid var(--explorer-border);
+  border-radius: 6px;
+  padding: 0 10px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background-color 0.14s ease, border-color 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+.physics-tile-block:hover {
+  border-color: #007aff;
+}
+
+.physics-tile-block:hover .tile-icon,
+.physics-tile-block:hover .tile-label {
+  color: #007aff;
+}
+
+.physics-tile-block .hidden-tile-check {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.physics-tile-block .tile-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: 3px;
   color: var(--fg);
-  opacity: 0.55;
-  cursor: pointer;
-  transition: opacity 0.15s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.15s ease;
+  opacity: 0.7;
+  flex-shrink: 0;
+  transition: color 0.14s ease, opacity 0.14s ease;
 }
 
-.physics-item-reset-btn:hover {
-  opacity: 1;
-  color: #3b82f6;
-  transform: rotate(-45deg);
+.physics-tile-block .tile-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--fg);
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.14s ease, opacity 0.14s ease;
 }
 
-.physics-item-reset-btn.hidden {
-  display: none !important;
+/* ACTIVE TILE (Solid Vibrant Blue, Marked Contrast) */
+.physics-tile-block.active {
+  background-color: #007aff !important;
+  border-color: #007aff !important;
+  color: #ffffff !important;
+  box-shadow: none;
 }
 
-.physics-divider {
-  height: 1px;
-  background-color: var(--explorer-border);
-  margin: 10px 0;
-  opacity: 0.6;
+.physics-tile-block.active .tile-icon {
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+.physics-tile-block.active .tile-label {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  opacity: 1 !important;
+}
+
+/* Chunky Filled Sliders Group */
+.physics-sliders-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ios-slider-card {
+  position: relative;
+  height: 29px;
+  border-radius: 6px;
+  background-color: var(--editor-bg);
+  border: 1px solid var(--explorer-border);
+  overflow: hidden;
+  user-select: none;
+  cursor: default;
+  transition: border-color 0.14s ease;
+  box-sizing: border-box;
+}
+
+body.dark .ios-slider-card {
+  background-color: #252528;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.ios-slider-card:hover {
+  border-color: rgba(0, 122, 255, 0.5);
+}
+
+.ios-slider-card:active {
+  cursor: ew-resize;
+}
+
+.ios-slider-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  background: #007aff;
+  pointer-events: none;
+  transition: width 0.04s ease-out;
+  overflow: hidden;
+}
+
+/* Testo clippato sulla parte riempita (bianco su blu) */
+.ios-slider-fill-content {
+  position: absolute;
+  inset: 0;
+  width: 100vw;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  pointer-events: none;
+}
+
+.ios-slider-fill-content .ios-slider-label,
+.ios-slider-fill-content .ios-slider-value {
+  color: #ffffff;
+  text-shadow: none;
+}
+
+.ios-slider-content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.ios-slider-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg);
+  white-space: nowrap;
+}
+
+.ios-slider-value {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--fg);
+  font-family: var(--font-family);
+}
+
+.ios-slider-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  margin: 0;
+  cursor: default;
+  z-index: 3;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.ios-slider-input:active {
+  cursor: ew-resize;
 }
 
 .physics-modifications-block {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  margin-top: 4px;
 }
 
 .graph-modifications-reset-btn {
   background-color: transparent;
   border: 1px solid var(--explorer-border);
   color: var(--fg);
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 6px 10px;
+  font-size: 11px;
+  font-family: var(--font-family);
+  font-weight: 500;
+  cursor: pointer;
+  opacity: 0.75;
+  transition: opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  text-align: center;
+}
+
+.graph-modifications-reset-btn:hover {
+  opacity: 1;
+  background-color: var(--editor-bg);
+  border-color: #007aff;
+  color: #007aff;
+}
+  border: 1px solid var(--explorer-border);
+  color: var(--fg);
+  border-radius: 8px;
+  padding: 7px 10px;
   font-size: 11px;
   font-family: var(--font-family);
   font-weight: 500;
@@ -7314,15 +7460,20 @@ body.dark .search-suggestion-pill.active {
   max-width: 440px;
   background-color: var(--explorer-bg);
   border: 1px solid var(--explorer-border);
-  border-radius: 8px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  border-radius: 10px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
 }
 
 .mark-project-header-left {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  color: #3b82f6;
+  gap: 10px;
+  color: #007aff;
+}
+
+.mark-project-header-left svg {
+  color: #007aff;
 }
 
 .mark-project-header-left h2 {
@@ -7333,11 +7484,12 @@ body.dark .search-suggestion-pill.active {
 }
 
 .mark-project-modal-body {
-  padding: 16px 20px;
+  padding: 16px 20px 18px 20px;
 }
 
 .mark-project-modal-desc {
-  font-size: 13px;
+  font-size: 13.5px;
+  font-weight: 500;
   color: var(--fg);
   margin: 0 0 8px 0;
 }
@@ -7362,19 +7514,26 @@ body.dark .search-suggestion-pill.active {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background-color: var(--code-bg);
-  border: 1px solid var(--explorer-border);
-  border-radius: 4px;
-  padding: 8px 10px;
-  margin-bottom: 18px;
+  background-color: var(--editor-bg);
+  border: 1px solid rgba(0, 122, 255, 0.3);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+body.dark .mark-project-folder-box {
+  background-color: rgba(0, 122, 255, 0.06);
+  border-color: rgba(0, 122, 255, 0.35);
 }
 
 .mark-project-folder-label {
   font-size: 10px;
   text-transform: uppercase;
-  font-weight: 600;
-  opacity: 0.6;
-  color: var(--fg);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #007aff;
+  opacity: 0.95;
 }
 
 .mark-project-folder-path {
@@ -7386,13 +7545,78 @@ body.dark .search-suggestion-pill.active {
 
 .mark-project-modal-actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 10px;
+}
+
+.mark-project-cancel-btn {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-family);
+  border: 1px solid var(--explorer-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+  opacity: 0.75;
+  transition: opacity 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.mark-project-cancel-btn:hover {
+  opacity: 1;
+  background: var(--editor-bg);
+  border-color: rgba(128, 128, 128, 0.45);
+}
+
+.mark-project-confirm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-family);
+  border: 1px solid #007aff;
+  border-radius: 6px;
+  background: #007aff;
+  color: #ffffff !important;
+  cursor: pointer;
+  box-shadow: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+}
+
+.mark-project-confirm-btn:hover {
+  background-color: #0066d6;
+  border-color: #0066d6;
+  transform: translateY(-1px);
+}
+
+.mark-project-confirm-btn:active {
+  transform: translateY(0);
+}
+
+.mark-project-enter-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  font-size: 11px;
+  font-family: var(--font-family) !important;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 4px;
+  color: #ffffff;
+  line-height: 1;
 }
 
 .tab-icon-graph {
-  color: #3b82f6 !important;
-  opacity: 1 !important;
+  color: var(--fg) !important;
+  opacity: 0.75 !important;
 }
 
 

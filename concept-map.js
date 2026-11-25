@@ -33,6 +33,8 @@ const DEFAULT_PHYSICS = {
   linkDistance: 130,
   gravity: 0.008,
   friction: 0.85,
+  nodeSize: 4.0,
+  linkWidth: 1.8,
   showAllLabels: true,
   dynamicIdle: false,
   hideOrphans: false,
@@ -641,10 +643,17 @@ class ConceptGraphSimulation {
         l.targetNode.degree++;
       }
     }
+    this.updateNodeRadii();
+  }
+
+  updateNodeRadii() {
+    const baseR = (typeof this.physics.nodeSize === 'number') ? this.physics.nodeSize : GRAPH_CONFIG.nodeMinRadius;
+    const maxR = baseR * 2.75;
+    const factor = baseR * 0.35;
     for (const n of this.nodes) {
       n.radius = Math.min(
-        GRAPH_CONFIG.nodeMaxRadius,
-        Math.max(GRAPH_CONFIG.nodeMinRadius, GRAPH_CONFIG.nodeMinRadius + Math.sqrt(n.degree) * GRAPH_CONFIG.nodeDegreeFactor)
+        maxR,
+        Math.max(baseR, baseR + Math.sqrt(n.degree || 0) * factor)
       );
     }
   }
@@ -1004,7 +1013,7 @@ class ConceptGraphSimulation {
         } else if (hitEdge) {
           c.style.cursor = 'pointer';
         } else {
-          c.style.cursor = 'grab';
+          c.style.cursor = 'default';
         }
 
         if (changed) this.wake();
@@ -1048,7 +1057,7 @@ class ConceptGraphSimulation {
 
       this.draggedNode = null;
       this.isPanning = false;
-      c.style.cursor = this.hoveredNode ? 'pointer' : 'grab';
+      c.style.cursor = this.hoveredNode ? 'pointer' : 'default';
     });
 
     c.addEventListener('contextmenu', (e) => {
@@ -1188,6 +1197,15 @@ class ConceptGraphSimulation {
     const links = this.links;
     const count = nodes.length;
     if (count === 0) return 0;
+
+    // Se stiamo facendo hover su un nodo o sul suo popup informativo, congela l'animazione
+    if ((this.hoveredNode || this.isHoverFrozen) && !this.draggedNode) {
+      for (let i = 0; i < count; i++) {
+        nodes[i].vx = 0;
+        nodes[i].vy = 0;
+      }
+      return this.alpha;
+    }
 
     const repulsion = this.physics.repulsion || 220;
     const linkDist = this.physics.linkDistance || 130;
@@ -1411,18 +1429,21 @@ class ConceptGraphSimulation {
         ctx.setLineDash([]);
       }
 
+      const linkWidth = (typeof this.physics.linkWidth === 'number') ? this.physics.linkWidth : GRAPH_CONFIG.linkWidthNormal;
+      const hoverWidth = linkWidth * 1.55;
+
       if (isHovered || isConnectedToHovered) {
         ctx.strokeStyle = highlightBlue;
-        ctx.lineWidth = (GRAPH_CONFIG.linkWidthHover + 0.4) / this.scale;
+        ctx.lineWidth = (hoverWidth + 0.4) / this.scale;
         ctx.globalAlpha = 1.0;
       } else if (this.hoveredNode || isFilteredOut) {
         ctx.strokeStyle = isDark ? '#4b5563' : '#cbd5e1';
-        ctx.lineWidth = 1.0 / this.scale;
+        ctx.lineWidth = Math.max(0.6, linkWidth * 0.5) / this.scale;
         ctx.globalAlpha = 0.08;
       } else {
         const baseOpacity = isDark ? GRAPH_CONFIG.linkOpacityDark : GRAPH_CONFIG.linkOpacityLight;
         ctx.strokeStyle = isDark ? `rgba(255, 255, 255, ${baseOpacity})` : `rgba(0, 0, 0, ${baseOpacity})`;
-        ctx.lineWidth = GRAPH_CONFIG.linkWidthNormal / this.scale;
+        ctx.lineWidth = linkWidth / this.scale;
         ctx.globalAlpha = 0.85;
       }
 
