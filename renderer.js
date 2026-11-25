@@ -933,14 +933,14 @@ function setupLinkPreviewTooltip() {
       const a = target.closest("a");
       if (a) {
         if (a.classList.contains("concept-tag-link") || a.dataset.tag) {
-          return `[[${a.dataset.tag || a.textContent.trim()}]]`;
+          return null;
         }
         return a.getAttribute("href") || a.href || null;
       }
     } else if (containerType === 'visual') {
       const tagEl = target.closest(".concept-tag-link");
       if (tagEl) {
-        return `[[${tagEl.dataset.tag || tagEl.textContent.trim()}]]`;
+        return null;
       }
       const token = target.closest(".ve-token-link");
       if (token) {
@@ -951,7 +951,7 @@ function setupLinkPreviewTooltip() {
       const a = target.closest("a");
       if (a) {
         if (a.classList.contains("concept-tag-link") || a.dataset.tag) {
-          return `[[${a.dataset.tag || a.textContent.trim()}]]`;
+          return null;
         }
         return a.getAttribute("href") || a.href || null;
       }
@@ -4803,6 +4803,11 @@ window.addEventListener("DOMContentLoaded", () => {
 
     tempDiv.querySelectorAll('.code-copy-btn').forEach(btn => btn.remove());
     tempDiv.querySelectorAll('.callout-color-btn').forEach(btn => btn.remove());
+    tempDiv.querySelectorAll('.concept-tag-link').forEach(tagEl => {
+      const u = document.createElement('u');
+      u.innerHTML = tagEl.innerHTML;
+      tagEl.replaceWith(u);
+    });
 
     const imgs = tempDiv.querySelectorAll('img');
 
@@ -4891,6 +4896,11 @@ window.addEventListener("DOMContentLoaded", () => {
     // 1. Rimuovi eventuali bottoni di copia o colore già presenti nella preview per pulire l'HTML
     tempDiv.querySelectorAll('.code-copy-btn').forEach(btn => btn.remove());
     tempDiv.querySelectorAll('.callout-color-btn').forEach(btn => btn.remove());
+    tempDiv.querySelectorAll('.concept-tag-link').forEach(tagEl => {
+      const u = document.createElement('u');
+      u.innerHTML = tagEl.innerHTML;
+      tagEl.replaceWith(u);
+    });
 
     // 2. Converti immagini locali / relative in Base64 data URLs
     const imgs = tempDiv.querySelectorAll('img');
@@ -5600,15 +5610,15 @@ window.addEventListener("DOMContentLoaded", () => {
     const isNonEditorActive = isPdfActive || isGraphActive;
     if (btnViewEditorEl) {
       btnViewEditorEl.disabled = !hasTabs || isNonEditorActive;
-      btnViewEditorEl.classList.toggle('disabled', isNonEditorActive);
+      btnViewEditorEl.classList.toggle('disabled', !hasTabs || isNonEditorActive);
     }
     if (btnViewSplitEl) {
       btnViewSplitEl.disabled = !hasTabs || isNonEditorActive;
-      btnViewSplitEl.classList.toggle('disabled', isNonEditorActive);
+      btnViewSplitEl.classList.toggle('disabled', !hasTabs || isNonEditorActive);
     }
     if (btnViewPreviewEl) {
       btnViewPreviewEl.disabled = !hasTabs || isNonEditorActive;
-      btnViewPreviewEl.classList.toggle('disabled', isNonEditorActive);
+      btnViewPreviewEl.classList.toggle('disabled', !hasTabs || isNonEditorActive);
     }
     if (btnToggleVisualModeEl) {
       btnToggleVisualModeEl.disabled = !hasTabs || isNonEditorActive;
@@ -8677,7 +8687,11 @@ window.addEventListener("DOMContentLoaded", () => {
     const modal = document.getElementById('mark-project-modal');
     const pathEl = document.getElementById('mark-project-folder-path');
     if (pathEl) pathEl.textContent = currentFolderPath || '';
-    if (modal) modal.classList.remove('hidden');
+    if (modal) {
+      modal.classList.remove('hidden');
+      const confirmBtn = document.getElementById('btn-confirm-create-mark-project');
+      if (confirmBtn) confirmBtn.focus();
+    }
   }
 
   function closeMarkProjectModal() {
@@ -9427,6 +9441,57 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  const GRAPH_ANIMATE_PLAY_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20"/></svg>`;
+  const GRAPH_ANIMATE_STOP_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>`;
+
+  function updateAnimateButtonUI(isDynamic) {
+    const btnAnimate = document.getElementById('btn-graph-animate');
+    if (!btnAnimate) return;
+    btnAnimate.innerHTML = isDynamic ? GRAPH_ANIMATE_STOP_SVG : GRAPH_ANIMATE_PLAY_SVG;
+    btnAnimate.classList.toggle('active', isDynamic);
+    btnAnimate.setAttribute('title', isDynamic ? (i18n.t('concept_map_stop_animate') || 'Ferma movimento dinamico') : (i18n.t('concept_map_animate') || 'Animazione dinamica'));
+  }
+
+  function updateIosSliderVisual(sliderId, fillId, valId, formatFn) {
+    const s = document.getElementById(sliderId);
+    if (!s) return;
+    const min = Number(s.min);
+    const max = Number(s.max);
+    const val = Number(s.value);
+    const pct = Math.max(0, Math.min(100, ((val - min) / (max - min)) * 100));
+    const fill = document.getElementById(fillId);
+    if (fill) fill.style.width = `${pct}%`;
+    const displayVal = formatFn ? formatFn(val) : String(val);
+    const v = document.getElementById(valId);
+    if (v) v.textContent = displayVal;
+    // Sync fill-content value span (dual-text contrast overlay)
+    const vFill = document.getElementById(valId + '-fill');
+    if (vFill) vFill.textContent = displayVal;
+  }
+
+  function updateAllIosSliders() {
+    updateIosSliderVisual('physics-slider-repulsion', 'fill-repulsion', 'physics-val-repulsion');
+    updateIosSliderVisual('physics-slider-distance', 'fill-distance', 'physics-val-distance');
+    updateIosSliderVisual('physics-slider-gravity', 'fill-gravity', 'physics-val-gravity');
+    updateIosSliderVisual('physics-slider-friction', 'fill-friction', 'physics-val-friction');
+    updateIosSliderVisual('physics-slider-node-size', 'fill-node-size', 'physics-val-node-size');
+    updateIosSliderVisual('physics-slider-link-width', 'fill-link-width', 'physics-val-link-width');
+  }
+
+  function updateTileUI(tileId, checkboxId) {
+    const tile = document.getElementById(tileId);
+    const cb = document.getElementById(checkboxId);
+    if (!tile || !cb) return;
+    tile.classList.toggle('active', cb.checked);
+  }
+
+  function updateAllTilesUI() {
+    updateTileUI('tile-check-link-tags', 'physics-check-link-tags');
+    updateTileUI('tile-check-link-headings', 'physics-check-link-headings');
+    updateTileUI('tile-check-labels', 'physics-check-labels');
+    updateTileUI('tile-check-hide-orphans', 'physics-check-hide-orphans');
+  }
+
   function syncPhysicsPanelUI() {
     if (!conceptMapSim) return;
     const p = conceptMapSim.physics;
@@ -9435,37 +9500,34 @@ window.addEventListener("DOMContentLoaded", () => {
     const sDist = document.getElementById('physics-slider-distance');
     const sGrav = document.getElementById('physics-slider-gravity');
     const sFric = document.getElementById('physics-slider-friction');
+    const sNodeSize = document.getElementById('physics-slider-node-size');
+    const sLinkWidth = document.getElementById('physics-slider-link-width');
     const cLabels = document.getElementById('physics-check-labels');
     const cDynamic = document.getElementById('physics-check-dynamic');
     const cHideOrphans = document.getElementById('physics-check-hide-orphans');
     const cLinkTags = document.getElementById('physics-check-link-tags');
     const cLinkHeadings = document.getElementById('physics-check-link-headings');
-    const btnAnimate = document.getElementById('btn-graph-animate');
-
-    const vRep = document.getElementById('physics-val-repulsion');
-    const vDist = document.getElementById('physics-val-distance');
-    const vGrav = document.getElementById('physics-val-gravity');
-    const vFric = document.getElementById('physics-val-friction');
 
     if (sRep) sRep.value = p.repulsion;
-    if (vRep) vRep.textContent = p.repulsion;
-
     if (sDist) sDist.value = p.linkDistance;
-    if (vDist) vDist.textContent = p.linkDistance;
-
     if (sGrav) sGrav.value = p.gravity;
-    if (vGrav) vGrav.textContent = p.gravity;
-
     if (sFric) sFric.value = p.friction;
-    if (vFric) vFric.textContent = p.friction;
+
+    const nodeSizeVal = (p.nodeSize !== undefined ? p.nodeSize : 4.0);
+    if (sNodeSize) sNodeSize.value = nodeSizeVal;
+
+    const linkWidthVal = (p.linkWidth !== undefined ? p.linkWidth : 1.8);
+    if (sLinkWidth) sLinkWidth.value = linkWidthVal;
 
     if (cLabels) cLabels.checked = !!p.showAllLabels;
     if (cDynamic) cDynamic.checked = !!p.dynamicIdle;
     if (cHideOrphans) cHideOrphans.checked = !!p.hideOrphans;
     if (cLinkTags) cLinkTags.checked = p.linkByTags !== false;
     if (cLinkHeadings) cLinkHeadings.checked = !!p.linkByHeadings;
-    if (btnAnimate) btnAnimate.classList.toggle('active', !!p.dynamicIdle);
 
+    updateAllIosSliders();
+    updateAllTilesUI();
+    updateAnimateButtonUI(!!p.dynamicIdle);
     syncPhysicsResetButtons();
   }
 
@@ -9477,6 +9539,8 @@ window.addEventListener("DOMContentLoaded", () => {
       linkDistance: 130,
       gravity: 0.008,
       friction: 0.85,
+      nodeSize: 4.0,
+      linkWidth: 1.8,
       dynamicIdle: false,
       showAllLabels: true,
       hideOrphans: false,
@@ -9484,18 +9548,19 @@ window.addEventListener("DOMContentLoaded", () => {
       linkByHeadings: false
     };
 
-    const resetBtns = document.querySelectorAll('.physics-item-reset-btn');
-    resetBtns.forEach(btn => {
-      const param = btn.dataset.param;
-      if (!param) return;
-      let isDifferent = false;
-      if (typeof def[param] === 'boolean') {
-        isDifferent = (!!p[param] !== !!def[param]);
-      } else if (typeof def[param] === 'number') {
-        isDifferent = (Math.abs(Number(p[param]) - Number(def[param])) > 0.0001);
+    let isDifferent = false;
+    for (const key of Object.keys(def)) {
+      if (typeof def[key] === 'boolean') {
+        if (!!p[key] !== !!def[key]) isDifferent = true;
+      } else if (typeof def[key] === 'number') {
+        if (Math.abs(Number(p[key]) - Number(def[key])) > 0.0001) isDifferent = true;
       }
-      btn.classList.toggle('hidden', !isDifferent);
-    });
+    }
+
+    const resetDefaultsBtn = document.getElementById('btn-reset-physics-defaults');
+    if (resetDefaultsBtn) {
+      resetDefaultsBtn.style.opacity = isDifferent ? '1' : '0.55';
+    }
   }
 
   let graphDataSaveTimer = null;
@@ -9558,21 +9623,35 @@ window.addEventListener("DOMContentLoaded", () => {
     if (btnCloseModal) btnCloseModal.addEventListener('click', closeMarkProjectModal);
     if (modalOverlay) modalOverlay.addEventListener('click', closeMarkProjectModal);
 
-    // Concept Map Toolbar buttons
+    // Conferma con tasto Invio ed esci con Escape quando il modal è aperto
+    document.addEventListener('keydown', (e) => {
+      const modal = document.getElementById('mark-project-modal');
+      if (modal && !modal.classList.contains('hidden')) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          createMarkProject();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          closeMarkProjectModal();
+        }
+      }
+    });
+
+    // Concept Map Floating Action buttons
     const btnAnimate = document.getElementById('btn-graph-animate');
     const btnPhysicsToggle = document.getElementById('btn-graph-physics-toggle');
     const btnFit = document.getElementById('btn-graph-fit');
-    const btnRefresh = document.getElementById('btn-graph-refresh');
     const searchInput = document.getElementById('concept-map-search-input');
 
     if (btnAnimate) {
       btnAnimate.addEventListener('click', () => {
         if (conceptMapSim) {
           const isDynamic = conceptMapSim.toggleDynamicIdle();
-          btnAnimate.classList.toggle('active', isDynamic);
-          const cDynamic = document.getElementById('physics-check-dynamic');
-          if (cDynamic) cDynamic.checked = isDynamic;
+          updateAnimateButtonUI(isDynamic);
           savePhysicsConfig();
+          syncPhysicsResetButtons();
         }
       });
     }
@@ -9596,23 +9675,36 @@ window.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    // Chiudi pannello impostazioni fisica anche con tasto Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const panel = document.getElementById('concept-map-physics-panel');
+        if (panel && !panel.classList.contains('hidden')) {
+          panel.classList.add('hidden');
+          if (btnPhysicsToggle) btnPhysicsToggle.classList.remove('active');
+          e.stopPropagation();
+        }
+      }
+    });
+
     if (btnFit) {
       btnFit.addEventListener('click', () => {
         if (conceptMapSim) conceptMapSim.fitToView();
       });
     }
 
-    if (btnRefresh) {
-      btnRefresh.addEventListener('click', () => {
-        if (currentFolderPath) {
-          openConceptMap();
-          showNotification(i18n.t('concept_map_refresh') || "Grafo aggiornato", "info");
-        }
-      });
+    const shortcutContainer = document.getElementById('concept-map-search-shortcut');
+    if (shortcutContainer) {
+      if (isMac) {
+        shortcutContainer.innerHTML = `<kbd class="concept-map-search-key">⌘</kbd><kbd class="concept-map-search-key">F</kbd>`;
+      } else {
+        shortcutContainer.innerHTML = `<kbd class="concept-map-search-key">Ctrl</kbd><kbd class="concept-map-search-key">F</kbd>`;
+      }
     }
 
     if (searchInput) {
       searchInput.addEventListener('input', (e) => {
+        searchInput.closest('.concept-map-search-box')?.classList.toggle('has-query', !!searchInput.value.trim());
         if (conceptMapSim) {
           conceptMapSim.setSearchQuery(e.target.value);
         }
@@ -9630,6 +9722,7 @@ window.addEventListener("DOMContentLoaded", () => {
       searchInput.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
           searchInput.value = '';
+          searchInput.closest('.concept-map-search-box')?.classList.remove('has-query');
           if (conceptMapSim) conceptMapSim.setSearchQuery('');
           const container = document.getElementById('concept-map-search-suggestions');
           if (container) container.classList.add('hidden');
@@ -9638,193 +9731,156 @@ window.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // Physics sliders
-    const sRep = document.getElementById('physics-slider-repulsion');
-    const sDist = document.getElementById('physics-slider-distance');
-    const sGrav = document.getElementById('physics-slider-gravity');
-    const sFric = document.getElementById('physics-slider-friction');
-    const cLabels = document.getElementById('physics-check-labels');
-    const cDynamic = document.getElementById('physics-check-dynamic');
-    const cHideOrphans = document.getElementById('physics-check-hide-orphans');
+    // Wiring dei blocchi switch (iOS Control Center style)
+    function wireTileBlock(tileId, checkboxId, onChangeCallback) {
+      const tile = document.getElementById(tileId);
+      const cb = document.getElementById(checkboxId);
+      if (!tile || !cb) return;
 
-    if (cDynamic) {
-      cDynamic.addEventListener('change', (e) => {
-        if (conceptMapSim) {
-          conceptMapSim.physics.dynamicIdle = e.target.checked;
-          if (conceptMapSim.physics.dynamicIdle) conceptMapSim.wake();
-          if (btnAnimate) btnAnimate.classList.toggle('active', e.target.checked);
-          savePhysicsConfig();
-          syncPhysicsResetButtons();
+      const toggleAction = (e) => {
+        if (e.target !== cb) {
+          cb.checked = !cb.checked;
+        }
+        updateAllTilesUI();
+        if (onChangeCallback) onChangeCallback(cb.checked);
+      };
+
+      tile.addEventListener('click', toggleAction);
+      tile.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          cb.checked = !cb.checked;
+          updateAllTilesUI();
+          if (onChangeCallback) onChangeCallback(cb.checked);
         }
       });
     }
 
-    if (sRep) {
-      sRep.addEventListener('input', (e) => {
-        const val = Number(e.target.value);
-        const valEl = document.getElementById('physics-val-repulsion');
-        if (valEl) valEl.textContent = val;
-        if (conceptMapSim) {
-          conceptMapSim.physics.repulsion = val;
-          conceptMapSim.wake();
-          savePhysicsConfig();
-          syncPhysicsResetButtons();
-        }
-      });
-    }
-
-    if (sDist) {
-      sDist.addEventListener('input', (e) => {
-        const val = Number(e.target.value);
-        const valEl = document.getElementById('physics-val-distance');
-        if (valEl) valEl.textContent = val;
-        if (conceptMapSim) {
-          conceptMapSim.physics.linkDistance = val;
-          conceptMapSim.wake();
-          savePhysicsConfig();
-          syncPhysicsResetButtons();
-        }
-      });
-    }
-
-    if (sGrav) {
-      sGrav.addEventListener('input', (e) => {
-        const val = Number(e.target.value);
-        const valEl = document.getElementById('physics-val-gravity');
-        if (valEl) valEl.textContent = val;
-        if (conceptMapSim) {
-          conceptMapSim.physics.gravity = val;
-          conceptMapSim.wake();
-          savePhysicsConfig();
-          syncPhysicsResetButtons();
-        }
-      });
-    }
-
-    if (sFric) {
-      sFric.addEventListener('input', (e) => {
-        const val = Number(e.target.value);
-        const valEl = document.getElementById('physics-val-friction');
-        if (valEl) valEl.textContent = val;
-        if (conceptMapSim) {
-          conceptMapSim.physics.friction = val;
-          conceptMapSim.wake();
-          savePhysicsConfig();
-          syncPhysicsResetButtons();
-        }
-      });
-    }
-
-    if (cLabels) {
-      cLabels.addEventListener('change', (e) => {
-        if (conceptMapSim) {
-          conceptMapSim.physics.showAllLabels = e.target.checked;
-          conceptMapSim.wake();
-          savePhysicsConfig();
-          syncPhysicsResetButtons();
-        }
-      });
-    }
-
-    if (cHideOrphans) {
-      cHideOrphans.addEventListener('change', (e) => {
-        if (conceptMapSim) {
-          conceptMapSim.physics.hideOrphans = e.target.checked;
-          conceptMapSim.wake();
-          savePhysicsConfig();
-          updateConceptMapFooter();
-          syncPhysicsResetButtons();
-        }
-      });
-    }
-
-    const cLinkTags = document.getElementById('physics-check-link-tags');
-    const cLinkHeadings = document.getElementById('physics-check-link-headings');
-
-    if (cLinkTags) {
-      cLinkTags.addEventListener('change', (e) => {
-        if (conceptMapSim) {
-          conceptMapSim.physics.linkByTags = e.target.checked;
-          conceptMapSim.updateActiveLinks();
-          conceptMapSim.wake(0.6);
-          savePhysicsConfig();
-          updateConceptMapFooter();
-          syncPhysicsResetButtons();
-        }
-      });
-    }
-
-    if (cLinkHeadings) {
-      cLinkHeadings.addEventListener('change', (e) => {
-        if (conceptMapSim) {
-          conceptMapSim.physics.linkByHeadings = e.target.checked;
-          conceptMapSim.updateActiveLinks();
-          conceptMapSim.wake(0.6);
-          savePhysicsConfig();
-          updateConceptMapFooter();
-          syncPhysicsResetButtons();
-        }
-      });
-    }
-
-    // Per-item physics reload buttons
-    document.querySelectorAll('.physics-item-reset-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const param = btn.dataset.param;
-        if (!param || !conceptMapSim) return;
-
-        const def = conceptMapModule.DEFAULT_PHYSICS || {};
-        const defVal = def[param];
-        if (defVal === undefined) return;
-        conceptMapSim.physics[param] = defVal;
-
-        if (param === 'repulsion') {
-          const s = document.getElementById('physics-slider-repulsion');
-          const v = document.getElementById('physics-val-repulsion');
-          if (s) s.value = defVal;
-          if (v) v.textContent = defVal;
-        } else if (param === 'linkDistance') {
-          const s = document.getElementById('physics-slider-distance');
-          const v = document.getElementById('physics-val-distance');
-          if (s) s.value = defVal;
-          if (v) v.textContent = defVal;
-        } else if (param === 'gravity') {
-          const s = document.getElementById('physics-slider-gravity');
-          const v = document.getElementById('physics-val-gravity');
-          if (s) s.value = defVal;
-          if (v) v.textContent = defVal;
-        } else if (param === 'friction') {
-          const s = document.getElementById('physics-slider-friction');
-          const v = document.getElementById('physics-val-friction');
-          if (s) s.value = defVal;
-          if (v) v.textContent = defVal;
-        } else if (param === 'dynamicIdle') {
-          const c = document.getElementById('physics-check-dynamic');
-          if (c) c.checked = defVal;
-          if (btnAnimate) btnAnimate.classList.toggle('active', !!defVal);
-        } else if (param === 'showAllLabels') {
-          const c = document.getElementById('physics-check-labels');
-          if (c) c.checked = defVal;
-        } else if (param === 'hideOrphans') {
-          const c = document.getElementById('physics-check-hide-orphans');
-          if (c) c.checked = defVal;
-        } else if (param === 'linkByTags') {
-          const c = document.getElementById('physics-check-link-tags');
-          if (c) c.checked = defVal;
-          conceptMapSim.updateActiveLinks();
-        } else if (param === 'linkByHeadings') {
-          const c = document.getElementById('physics-check-link-headings');
-          if (c) c.checked = defVal;
-          conceptMapSim.updateActiveLinks();
-        }
-
+    wireTileBlock('tile-check-link-tags', 'physics-check-link-tags', (checked) => {
+      if (conceptMapSim) {
+        conceptMapSim.physics.linkByTags = checked;
+        conceptMapSim.updateActiveLinks();
         conceptMapSim.wake(0.6);
         savePhysicsConfig();
         updateConceptMapFooter();
         syncPhysicsResetButtons();
-      });
+      }
     });
+
+    wireTileBlock('tile-check-link-headings', 'physics-check-link-headings', (checked) => {
+      if (conceptMapSim) {
+        conceptMapSim.physics.linkByHeadings = checked;
+        conceptMapSim.updateActiveLinks();
+        conceptMapSim.wake(0.6);
+        savePhysicsConfig();
+        updateConceptMapFooter();
+        syncPhysicsResetButtons();
+      }
+    });
+
+    wireTileBlock('tile-check-labels', 'physics-check-labels', (checked) => {
+      if (conceptMapSim) {
+        conceptMapSim.physics.showAllLabels = checked;
+        conceptMapSim.wake();
+        savePhysicsConfig();
+        syncPhysicsResetButtons();
+      }
+    });
+
+    wireTileBlock('tile-check-hide-orphans', 'physics-check-hide-orphans', (checked) => {
+      if (conceptMapSim) {
+        conceptMapSim.physics.hideOrphans = checked;
+        conceptMapSim.wake();
+        savePhysicsConfig();
+        updateConceptMapFooter();
+        syncPhysicsResetButtons();
+      }
+    });
+
+    // Wiring degli slider pieni stile iOS
+    function wireIosSlider(sliderId, fillId, valId, paramKey, onUpdateExtra) {
+      const s = document.getElementById(sliderId);
+      if (!s) return;
+      s.addEventListener('input', (e) => {
+        const val = Number(e.target.value);
+        updateIosSliderVisual(sliderId, fillId, valId);
+        if (conceptMapSim) {
+          conceptMapSim.physics[paramKey] = val;
+          if (onUpdateExtra) onUpdateExtra(val);
+          conceptMapSim.wake();
+          savePhysicsConfig();
+          syncPhysicsResetButtons();
+        }
+      });
+    }
+
+    wireIosSlider('physics-slider-repulsion', 'fill-repulsion', 'physics-val-repulsion', 'repulsion');
+    wireIosSlider('physics-slider-distance', 'fill-distance', 'physics-val-distance', 'linkDistance');
+    wireIosSlider('physics-slider-gravity', 'fill-gravity', 'physics-val-gravity', 'gravity');
+    wireIosSlider('physics-slider-friction', 'fill-friction', 'physics-val-friction', 'friction');
+    wireIosSlider('physics-slider-node-size', 'fill-node-size', 'physics-val-node-size', 'nodeSize', () => {
+      conceptMapSim?.updateNodeRadii();
+    });
+    wireIosSlider('physics-slider-link-width', 'fill-link-width', 'physics-val-link-width', 'linkWidth');
+
+    // Doppio clic sulla card dello slider per ripristinare il singolo valore predefinito
+    function wireSliderCardReset(cardId, sliderId, fillId, valId, paramKey, onUpdateExtra) {
+      const card = document.getElementById(cardId);
+      const s = document.getElementById(sliderId);
+      if (!card || !s) return;
+      card.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        const def = conceptMapModule.DEFAULT_PHYSICS || {};
+        const defVal = def[paramKey];
+        if (defVal === undefined) return;
+        s.value = defVal;
+        updateIosSliderVisual(sliderId, fillId, valId);
+        if (conceptMapSim) {
+          conceptMapSim.physics[paramKey] = defVal;
+          if (onUpdateExtra) onUpdateExtra(defVal);
+          conceptMapSim.wake(0.6);
+          savePhysicsConfig();
+          syncPhysicsResetButtons();
+        }
+      });
+    }
+
+    wireSliderCardReset('card-slider-node-size', 'physics-slider-node-size', 'fill-node-size', 'physics-val-node-size', 'nodeSize', () => {
+      conceptMapSim?.updateNodeRadii();
+    });
+    wireSliderCardReset('card-slider-link-width', 'physics-slider-link-width', 'fill-link-width', 'physics-val-link-width', 'linkWidth');
+    wireSliderCardReset('card-slider-repulsion', 'physics-slider-repulsion', 'fill-repulsion', 'physics-val-repulsion', 'repulsion');
+    wireSliderCardReset('card-slider-distance', 'physics-slider-distance', 'fill-distance', 'physics-val-distance', 'linkDistance');
+    wireSliderCardReset('card-slider-gravity', 'physics-slider-gravity', 'fill-gravity', 'physics-val-gravity', 'gravity');
+    wireSliderCardReset('card-slider-friction', 'physics-slider-friction', 'fill-friction', 'physics-val-friction', 'friction');
+
+    // Ripristino valori predefiniti generali della fisica
+    const btnResetDefaults = document.getElementById('btn-reset-physics-defaults');
+    if (btnResetDefaults) {
+      btnResetDefaults.addEventListener('click', () => {
+        if (!conceptMapSim) return;
+        const def = conceptMapModule.DEFAULT_PHYSICS || {};
+        conceptMapSim.physics = {
+          ...conceptMapSim.physics,
+          repulsion: def.repulsion !== undefined ? def.repulsion : 220,
+          linkDistance: def.linkDistance !== undefined ? def.linkDistance : 130,
+          gravity: def.gravity !== undefined ? def.gravity : 0.008,
+          friction: def.friction !== undefined ? def.friction : 0.85,
+          nodeSize: def.nodeSize !== undefined ? def.nodeSize : 4.0,
+          linkWidth: def.linkWidth !== undefined ? def.linkWidth : 1.8,
+          showAllLabels: def.showAllLabels !== undefined ? def.showAllLabels : true,
+          hideOrphans: def.hideOrphans !== undefined ? def.hideOrphans : false,
+          linkByTags: def.linkByTags !== undefined ? def.linkByTags : true,
+          linkByHeadings: def.linkByHeadings !== undefined ? def.linkByHeadings : false
+        };
+        conceptMapSim.updateNodeRadii();
+        conceptMapSim.updateActiveLinks();
+        conceptMapSim.wake(0.8);
+        savePhysicsConfig();
+        updateConceptMapFooter();
+        syncPhysicsPanelUI();
+      });
+    }
 
     // Reset all manual graph modifications (deleted tags, headings, deleted links, custom links)
     const btnResetModifications = document.getElementById('btn-reset-graph-modifications');
@@ -10101,6 +10157,14 @@ window.addEventListener("DOMContentLoaded", () => {
             break;
 
           case 'find':
+            if (isConceptMapActive && activeTabId === 'concept-map-tab') {
+              const searchInput = document.getElementById('concept-map-search-input');
+              if (searchInput) {
+                searchInput.focus();
+                searchInput.select();
+                return;
+              }
+            }
             if (typeof toggleSearchPanel === 'function') toggleSearchPanel(true);
             break;
 
@@ -12548,7 +12612,7 @@ window.addEventListener("DOMContentLoaded", () => {
   function setVisualMode(active) {
     if (typeof hideLinkPreview === 'function') hideLinkPreview();
     const activeTab = typeof getActiveTab === 'function' ? getActiveTab() : null;
-    if (active && activeTab && activeTab.isPdf) return;
+    if (active && (!activeTab || activeTab.isPdf || activeTab.isGraph || tabs.length === 0)) return;
 
     const containerEl = document.getElementById("container") || (typeof viewContainer !== 'undefined' ? viewContainer : null);
     if (!containerEl) return;
@@ -14216,6 +14280,9 @@ window.addEventListener("DOMContentLoaded", () => {
     btnToggleVisualMode.addEventListener('click', (e) => {
       e?.preventDefault();
       e?.stopPropagation();
+      if (btnToggleVisualMode.disabled || btnToggleVisualMode.classList.contains('disabled')) return;
+      const activeTab = typeof getActiveTab === 'function' ? getActiveTab() : null;
+      if (!activeTab || activeTab.isPdf || activeTab.isGraph || tabs.length === 0) return;
       setVisualMode(!isVisualModeActive);
     });
   }
@@ -14260,6 +14327,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const isCmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
     if (isCmdOrCtrl && e.altKey && e.key.toLowerCase() === 'v') {
       e.preventDefault();
+      if (btnToggleVisualMode?.disabled || btnToggleVisualMode?.classList.contains('disabled')) return;
       btnToggleVisualMode?.click();
     }
   });
